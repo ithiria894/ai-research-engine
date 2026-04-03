@@ -7,7 +7,7 @@ allowed-tools: [Bash, Read, Write, WebSearch, WebFetch, Agent, mcp__tavily__tavi
 
 # Research — Unified Deep Research + Product Analysis
 
-**ALWAYS read `~/MyGithub/agentic-journal/projects/1-think/research-engine.md` FIRST** for the full tool inventory, cost rules, and Quota Classification.
+**ALWAYS read `research-engine.md` FIRST** (same directory as this skill, or `~/MyGithub/ai-research-engine/research-engine.md`) for the full tool inventory, cost rules, and Quota Classification.
 
 ## Mode Detection
 
@@ -96,12 +96,6 @@ research-paper-mcp — autonomous arXiv + S2 ingestion, memory storage (playbook
 ```
 mcp__youtube-transcript__* — YouTube video transcripts + metadata (free, no key)
 ```
-
-### Social & Trend (last 30 days)
-```
-/last30days "topic" — Reddit/X/Bluesky/YouTube/TikTok/Instagram/HN/Polymarket (Claude Code Skill)
-```
-**When to invoke /last30days**: If the research topic is trend-sensitive, product-related, or needs social sentiment (TikTok, IG, Bluesky, Polymarket — sources that /deep-research doesn't cover). Do NOT invoke for pure academic literature reviews. When invoked, run it as one of the parallel agents in Phase 1.
 
 ### Prediction Markets (Round 9)
 ```
@@ -261,28 +255,79 @@ gh api search/repositories?q=... — advanced search
 
 **Architecture: Sonnet collects, Opus synthesizes.**
 
-The skill has two distinct phases. Phase 1 (collection) is delegated to Sonnet/Haiku agents. Phase 2 (synthesis) is done by you (Opus) in the main thread. NEVER do collection yourself — launch agents.
+The skill has three phases. Phase 1 (collection) is delegated to Sonnet/Haiku agents. Phase 1.5 (verification) is one Sonnet agent that audits coverage. Phase 2 (synthesis) is done by you (Opus) in the main thread. NEVER do collection yourself — launch agents.
+
+### Step 0: Topic Classification (Opus, before launching agents)
+
+Before launching any agents, classify the topic to determine which agent clusters are relevant. This prevents wasting tokens on irrelevant sources (e.g., patent search for "best React library").
+
+```
+Classify the topic into ONE OR MORE of these categories:
+
+TECH_DEV     — libraries, tools, frameworks, APIs, coding patterns
+ACADEMIC     — research questions, literature reviews, scientific topics
+MARKET       — competitive analysis, product positioning, market sizing
+POLICY       — laws, regulations, government policy, compliance
+FINANCIAL    — markets, economics, funding, crypto, company financials
+SOCIAL_TREND — what's trending, public sentiment, viral content, predictions
+HEALTH       — medical, biomedical, drug safety, clinical trials
+GENERAL      — anything that doesn't fit above, or multi-category
+```
+
+Each category activates specific agent clusters (see Step 2). A topic can match multiple categories — "AI regulation market impact" would be POLICY + FINANCIAL + TECH_DEV.
 
 ### Phase 1: Collection (Sonnet agents, background)
 
 #### Step 1: Understand the Question
 - What exactly does the user want to know?
 - What would a comprehensive answer look like?
-- Which tool categories are most relevant?
+- What categories did Step 0 identify?
 
 #### Step 2: Launch Parallel Sonnet Agents
-Design as many agents as needed — one per source cluster. There is NO upper limit. If the topic needs 10 agents, launch 10. Launch ALL in ONE message with `model: "sonnet"` and `run_in_background: true`.
+Design agents based on the topic categories from Step 0. Launch ALL in ONE message with `model: "sonnet"` and `run_in_background: true`.
 
-Cover ALL free sources that are relevant to the topic. Don't leave free tools unused. Every free tool in the catalog should be assigned to at least one agent.
+**ALWAYS include (every topic):**
+- **Agent: Web Search** — WebSearch + Tavily Search + Exa Search + Firecrawl Search + open-websearch
+- **Agent: News & Events** — newsmcp + GDELT curl + RSS feeds + Google News
 
-Typical split (adapt per topic — add or remove agents as needed):
-- Agent A: Web search (WebSearch + Tavily Search + Exa Search + Firecrawl Search)
-- Agent B: Academic papers (arxiv + semantic-scholar + paper-search + paper-distill + OpenAlex curl + DBLP curl + Crossref curl)
-- Agent C: Social/community (HN Algolia + Twitter + Dev.to + Reddit)
-- Agent D: Industry/code (GitHub CLI + Exa Code Context + Context7)
-- Agent E: News/trends (newsmcp + RSS feeds + GDELT curl)
-- Agent F: Social trend via /last30days (only if topic is trend-sensitive — covers TikTok, IG, Bluesky, Polymarket)
-- Agent G: Content extraction (Tavily Extract + Exa Crawl + Firecrawl Scrape — for deep-diving URLs found by other agents, launch AFTER first wave returns if needed)
+**Include if TECH_DEV:**
+- **Agent: Code & Libraries** — GitHub CLI + Exa Code Context + Context7 + npm/PyPI/crates.io download APIs
+- **Agent: Dev Community** — StackExchange (170+ sites) + Discourse + Hashnode + DEV.to + Lobste.rs + HN Algolia
+- **Agent: Package Ecosystem** — npm Downloads + PyPI Stats + Homebrew Analytics + Docker Hub + HuggingFace Hub + libraries.io + OSV.dev (security)
+
+**Include if ACADEMIC:**
+- **Agent: Papers** — paper-search-mcp + arxiv + semantic-scholar + paper-distill + OpenAlex curl + DBLP curl + Crossref curl + PubMed curl
+- **Agent: Citations & Impact** — OpenCitations + NIH iCite + ORCID + ROR + Altmetric + OpenAIRE + medRxiv/bioRxiv
+- **Agent: Patents** — USPTO PatentsView curl + EPO OPS + Lens.org (if IP-relevant)
+
+**Include if MARKET:**
+- **Agent: Competitors** — WebSearch "alternative to X" + GitHub repos + npm/PyPI search + Exa semantic search
+- **Agent: User Pain Points** — Reddit (mcp-reddit) + StackExchange + Twitter + Discourse + Bluesky
+- **Agent: Company & Funding** — SEC EDGAR curl + YC OSS API curl + Finnhub curl + FMP curl + OpenCorporates curl + AI Funding API curl
+- **Agent: Distribution** — npm Downloads + Product Hunt API + Wayback CDX + App store (Asodesk/appgoblin if mobile)
+
+**Include if POLICY:**
+- **Agent: Government & Regulation** — Congress.gov curl + Federal Register curl + us-gov-open-data-mcp + World Bank curl + OECD
+- **Agent: Patents & IP** — USPTO PatentsView + EPO OPS + Lens.org
+
+**Include if FINANCIAL:**
+- **Agent: Financial Data** — FRED curl + BLS curl + SEC EDGAR curl + Finnhub curl + FMP curl + CoinGecko curl
+- **Agent: Company Intel** — UK Companies House curl + OpenCorporates curl + YC OSS API curl
+
+**Include if SOCIAL_TREND:**
+- **Agent: Social Platforms** — Reddit (mcp-reddit) + Twitter + Bluesky AT Protocol curl + Mastodon API curl + Lemmy curl + Hashnode + DEV.to
+- **Agent: Trend Signals** — trendsmcp + Google Trends + Polymarket Gamma API curl + TikTok/Instagram (via ScrapeCreators or trendsmcp)
+- **Agent: Video & Podcasts** — YouTube transcripts + PodcastIndex curl + iTunes API curl
+
+**Include if HEALTH:**
+- **Agent: Biomedical** — PubMed + bioRxiv/medRxiv + Europe PMC + NIH iCite + openFDA curl
+- **Agent: Clinical** — BiomCP (PubMed + ClinicalTrials.gov)
+
+**Include if GENERAL or multi-category:**
+- Launch agents from ALL matching categories. When in doubt, include rather than exclude.
+
+**Agent: Content Extraction (second wave):**
+- Launch AFTER first wave returns if specific URLs need deep-diving: Tavily Extract + Exa Crawl + Firecrawl Scrape
 
 Each agent's prompt MUST include:
 - "Report raw findings with URLs. Do NOT synthesize or draw conclusions."
@@ -375,23 +420,21 @@ Coverage Score: [1-5 from verification agent]
 ```
 
 #### Step 6: Save Results
-Save to `~/MyGithub/agentic-journal/projects/1-think/research/[topic-slug]-[date].md`
+Save to a configurable output path (default: `./research/[topic-slug]-[date].md`).
 
 ---
 
 ## Product Mode Workflow
 
 ### Reference Documents
-- **Research Engine (MASTER TOOL LIST)**: `~/MyGithub/agentic-journal/projects/1-think/research-engine.md`
-- **Existing products**: `~/MyGithub/agentic-journal/projects/OVERVIEW.md`
-- **Product specs**: `~/MyGithub/agentic-journal/projects/products/`
-- **AI SEO strategy**: `~/MyGithub/agentic-journal/projects/4-grow/ai-seo.md`
+- **Research Engine (MASTER TOOL LIST)**: `research-engine.md` (same directory, or configure path)
+- **Existing products / product specs**: configure per project
 
 ### Step 1: Understand What to Research
 
-If user gives a product name (e.g. "claude-code-organizer"):
-- Read the product spec from `products/*.md`
-- Read the README from the repo
+If user gives a product name:
+- Read the product spec / README from the repo
+- Identify the core value proposition in 1 sentence
 
 If user gives an idea (e.g. "MCP server for browser recording"):
 - Clarify the core value proposition in 1 sentence
@@ -403,59 +446,96 @@ idea-reality-mcp: scan GitHub + HN + npm + PyPI + PH
 → Reality score > 70 = pivot or differentiate
 ```
 
-### Step 3: Phase 1 — Broad Scan (6 parallel agents, ALL FREE TOOLS)
+### Step 3: Phase 1 — Broad Scan (parallel agents, ALL FREE TOOLS)
 
 > ⚠️ Free tools first. After Phase 1, ask user: "免費搵到 X 個結果，需唔需要用 paid tools 再深入？"
 
+Launch ALL agents in ONE message with `model: "sonnet"` and `run_in_background: true`.
+
 #### Agent A: Direct Competitors — FREE
 ```
-→ free-web-search / WebSearch / open-websearch ("alternative to {product}")
-→ gh search repos (GitHub landscape)
-→ npm search + npm Downloads API (package ecosystem)
-→ Exa Search (semantic: similar tools)
-→ paper-search-mcp (if academic/research product: search 20+ databases)
+→ WebSearch + open-websearch + Exa Search ("alternative to {product}")
+→ gh search repos + gh api search/repositories (GitHub landscape)
+→ npm search + npm Downloads API + PyPI Stats API (package ecosystem adoption velocity)
+→ libraries.io API (cross-registry dependents + SourceRank)
+→ Homebrew Analytics + Docker Hub API (if CLI/infra tool)
+→ VS Code Marketplace (if IDE extension)
+→ HuggingFace Hub API (if AI/ML tool)
 ```
 
 #### Agent B: User Pain Points — FREE
 ```
-→ reddit-research-mcp / Reddit .json (20K+ subreddits)
-→ Stack Overflow API (tagged questions volume)
-→ WebSearch ("{category} problems frustrations reddit")
+→ mcp-reddit / Reddit .json (subreddit pain points)
+→ StackExchange API (170+ sites — tagged questions volume + answers)
+→ Discourse API (OSS community forums: Rust/React/OpenAI/Julia)
+→ Bluesky AT Protocol + Mastodon API (tech discourse)
 → Twitter search (mcp__twitter__search_tweets)
+→ Hashnode + DEV.to (developer blog posts about the problem)
+→ Lobste.rs JSON (high-signal tech community)
+→ WebSearch ("{category} problems frustrations")
 ```
 
 #### Agent C: Market Trends + News — FREE
 ```
 → newsmcp (real-time clustered news)
-→ Dev.to API (trending articles: mcp__devto__get_articles)
+→ GDELT curl (global news events)
+→ Dev.to API (trending articles)
 → HN Algolia API (search HN history)
-→ rss-reader (competitor blog RSS: mcp__rss-reader__fetch_feed_entries)
-→ GDELT (global news events)
+→ rss-reader (competitor blog RSS feeds)
+→ trendsmcp / Google Trends (search interest over time)
+→ Polymarket Gamma API (prediction market odds if applicable)
 ```
 
 #### Agent D: Technical Feasibility — FREE
 ```
 → Context7 (library docs)
-→ Exa Code Context (code examples, changelog, SDK docs — ⚠️ better than Claude WebFetch per WebCode benchmark)
-→ GitHub CLI (reference repos, architecture)
-→ paper-search-mcp / arxiv-mcp (if research-heavy area)
+→ Exa Code Context (code examples, SDK docs — better than WebFetch per WebCode benchmark)
+→ GitHub CLI (reference repos, architecture, contributor activity)
 → YouTube transcripts (conference talks about the space)
+→ PodcastIndex + iTunes API (podcast discussions about the space)
+→ paper-search-mcp / arxiv-mcp (if research-heavy area)
 ```
 
-#### Agent E: Distribution Landscape — FREE
+#### Agent E: Distribution & Ecosystem — FREE
 ```
-→ npm Downloads API (competitor adoption velocity)
+→ npm Downloads + PyPI Stats + crates.io + Homebrew Analytics (adoption curves)
+→ libraries.io (who depends on this? cross-registry)
+→ Product Hunt API (launches + upvotes)
+→ Wayback CDX (competitor website evolution)
 → Wikipedia API (entity verification)
-→ Product Hunt API (launches)
-→ Wayback (competitor website evolution)
+→ Open PageRank + OpenRank.io (competitor domain authority)
+→ crt.sh (competitor infrastructure — subdomains)
+→ Asodesk API / appgoblin (if mobile app)
 ```
 
 #### Agent F: Market Signals — FREE
 ```
 → jobspy (hiring trends = market demand signal)
-→ WebSearch ("{category} funding series A")
+→ SEC EDGAR curl (if competitor is public — filings, Form D funding)
+→ YC OSS API (is competitor YC-backed?)
+→ AI Funding API (AI startup funding rounds)
+→ Finnhub curl (stock/news if public company)
+→ OpenCorporates curl (company registry info)
+→ UK Companies House curl (if UK competitor)
 → Open Collective API (OSS project funding)
+→ WebSearch ("{category} funding series A")
 ```
+
+#### Agent G: SEO & Web Intelligence — FREE
+```
+→ Open PageRank + OpenRank.io (domain authority comparison)
+→ Google PageSpeed Insights (competitor site performance)
+→ Serper.dev (Google SERP — who ranks for target keywords?)
+→ crt.sh (SSL cert history — how old is their infrastructure?)
+→ Tranco (domain ranking comparison)
+→ DetectZeStack / Wappalyzer (competitor tech stack)
+```
+
+### Step 3.5: Verification (same as General Mode Phase 1.5)
+
+After ALL agents return, launch ONE Sonnet verification agent to check coverage + contradictions. See [Phase 1.5: Verification](#phase-15-verification-sonnet-before-synthesis--round-9-新增) for the full prompt.
+
+If coverage_score < 3 or major gaps found, launch follow-up agents before proceeding.
 
 ### Step 4: Phase 2 — Paid Deep Dive (ONLY if Phase 1 insufficient)
 
@@ -472,6 +552,7 @@ If need more pain point evidence:
 
 If need social sentiment:
   → Twitter API ($0.005/read — only most important threads)
+  → ScrapeCreators (TikTok + Instagram data)
 ```
 
 ### Step 5: Comparison Table
@@ -504,8 +585,20 @@ If need social sentiment:
 4. **Missing features** — what should we add?
 5. **Distribution priority** — which channels matter most?
 
-### Step 8: Save Results
-Write findings to `~/MyGithub/agentic-journal/projects/products/{product}.md` under a new `## Market Research` section with date.
+### Step 8: Quality Assessment (DRACO dimensions)
+
+Same as General Mode — rate the research output:
+- Factual accuracy (52% weight): [self-rate 1-5]
+- Analytical depth (22% weight): [self-rate 1-5]
+- Presentation (14% weight): [self-rate 1-5]
+- Source attribution (12% weight): [self-rate 1-5]
+
+Also include:
+- **Contradictions & Disputes** — any conflicting claims between sources
+- **Gaps & Limitations** — what the research could NOT find or verify
+
+### Step 9: Save Results
+Save findings to a configurable output path (default: `./research/[product]-[date].md`).
 
 ---
 
@@ -515,9 +608,9 @@ Write findings to `~/MyGithub/agentic-journal/projects/products/{product}.md` un
 2. **Use ALL available FREE tools** — don't just use one source. Parallel everything.
 3. **Parallel execution** — launch multiple searches simultaneously
 4. **🚨 FREE TOOLS ONLY BY DEFAULT** — NEVER use paid/limited tools without asking first:
-   - After free phase, ASK: "免費搵到 X 個結果。需唔需要用 paid/limited API 再深入？（Tavily Research, Exa, Firecrawl, Twitter, ScrapeCreators）"
+   - After free phase, ASK: "Found X results from free sources. Want to use paid/limited APIs for deeper coverage? (Tavily Research, Exa, Firecrawl, Twitter, ScrapeCreators)"
    - If user says NO → go straight to synthesis with free results
-   - If user says YES → THEN use the paid "終極武器" tools
+   - If user says YES → THEN use the paid tools
    - See research-engine.md **Quota Classification** for which tools are free vs limited
 5. **Cite everything** — no claims without sources
 6. **Be specific** — "42% increase" not "significant increase"
