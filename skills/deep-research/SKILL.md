@@ -7,14 +7,23 @@ allowed-tools: [Bash, Read, Write, WebSearch, WebFetch, Agent, mcp__tavily__tavi
 
 # Research — Unified Deep Research + Product Analysis
 
-**ALWAYS read `research-engine.md` FIRST** (same directory as this skill, or `~/MyGithub/ai-research-engine/research-engine.md`) for the full tool inventory, cost rules, and Quota Classification.
+## Configuration (edit these paths for your setup)
+
+```
+RESEARCH_ENGINE = ~/MyGithub/ai-research-engine/research-engine.md
+PRODUCT_SPECS   = ~/MyGithub/agentic-journal/projects/products/
+PRODUCTS_INDEX  = ~/MyGithub/agentic-journal/projects/OVERVIEW.md
+OUTPUT_DIR      = ~/MyGithub/agentic-journal/projects/1-think/research/
+```
+
+**ALWAYS read `RESEARCH_ENGINE` FIRST** for the full tool inventory, cost rules, and Quota Classification.
 
 ## Mode Detection
 
 This skill has two modes. Auto-detect from input:
 
 **Product Mode** — if ANY of these are true:
-- Input matches an existing product name in `~/MyGithub/agentic-journal/projects/products/*.md`
+- Input matches an existing product name in `PRODUCT_SPECS`
 - Input contains: "competitive", "market", "SWOT", "positioning", "vs", "alternative to", "compare"
 - User explicitly says `--product` or asks about a product idea
 - → Go to [Product Mode Workflow](#product-mode-workflow)
@@ -420,15 +429,16 @@ Coverage Score: [1-5 from verification agent]
 ```
 
 #### Step 6: Save Results
-Save to a configurable output path (default: `./research/[topic-slug]-[date].md`).
+Save to `OUTPUT_DIR/[topic-slug]-[date].md`.
 
 ---
 
 ## Product Mode Workflow
 
 ### Reference Documents
-- **Research Engine (MASTER TOOL LIST)**: `research-engine.md` (same directory, or configure path)
-- **Existing products / product specs**: configure per project
+- **Research Engine (MASTER TOOL LIST)**: `RESEARCH_ENGINE`
+- **Existing products**: `PRODUCTS_INDEX`
+- **Product specs**: `PRODUCT_SPECS`
 
 ### Step 1: Understand What to Research
 
@@ -598,7 +608,7 @@ Also include:
 - **Gaps & Limitations** — what the research could NOT find or verify
 
 ### Step 9: Save Results
-Save findings to a configurable output path (default: `./research/[product]-[date].md`).
+Save findings to `OUTPUT_DIR/[product]-[date].md`.
 
 ---
 
