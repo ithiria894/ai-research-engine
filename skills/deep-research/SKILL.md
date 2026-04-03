@@ -7,23 +7,14 @@ allowed-tools: [Bash, Read, Write, WebSearch, WebFetch, Agent, mcp__tavily__tavi
 
 # Research — Unified Deep Research + Product Analysis
 
-## Configuration (edit these paths for your setup)
-
-```
-RESEARCH_ENGINE = ~/MyGithub/ai-research-engine/research-engine.md
-PRODUCT_SPECS   = ~/MyGithub/agentic-journal/projects/products/
-PRODUCTS_INDEX  = ~/MyGithub/agentic-journal/projects/OVERVIEW.md
-OUTPUT_DIR      = ~/MyGithub/agentic-journal/projects/1-think/research/
-```
-
-**ALWAYS read `RESEARCH_ENGINE` FIRST** for the full tool inventory, cost rules, and Quota Classification.
+**ALWAYS read `research-engine.md`** (in the repo root) for the full tool inventory, cost rules, and Quota Classification.
 
 ## Mode Detection
 
 This skill has two modes. Auto-detect from input:
 
 **Product Mode** — if ANY of these are true:
-- Input matches an existing product name in `PRODUCT_SPECS`
+- Input is about a specific product the user is building or evaluating
 - Input contains: "competitive", "market", "SWOT", "positioning", "vs", "alternative to", "compare"
 - User explicitly says `--product` or asks about a product idea
 - → Go to [Product Mode Workflow](#product-mode-workflow)
@@ -429,21 +420,16 @@ Coverage Score: [1-5 from verification agent]
 ```
 
 #### Step 6: Save Results
-Save to `OUTPUT_DIR/[topic-slug]-[date].md`.
+Save the report to a file the user can reference later (suggest `./research/[topic-slug]-[date].md`).
 
 ---
 
 ## Product Mode Workflow
 
-### Reference Documents
-- **Research Engine (MASTER TOOL LIST)**: `RESEARCH_ENGINE`
-- **Existing products**: `PRODUCTS_INDEX`
-- **Product specs**: `PRODUCT_SPECS`
-
 ### Step 1: Understand What to Research
 
 If user gives a product name:
-- Read the product spec / README from the repo
+- Read the product README or any spec the user provides
 - Identify the core value proposition in 1 sentence
 
 If user gives an idea (e.g. "MCP server for browser recording"):
@@ -608,7 +594,7 @@ Also include:
 - **Gaps & Limitations** — what the research could NOT find or verify
 
 ### Step 9: Save Results
-Save findings to `OUTPUT_DIR/[product]-[date].md`.
+Save findings to a file the user can reference later (suggest `./research/[product]-[date].md`).
 
 ---
 
