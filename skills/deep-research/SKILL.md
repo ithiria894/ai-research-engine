@@ -263,26 +263,78 @@ Like a pharmacist picking the right medicines for a patient, analyze the user's 
 
 **Available source clusters (the full pharmacy):**
 
-| # | Cluster | What's inside | When to pick |
-|---|---------|--------------|-------------|
-| 1 | **Web Search** | Tavily + Exa + Firecrawl + open-websearch + WebSearch | Almost always — skip only for purely internal/private questions |
-| 2 | **News & Events** | newsmcp + GDELT + RSS feeds + Google News + NYTimes MCP | Topic has a current-events angle, recent developments, or industry news |
-| 3 | **Academic Papers** | paper-search + arxiv + S2 + paper-distill + OpenAlex + DBLP + Crossref + PubMed + CORE + DOAJ + Zenodo | Research questions, scientific topics, "state of the art", literature reviews |
-| 4 | **Citation & Impact** | OpenCitations + NIH iCite + ORCID + ROR + OpenAIRE + Altmetric + medRxiv | Need to assess research impact, find key researchers, or track citation networks |
-| 5 | **Patent & IP** | USPTO PatentsView + EPO OPS + Lens.org + Google Patents BigQuery | Prior art search, IP landscape, technology innovation tracking |
-| 6 | **Social Platforms** | Reddit (mcp-reddit) + Twitter + Bluesky + Mastodon + Lemmy + Discourse + StackExchange (170+ sites) + Hashnode + DEV.to + Lobste.rs + Discord + Telegram | User opinions, pain points, community discussions, sentiment |
-| 7 | **Trends & Predictions** | trendsmcp + Google Trends + Polymarket + TikTok/IG (ScrapeCreators) + Truth Social + 小紅書 | What's trending, rising/declining interest, prediction markets, viral content |
-| 8 | **Video & Podcasts** | YouTube transcripts + PodcastIndex + iTunes API + Listen Notes + mcp-video | Conference talks, expert interviews, tutorial content, creator opinions |
-| 9 | **Package Registries** | npm + PyPI + crates.io + Packagist + RubyGems + NuGet + Homebrew + Docker Hub + HuggingFace + libraries.io + VS Code Marketplace | Developer tool adoption, download trends, dependency analysis, ecosystem health |
-| 10 | **Code & Libraries** | GitHub CLI + Exa Code Context + Context7 + OSV.dev | Technical feasibility, reference implementations, library docs, security advisories |
-| 11 | **Company & Startup** | SEC EDGAR + YC API + Finnhub + FMP + OpenCorporates + UK Companies House + AI Funding API | Company research, funding rounds, IPOs, M&A, competitor business intel |
-| 12 | **Government & Economic** | FRED + BLS + Census + Congress.gov + Federal Register + World Bank + IMF + OECD + openFDA + USASpending | Economic indicators, regulations, legislation, public policy, demographic data |
-| 13 | **SEO & Web Infra** | Open PageRank + OpenRank.io + crt.sh + Google PSI + Tranco + Wayback CDX + Common Crawl + Serper.dev + Cloudflare Radar | Domain analysis, SERP competition, website tech stack, historical changes |
-| 14 | **Knowledge Graph** | Wikidata SPARQL + Wikipedia API | Entity verification, structured facts, company/person/place metadata |
-| 15 | **Books & Archives** | Open Library + Internet Archive + mcp-open-library | Historical documents, books, long-form reference material |
-| 16 | **Biomedical** | PubMed + bioRxiv/medRxiv + Europe PMC + NIH iCite + openFDA + BiomCP (ClinicalTrials.gov) | Medical research, drug safety, clinical trials, health topics |
-| 17 | **Competitive Intelligence** | idea-reality-mcp + RivalSearchMCP + Aperture (AI brand visibility) + DetectZeStack + TheirStack | Product comparisons, competitor analysis, market positioning |
-| 18 | **Product Validation** | idea-reality-mcp (reality score) + Product Hunt API + Wayback CDX + app store APIs | "Does this already exist?", product-market fit, launch history |
+Each source has an access type:
+- 🟢 **FREE** = curl directly, zero key, zero setup
+- 🔑 **KEY** = free API key required (register first)
+- 📦 **MCP** = MCP server must be installed (`uvx`, `npx`, or `pip`)
+- 💰 **PAID** = has quota/credits, may cost money
+- 🔧 **CLI** = needs a CLI tool installed (e.g., `gh`)
+
+| # | Cluster | Sources + access type | When to pick |
+|---|---------|----------------------|-------------|
+| 1 | **Web Search** | 📦 Tavily Search (1000 credits/mo free) · 📦 Exa Search ($10 free) · 📦 Firecrawl Search (500 credits free) · 📦 open-websearch (free, zero key) · 🟢 WebSearch (built-in) | Almost always |
+| 2 | **News & Events** | 📦 newsmcp (free) · 🟢 GDELT (curl, zero key) · 📦 RSS reader (free) · 📦 NYTimes MCP (free key) | Current events, recent developments |
+| 3 | **Academic Papers** | 📦 paper-search (free) · 📦 arxiv-mcp (free) · 📦 semantic-scholar (free) · 📦 paper-distill (free) · 🟢 OpenAlex/DBLP/Crossref/DOAJ/Zenodo/arXiv API (all curl, zero key) · 🔑 CORE (free key) | Research, scientific topics |
+| 4 | **Citation & Impact** | 🟢 OpenCitations (curl, zero key) · 🟢 NIH iCite (curl, zero key) · 🟢 ORCID (curl, zero key) · 🟢 ROR (curl, zero key) · 🟢 OpenAIRE (curl, zero key) · 🟢 medRxiv (curl, zero key) · 🔑 Altmetric (free research key) | Research impact, key researchers |
+| 5 | **Patent & IP** | 🔑 USPTO PatentsView (free key) · 🔑 EPO OPS (free registration) · 🔑 Lens.org (free for research) · 🔑 Google Patents BigQuery (1TB/mo free) | Prior art, IP landscape |
+| 6 | **Social Platforms** | 📦 mcp-reddit (free) · 📦 Twitter MCP (💰 paid reads) · 🟢 Bluesky AT Protocol (curl, zero key) · 🟢 Mastodon (curl, zero key) · 🟢 Lemmy (curl, zero key) · 🟢 Discourse (curl, zero key) · 🟢 StackExchange (curl, zero key) · 🟢 Hashnode (curl, zero key) · 📦 DEV.to (free) · 🟢 Lobste.rs (curl, zero key) | Community discussions, sentiment |
+| 7 | **Trends & Predictions** | 📦 trendsmcp (100 free/mo) · 📦 google-trends-mcp (free) · 🟢 Polymarket Gamma API (curl, zero key) · 💰 ScrapeCreators TikTok/IG (100 free credits) | Trending topics, predictions |
+| 8 | **Video & Podcasts** | 📦 youtube-transcript (free) · 🔑 PodcastIndex (free key) · 🟢 iTunes API (curl, zero key) · 💰 Listen Notes (freemium) | Conference talks, expert opinions |
+| 9 | **Package Registries** | 🟢 npm/PyPI/crates.io/Packagist/RubyGems/Homebrew/Docker Hub/HuggingFace (all curl, zero key) · 🔑 libraries.io (free key) · 🟢 VS Code Marketplace (curl, unofficial) · 🟢 OSV.dev (curl, zero key) | Dev tool adoption, ecosystem data |
+| 10 | **Code & Libraries** | 🔧 GitHub CLI (`gh`, free) · 📦 Exa Code Context ($10 free) · 📦 Context7 (free) | Technical feasibility, implementations |
+| 11 | **Company & Startup** | 🟢 SEC EDGAR (curl, zero key) · 🟢 YC API (curl, zero key) · 🔑 Finnhub (free key) · 🔑 FMP (free key) · 🟢 OpenCorporates (curl, free for open-data) · 🔑 UK Companies House (free key) · 🟢 AI Funding API (curl, zero key) | Funding, company intel |
+| 12 | **Government & Economic** | 🔑 FRED (free key) · 🟢 BLS v1 (curl, zero key) · 🔑 Census (free key) · 🔑 Congress.gov (free key) · 🟢 Federal Register (curl, zero key) · 🟢 World Bank (curl, zero key) · 🟢 openFDA (curl, zero key) | Economic data, regulations |
+| 13 | **SEO & Web Infra** | 🔑 Open PageRank (free key) · 🟢 OpenRank.io (curl, free) · 🟢 crt.sh (curl, zero key) · 🟢 Google PSI (curl, zero key) · 🟢 Tranco (curl, zero key) · 🟢 Wayback CDX (curl, zero key) · 🟢 Common Crawl (curl, zero key) · 🔑 Serper.dev (2500 free/mo) | Domain analysis, SEO |
+| 14 | **Knowledge Graph** | 🟢 Wikidata SPARQL (curl, zero key) · 🟢 Wikipedia API (curl, zero key) | Entity verification, facts |
+| 15 | **Books & Archives** | 🟢 Open Library (curl, zero key) · 🟢 Internet Archive (curl, zero key) · 📦 mcp-open-library (free) | Books, historical docs |
+| 16 | **Biomedical** | 🟢 PubMed (curl, zero key) · 🟢 bioRxiv/medRxiv (curl, zero key) · 🟢 Europe PMC (curl, zero key) · 🟢 openFDA (curl, zero key) · 📦 BiomCP (free) | Medical research, clinical trials |
+| 17 | **Competitive Intelligence** | 📦 idea-reality-mcp (free) · 📦 RivalSearchMCP (free) · 📦 Aperture (free, self-host) · 🔑 DetectZeStack (100 free/mo) · 🔑 TheirStack (200 credits/mo) | Competitor analysis |
+| 18 | **Product Validation** | 📦 idea-reality-mcp (free) · 🟢 Product Hunt API (free GraphQL token) · 🟢 Wayback CDX (curl, zero key) · 🔑 Asodesk (free token) | Does this exist? Market fit |
+
+### Pre-flight Check: "Research Engine Status"
+
+**Before presenting sources to the user, silently check what's available:**
+
+For each selected source cluster, check if the tools are accessible:
+- 🟢 FREE APIs → always available (curl, no setup needed)
+- 🔧 CLI → check if installed: `which gh` etc.
+- 📦 MCP → check if the MCP server responds (try a simple call, or check `~/.claude/.mcp.json`)
+- 🔑 KEY → check if env var is set (e.g., `FRED_API_KEY`, `FINNHUB_API_KEY`)
+- 💰 PAID → check if key exists AND note remaining quota if known
+
+**Then in your Step 0 presentation, flag any issues:**
+
+```
+I'll search these sources (10 agents in parallel):
+
+**Does this already exist?**
+✅ Code & Libraries — GitHub repos, npm/PyPI packages
+✅ Package Registries — all free, no setup needed
+✅ Product Validation — Product Hunt, Wayback CDX
+⚠️ Competitive Intelligence — idea-reality-mcp not installed
+   → Install: uvx idea-reality-mcp (takes 30 seconds)
+   → Or skip this cluster, I'll use Web Search + GitHub instead
+
+**What are people saying?**
+✅ Social Platforms — Reddit, Bluesky, StackExchange (all free curl)
+⚠️ Twitter — MCP installed but reads cost $0.01 each
+✅ Web Search — Tavily (923/1000 credits remaining this month)
+
+**Is this space growing?**
+✅ News & Events — GDELT + newsmcp
+⚠️ Trends — trendsmcp not installed (Google Trends data)
+   → Install: npx -y trendsmcp (needs TRENDS_API_KEY, 100 free/mo)
+   → Or skip, I'll use WebSearch for trend data instead
+
+⚠️ 2 sources need setup. Want to install them first, or proceed without?
+```
+
+**The user can then:**
+- Install the missing tools and proceed with full coverage
+- Skip the missing tools and proceed with what's available
+- Ask which tools are most important to install
+
+**Key principle: NEVER silently skip a source because it's not installed. Always tell the user what they're missing and how to get it.**
 
 **How to pick — the reasoning process (this is the most important step):**
 
