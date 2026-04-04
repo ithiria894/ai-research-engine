@@ -400,13 +400,21 @@ Here's what I need to find out, and where I'll look:
 ⬚ Books & Archives
 
 That's 9 definite + 3 maybe agents. Want me to include the maybes too?
+
+Options:
+(a) Go with everything (install missing tools first)
+(b) Just use what's ready now — skip anything that needs setup
+(c) Let me adjust the list
 ```
 
 **Wait for user confirmation.** The user may:
-- Say "OK" / "go" / "全部啦" → include all definite + maybe sources
-- Say "OK but skip the maybes" → only definite sources
-- Say "add X" / "remove Y" → adjust
+- Say "go" / "全部啦" / option (a) → include all, install missing tools first
+- **Say "just use what's ready" / option (b) → auto-skip all 📦/🔑/💰 sources that aren't already installed/configured. Only use 🟢 FREE curl APIs + already-installed MCPs + built-in tools. No setup friction at all.**
+- Say "let me adjust" / option (c) → user picks specific clusters to add/remove
+- Say "add X" / "remove Y" → adjust specific clusters
 - Say "why no Z?" → explain your reasoning, adjust if they disagree
+
+**Option (b) is important** — some users want results NOW without installing anything. The engine should gracefully degrade: use whatever free curl APIs are available in each cluster, skip MCP-only sources that aren't installed, and note in the final report which sources were skipped and what coverage was lost.
 
 **Only after user confirms, proceed to Phase 1.**
 
