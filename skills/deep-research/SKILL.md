@@ -308,45 +308,53 @@ Examples of good reasoning:
 - "User asks about React state management → npm downloads will show adoption velocity, StackOverflow tag volume shows developer demand, Reddit/Twitter shows sentiment, GitHub stars shows mindshare — but patents and government data are irrelevant"
 - "User asks about AI regulation impact → Congress.gov for actual bills, Federal Register for proposed rules, news for coverage, academic papers for policy analysis, financial data for market impact, social platforms for industry reaction"
 
-**Step 0c: Present your reasoning AND selection to the user:**
+**Step 0c: Present your selection — grouped by WHY, with a "maybe" section.**
+
+Default stance: **cast wide**. If a source cluster is even slightly related, include it. Only skip clusters that are clearly irrelevant (e.g., biomedical for a React library question). When in doubt, put it in the "maybe" section and let the user decide.
+
+Group your selected sources by the REASON you're picking them, so the user understands your thinking:
 
 ```
 Your question: "Has anyone built an MCP server for browser recording?"
 
-My reasoning: You want to know if this idea already exists, and if so, how crowded
-the space is. The answer would live in GitHub repos, package registries, product
-launches, developer discussions, and possibly blog posts or conference talks.
-Academic papers and government data won't help here.
+Here's what I need to find out, and where I'll look:
 
-I'll search these sources ([N] agents in parallel):
-
-✅ Web Search — find blog posts, announcements, landing pages
-✅ Code & Libraries — GitHub repos, npm/PyPI packages that do this
-✅ Package Registries — download trends to gauge adoption if competitors exist
-✅ Social Platforms — Reddit/HN/Twitter discussions about browser recording tools
-✅ News & Events — recent launches or announcements
-✅ Video & Podcasts — demo videos, conference talks
-✅ Competitive Intelligence — reality score + similar tools scan
+**Does this already exist?**
+✅ Code & Libraries — search GitHub repos, npm/PyPI packages
+✅ Package Registries — check download stats if competitors exist
 ✅ Product Validation — Product Hunt launches, app store presence
+✅ Competitive Intelligence — reality score + similar tools scan
 
-Skipping:
-⬚ Academic Papers — not a research question
-⬚ Patent & IP — not checking IP at this stage
-⬚ Government & Economic — not relevant
-⬚ Biomedical — not relevant
-⬚ Citation & Impact — not relevant
-⬚ SEO & Web Infra — not relevant yet (useful later for marketing)
-⬚ Knowledge Graph — not relevant
-⬚ Books & Archives — not relevant
+**What are people saying about browser recording tools?**
+✅ Social Platforms — Reddit/HN/Twitter/Bluesky/StackOverflow discussions
+✅ Web Search — blog posts, announcements, landing pages
 
-8 agents, parallel. OK to proceed?
+**Is this space growing or dying?**
+✅ News & Events — recent launches, industry news
+✅ Trends & Predictions — Google Trends interest, Polymarket (if applicable)
+
+**How are existing tools built?**
+✅ Video & Podcasts — demo videos, conference talks about the space
+
+**Maybe related (want me to include these too?):**
+❓ Academic Papers — there might be research on browser automation/recording
+❓ Patent & IP — someone might have patented browser recording techniques
+❓ SEO & Web Infra — could check competitor domain authority + tech stack
+
+**Skipping (clearly not relevant):**
+⬚ Biomedical
+⬚ Government & Economic
+⬚ Knowledge Graph
+⬚ Books & Archives
+
+That's 9 definite + 3 maybe agents. Want me to include the maybes too?
 ```
 
 **Wait for user confirmation.** The user may:
-- Say "OK" / "go" → proceed to Phase 1
-- Say "add patents" → add that cluster
-- Say "too many, skip podcasts" → remove that cluster
-- Say "why no academic papers?" → explain your reasoning, adjust if they disagree
+- Say "OK" / "go" / "全部啦" → include all definite + maybe sources
+- Say "OK but skip the maybes" → only definite sources
+- Say "add X" / "remove Y" → adjust
+- Say "why no Z?" → explain your reasoning, adjust if they disagree
 
 **Only after user confirms, proceed to Phase 1.**
 
