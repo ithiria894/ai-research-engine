@@ -416,13 +416,25 @@ Options:
 
 **Option (b) is important** — some users want results NOW without installing anything. The engine should gracefully degrade: use whatever free curl APIs are available in each cluster, skip MCP-only sources that aren't installed, and note in the final report which sources were skipped and what coverage was lost.
 
-**Only after user confirms, proceed to Phase 1.**
+**Only after user confirms sources, tell them about the execution plan:**
 
-### Phase 1: Collection (Sonnet agents, background)
+```
+I'll use Sonnet agents to collect data (cheaper, good enough for search/extract).
+After they return, I (Opus) will cross-reference and synthesize the findings myself.
+
+Sonnet costs ~5x less than Opus for collection. Want me to:
+(a) Use Sonnet for all agents (recommended, best cost/quality balance)
+(b) Use Haiku for simple lookups (even cheaper, 25x less than Opus — but less reliable with complex tools)
+(c) Your call — pick a model
+```
+
+**Then proceed to Phase 1.**
+
+### Phase 1: Collection (Sonnet/Haiku agents, background)
 
 #### Step 1: Launch Agents
 
-For each confirmed source cluster, launch ONE Sonnet agent. Launch ALL in ONE message with `model: "sonnet"` and `run_in_background: true`.
+For each confirmed source cluster, launch ONE agent at the confirmed model. Launch ALL in ONE message with `run_in_background: true`.
 
 Each agent's prompt MUST include:
 - The specific tools/APIs from its cluster (copy from the table above)
@@ -470,10 +482,12 @@ Output a structured JSON:
 
 > This step is based on VMAO (ICLR 2026) which improved answer completeness from 3.1 → 4.2/5.
 
-### Phase 2: Synthesis (Opus, main thread)
+### Phase 2: Synthesis (Opus, main thread — NEVER delegate this)
+
+**Tell the user:** "All agents returned. I'm now reading and cross-referencing everything myself (Opus). This is the part where cheap models won't cut it — synthesis needs the best model."
 
 #### Step 4: Cross-Reference and Synthesize
-YOU (Opus) do this — not an agent. Read all agent results and:
+YOU (Opus) do this — NEVER delegate synthesis to a Sonnet/Haiku agent. Read all agent results yourself and:
 - Compare findings across sources
 - Flag contradictions
 - Identify consensus vs outlier opinions
