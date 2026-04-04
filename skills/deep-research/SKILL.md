@@ -257,85 +257,116 @@ gh api search/repositories?q=... — advanced search
 
 The skill has three phases. Phase 1 (collection) is delegated to Sonnet/Haiku agents. Phase 1.5 (verification) is one Sonnet agent that audits coverage. Phase 2 (synthesis) is done by you (Opus) in the main thread. NEVER do collection yourself — launch agents.
 
-### Step 0: Topic Classification (Opus, before launching agents)
+### Step 0: Source Selection — "執藥" (Opus, before launching agents)
 
-Before launching any agents, classify the topic to determine which agent clusters are relevant. This prevents wasting tokens on irrelevant sources (e.g., patent search for "best React library").
+Like a pharmacist picking the right medicines for a patient, analyze the user's question and select which source clusters are relevant. Each source cluster = one agent.
+
+**Available source clusters (the full pharmacy):**
+
+| # | Cluster | What's inside | When to pick |
+|---|---------|--------------|-------------|
+| 1 | **Web Search** | Tavily + Exa + Firecrawl + open-websearch + WebSearch | Almost always — skip only for purely internal/private questions |
+| 2 | **News & Events** | newsmcp + GDELT + RSS feeds + Google News + NYTimes MCP | Topic has a current-events angle, recent developments, or industry news |
+| 3 | **Academic Papers** | paper-search + arxiv + S2 + paper-distill + OpenAlex + DBLP + Crossref + PubMed + CORE + DOAJ + Zenodo | Research questions, scientific topics, "state of the art", literature reviews |
+| 4 | **Citation & Impact** | OpenCitations + NIH iCite + ORCID + ROR + OpenAIRE + Altmetric + medRxiv | Need to assess research impact, find key researchers, or track citation networks |
+| 5 | **Patent & IP** | USPTO PatentsView + EPO OPS + Lens.org + Google Patents BigQuery | Prior art search, IP landscape, technology innovation tracking |
+| 6 | **Social Platforms** | Reddit (mcp-reddit) + Twitter + Bluesky + Mastodon + Lemmy + Discourse + StackExchange (170+ sites) + Hashnode + DEV.to + Lobste.rs + Discord + Telegram | User opinions, pain points, community discussions, sentiment |
+| 7 | **Trends & Predictions** | trendsmcp + Google Trends + Polymarket + TikTok/IG (ScrapeCreators) + Truth Social + 小紅書 | What's trending, rising/declining interest, prediction markets, viral content |
+| 8 | **Video & Podcasts** | YouTube transcripts + PodcastIndex + iTunes API + Listen Notes + mcp-video | Conference talks, expert interviews, tutorial content, creator opinions |
+| 9 | **Package Registries** | npm + PyPI + crates.io + Packagist + RubyGems + NuGet + Homebrew + Docker Hub + HuggingFace + libraries.io + VS Code Marketplace | Developer tool adoption, download trends, dependency analysis, ecosystem health |
+| 10 | **Code & Libraries** | GitHub CLI + Exa Code Context + Context7 + OSV.dev | Technical feasibility, reference implementations, library docs, security advisories |
+| 11 | **Company & Startup** | SEC EDGAR + YC API + Finnhub + FMP + OpenCorporates + UK Companies House + AI Funding API | Company research, funding rounds, IPOs, M&A, competitor business intel |
+| 12 | **Government & Economic** | FRED + BLS + Census + Congress.gov + Federal Register + World Bank + IMF + OECD + openFDA + USASpending | Economic indicators, regulations, legislation, public policy, demographic data |
+| 13 | **SEO & Web Infra** | Open PageRank + OpenRank.io + crt.sh + Google PSI + Tranco + Wayback CDX + Common Crawl + Serper.dev + Cloudflare Radar | Domain analysis, SERP competition, website tech stack, historical changes |
+| 14 | **Knowledge Graph** | Wikidata SPARQL + Wikipedia API | Entity verification, structured facts, company/person/place metadata |
+| 15 | **Books & Archives** | Open Library + Internet Archive + mcp-open-library | Historical documents, books, long-form reference material |
+| 16 | **Biomedical** | PubMed + bioRxiv/medRxiv + Europe PMC + NIH iCite + openFDA + BiomCP (ClinicalTrials.gov) | Medical research, drug safety, clinical trials, health topics |
+| 17 | **Competitive Intelligence** | idea-reality-mcp + RivalSearchMCP + Aperture (AI brand visibility) + DetectZeStack + TheirStack | Product comparisons, competitor analysis, market positioning |
+| 18 | **Product Validation** | idea-reality-mcp (reality score) + Product Hunt API + Wayback CDX + app store APIs | "Does this already exist?", product-market fit, launch history |
+
+**How to pick — the reasoning process (this is the most important step):**
+
+Don't just keyword-match. Think about what KIND of answer the user needs, and WHERE that answer would live in the real world.
+
+**Step 0a: Understand the real question behind the question.**
+
+| User says | Real question | Where the answer lives |
+|-----------|--------------|----------------------|
+| "Has anyone done X?" | Is there prior art? Is this a new idea or solved problem? | GitHub repos, academic papers, patents, Product Hunt, blog posts, HN discussions |
+| "What's the best X?" | What are my options and how do they compare? | Package downloads, GitHub stars, Reddit/SO recommendations, benchmark papers |
+| "Should we build X?" | Is there market demand + is the space crowded? | Competitor repos, funding data, job postings, social pain points, app store data |
+| "How does X work?" | Technical deep dive | Library docs, conference talks, academic papers, source code |
+| "What's happening with X?" | Current events + trend direction | News, social media, Google Trends, prediction markets, RSS feeds |
+| "Is X better than Y?" | Head-to-head comparison with data | Benchmarks, download stats, community sentiment, pricing pages, expert reviews |
+
+**Step 0b: For each source cluster, reason about whether it would contain relevant data.**
+
+Think like a detective: "If the answer to this question exists somewhere in the world, WHERE would it be?"
+
+Examples of good reasoning:
+- "User asks if anyone has built an MCP server for X → I should check GitHub (repos), npm/PyPI (packages), Product Hunt (launches), HN (announcements), academic papers (if research-y), and patents (if they're worried about IP)"
+- "User asks about React state management → npm downloads will show adoption velocity, StackOverflow tag volume shows developer demand, Reddit/Twitter shows sentiment, GitHub stars shows mindshare — but patents and government data are irrelevant"
+- "User asks about AI regulation impact → Congress.gov for actual bills, Federal Register for proposed rules, news for coverage, academic papers for policy analysis, financial data for market impact, social platforms for industry reaction"
+
+**Step 0c: Present your reasoning AND selection to the user:**
 
 ```
-Classify the topic into ONE OR MORE of these categories:
+Your question: "Has anyone built an MCP server for browser recording?"
 
-TECH_DEV     — libraries, tools, frameworks, APIs, coding patterns
-ACADEMIC     — research questions, literature reviews, scientific topics
-MARKET       — competitive analysis, product positioning, market sizing
-POLICY       — laws, regulations, government policy, compliance
-FINANCIAL    — markets, economics, funding, crypto, company financials
-SOCIAL_TREND — what's trending, public sentiment, viral content, predictions
-HEALTH       — medical, biomedical, drug safety, clinical trials
-GENERAL      — anything that doesn't fit above, or multi-category
+My reasoning: You want to know if this idea already exists, and if so, how crowded
+the space is. The answer would live in GitHub repos, package registries, product
+launches, developer discussions, and possibly blog posts or conference talks.
+Academic papers and government data won't help here.
+
+I'll search these sources ([N] agents in parallel):
+
+✅ Web Search — find blog posts, announcements, landing pages
+✅ Code & Libraries — GitHub repos, npm/PyPI packages that do this
+✅ Package Registries — download trends to gauge adoption if competitors exist
+✅ Social Platforms — Reddit/HN/Twitter discussions about browser recording tools
+✅ News & Events — recent launches or announcements
+✅ Video & Podcasts — demo videos, conference talks
+✅ Competitive Intelligence — reality score + similar tools scan
+✅ Product Validation — Product Hunt launches, app store presence
+
+Skipping:
+⬚ Academic Papers — not a research question
+⬚ Patent & IP — not checking IP at this stage
+⬚ Government & Economic — not relevant
+⬚ Biomedical — not relevant
+⬚ Citation & Impact — not relevant
+⬚ SEO & Web Infra — not relevant yet (useful later for marketing)
+⬚ Knowledge Graph — not relevant
+⬚ Books & Archives — not relevant
+
+8 agents, parallel. OK to proceed?
 ```
 
-Each category activates specific agent clusters (see Step 2). A topic can match multiple categories — "AI regulation market impact" would be POLICY + FINANCIAL + TECH_DEV.
+**Wait for user confirmation.** The user may:
+- Say "OK" / "go" → proceed to Phase 1
+- Say "add patents" → add that cluster
+- Say "too many, skip podcasts" → remove that cluster
+- Say "why no academic papers?" → explain your reasoning, adjust if they disagree
+
+**Only after user confirms, proceed to Phase 1.**
 
 ### Phase 1: Collection (Sonnet agents, background)
 
-#### Step 1: Understand the Question
-- What exactly does the user want to know?
-- What would a comprehensive answer look like?
-- What categories did Step 0 identify?
+#### Step 1: Launch Agents
 
-#### Step 2: Launch Parallel Sonnet Agents
-Design agents based on the topic categories from Step 0. Launch ALL in ONE message with `model: "sonnet"` and `run_in_background: true`.
-
-**ALWAYS include (every topic):**
-- **Agent: Web Search** — WebSearch + Tavily Search + Exa Search + Firecrawl Search + open-websearch
-- **Agent: News & Events** — newsmcp + GDELT curl + RSS feeds + Google News
-
-**Include if TECH_DEV:**
-- **Agent: Code & Libraries** — GitHub CLI + Exa Code Context + Context7 + npm/PyPI/crates.io download APIs
-- **Agent: Dev Community** — StackExchange (170+ sites) + Discourse + Hashnode + DEV.to + Lobste.rs + HN Algolia
-- **Agent: Package Ecosystem** — npm Downloads + PyPI Stats + Homebrew Analytics + Docker Hub + HuggingFace Hub + libraries.io + OSV.dev (security)
-
-**Include if ACADEMIC:**
-- **Agent: Papers** — paper-search-mcp + arxiv + semantic-scholar + paper-distill + OpenAlex curl + DBLP curl + Crossref curl + PubMed curl
-- **Agent: Citations & Impact** — OpenCitations + NIH iCite + ORCID + ROR + Altmetric + OpenAIRE + medRxiv/bioRxiv
-- **Agent: Patents** — USPTO PatentsView curl + EPO OPS + Lens.org (if IP-relevant)
-
-**Include if MARKET:**
-- **Agent: Competitors** — WebSearch "alternative to X" + GitHub repos + npm/PyPI search + Exa semantic search
-- **Agent: User Pain Points** — Reddit (mcp-reddit) + StackExchange + Twitter + Discourse + Bluesky
-- **Agent: Company & Funding** — SEC EDGAR curl + YC OSS API curl + Finnhub curl + FMP curl + OpenCorporates curl + AI Funding API curl
-- **Agent: Distribution** — npm Downloads + Product Hunt API + Wayback CDX + App store (Asodesk/appgoblin if mobile)
-
-**Include if POLICY:**
-- **Agent: Government & Regulation** — Congress.gov curl + Federal Register curl + us-gov-open-data-mcp + World Bank curl + OECD
-- **Agent: Patents & IP** — USPTO PatentsView + EPO OPS + Lens.org
-
-**Include if FINANCIAL:**
-- **Agent: Financial Data** — FRED curl + BLS curl + SEC EDGAR curl + Finnhub curl + FMP curl + CoinGecko curl
-- **Agent: Company Intel** — UK Companies House curl + OpenCorporates curl + YC OSS API curl
-
-**Include if SOCIAL_TREND:**
-- **Agent: Social Platforms** — Reddit (mcp-reddit) + Twitter + Bluesky AT Protocol curl + Mastodon API curl + Lemmy curl + Hashnode + DEV.to
-- **Agent: Trend Signals** — trendsmcp + Google Trends + Polymarket Gamma API curl + TikTok/Instagram (via ScrapeCreators or trendsmcp)
-- **Agent: Video & Podcasts** — YouTube transcripts + PodcastIndex curl + iTunes API curl
-
-**Include if HEALTH:**
-- **Agent: Biomedical** — PubMed + bioRxiv/medRxiv + Europe PMC + NIH iCite + openFDA curl
-- **Agent: Clinical** — BiomCP (PubMed + ClinicalTrials.gov)
-
-**Include if GENERAL or multi-category:**
-- Launch agents from ALL matching categories. When in doubt, include rather than exclude.
-
-**Agent: Content Extraction (second wave):**
-- Launch AFTER first wave returns if specific URLs need deep-diving: Tavily Extract + Exa Crawl + Firecrawl Scrape
+For each confirmed source cluster, launch ONE Sonnet agent. Launch ALL in ONE message with `model: "sonnet"` and `run_in_background: true`.
 
 Each agent's prompt MUST include:
+- The specific tools/APIs from its cluster (copy from the table above)
 - "Report raw findings with URLs. Do NOT synthesize or draw conclusions."
 - "Use tables and structured formats. Paste key quotes directly."
 - "Cite every finding with a source URL."
 - "At the END of your report, add a CONFIDENCE section: rate your confidence 1-5 that you found comprehensive data, and list any GAPS — topics you searched for but found little/nothing on."
 
 Agents return RAW DATA — lists of papers, URLs, quotes, numbers. Not analysis. Plus a confidence rating + gap list for the verification step.
+
+**Content Extraction (second wave):**
+After first wave returns, if specific URLs need deep-diving, launch additional agents: Tavily Extract + Exa Crawl + Firecrawl Scrape.
 
 #### Step 3: Wait for all agents to complete
 Do not proceed until all background agents have returned.
