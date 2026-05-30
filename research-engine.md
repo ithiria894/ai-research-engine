@@ -130,11 +130,11 @@
 | **Polymarket (Gamma API)** | Prediction market odds — 真金白銀嘅 outcome 預測 | `curl "https://gamma-api.polymarket.com/markets?tag=ai&closed=false"` | 免費，零 key，零 limit |
 | **Truth Social** | Mastodon-compatible API，US 政治/右翼 discourse | `curl "https://truthsocial.com/api/v1/timelines/tag/{topic}"` | 免費，需 bearer token（browser extract） |
 | **小紅書 (Xiaohongshu)** | 中國 lifestyle/消費 social platform | via xiaohongshu-mcp HTTP API 或 ScrapeCreators | 需 MCP server 或 ScrapeCreators credits |
-| **Bluesky AT Protocol** | 36M users，tech discourse tracking | `curl "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=..."` | 免費，零 key，幾乎零 rate limit |
+| **Bluesky AT Protocol** | 36M users，tech discourse tracking | `curl "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=...&limit=25"`（⚠️ 用 `api.bsky.app`，唔好用 `public.api.bsky.app` — 後者 CDN WAF block server IP, 403） | 免費，零 key，幾乎零 rate limit |
 | **Mastodon** | 去中心化社群 timelines + trending | `curl "https://mastodon.social/api/v1/trends/statuses"` | 免費，零 key，300 req/5min per instance |
 | **Lemmy** | Reddit 替代品 federated communities | `curl "https://lemmy.world/api/v3/search?q=...&type_=Posts"` | 免費，零 key |
 | **Lobste.rs JSON** | 高 signal tech community（invite-only） | Append `.json` to any URL，e.g. `https://lobste.rs/hottest.json` | 免費，零 key |
-| **Hashnode GraphQL** | 1M+ tech writers blog platform | `POST https://gql.hashnode.com` GraphQL query | 免費，零 auth for read |
+| **Hashnode GraphQL** | 1M+ tech writers blog platform | `POST https://gql.hashnode.com/` + `Authorization: Bearer {PAT}` | ⚠️ **2026-05-13 起轉收費**，冇免費 endpoint。要 Hashnode PAT |
 | **Discourse** | OSS 社群論壇（Rust/React/OpenAI/Julia） | `curl "https://{instance}/search.json?q=..."` | 免費，多數 instance 零 auth |
 | **StackExchange API** | 170+ sites（ai.se, security.se, devops.se） | `curl "https://api.stackexchange.com/2.3/search?intitle=...&site=ai"` | 免費 key → 10K req/day |
 
@@ -175,7 +175,7 @@
 |-----|--------|------|------|
 | **SEC EDGAR** | US 上市公司 filings（10-K/Q/Form D） | `curl "https://data.sec.gov/submissions/CIK0000320193.json" -H "User-Agent: MyApp/1.0"` | 免費，零 key，10 req/sec |
 | **UK Companies House** | 英國公司董事/帳目/filing history | `curl "https://api.company-information.service.gov.uk/search/companies?q=..." -u "{api_key}:"` | 免費 key，600 req/5min |
-| **YC OSS API** | 5,690 YC 公司，每日更新 | `curl "https://raw.githubusercontent.com/yc-oss/api/main/batches/latest.json"` | 免費，零 key |
+| **YC OSS API** | 5,690 YC 公司，每日更新 | `curl "https://raw.githubusercontent.com/yc-oss/api/main/companies/all.json"`（⚠️ 舊 `batches/latest.json` 404；最新 batch 用 `batches/fall-2026.json`） | 免費，零 key |
 | **AI Funding API** | AI startup funding rounds | `curl "https://aifunding.me/api/v1/rounds?limit=20"` | 免費，零 key |
 | **Finnhub** | 股票/新聞/fundamentals/IPO calendar | `curl "https://finnhub.io/api/v1/stock/profile2?symbol=AAPL&token={key}"` | 免費 key，60 req/min |
 | **FMP** | IPO calendar + M&A data + financials | `curl "https://financialmodelingprep.com/api/v3/ipo_calendar?apikey={key}"` | 免費 key，250 req/day |
@@ -197,12 +197,48 @@
 | **Open PageRank** | Domain authority（Common Crawl-based） | `curl "https://openpagerank.com/api/v1.0/getPageRank?domains[]=example.com" -H "API-OPR: {key}"` | 免費 key，4.3M lookups/day |
 | **OpenRank.io** | Bulk domain authority，40M domains | `curl "https://openrank.io/api/v1/domain?d=example.com"` | 免費，10K req/24h |
 | **crt.sh** | SSL cert lookup + subdomain discovery | `curl "https://crt.sh/?q=example.com&output=json"` | 免費，零 key，零 limit |
-| **Google PageSpeed Insights** | Lighthouse scores + Core Web Vitals | `curl "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=..."` | 免費，25K req/day，零 billing |
+| **Google PageSpeed Insights** | Lighthouse scores + Core Web Vitals | `curl "...runPagespeed?url=...&key={PAGESPEED_API_KEY}"` | ⚠️ keyless quota 而家 = 0（429）。要免費 API key（console.cloud.google.com），25K req/day |
 | **Tranco** | Research-grade top-1M domain ranking | `curl "https://tranco-list.eu/api/ranks/domain/example.com"` | 免費，零 key |
 | **Wayback CDX** | URL snapshot history + timestamps | `curl "http://web.archive.org/cdx/search/cdx?url=example.com&output=json"` | 免費，零 key |
 | **Common Crawl CDX** | Web-scale crawl index（607M domains） | `curl "https://index.commoncrawl.org/CC-MAIN-2026-13-index?url=example.com&output=json"` | 免費，零 key |
 | **Cloudflare Radar** | DNS-based domain popularity ranking | Cloudflare API | 免費 CF key |
 | **Serper.dev** | Google SERP JSON（最慷慨 free tier） | REST API | 免費 2,500 searches/mo |
+
+**新 API（Round 11 新增 — GEO / AI Answer-Engine Visibility）：**
+
+> 呢個 cluster 係查「點樣令一個 product / package 俾 AI engine（ChatGPT/Perplexity/Claude/Google AIO）同 AI coding agent（Cursor/Claude Code/Cline）發現 + 推薦 + 用啱」。Verified 2026-05-30。
+>
+> **核心 evidence（research 出嚟，唔係 vendor hype）：**
+> - **llms.txt 對 AI search（ChatGPT/Perplexity）效果 ≈ 0** — limy.ai 500M bot-event study：500M 次 visit 只有 408 次 fetch `/llms.txt`。Google（John Mueller）確認唔用。GO MO 6-month controlled study：「not a meaningful lever」。
+> - **但 llms.txt 對 coding agent（Cursor @Docs / Claude Code）有用** — limy.ai 同一份 data 確認 B2A（agent）會 fetch。**llms-full.txt 比 llms.txt 更受 OpenAI/Microsoft crawler 歡迎**（少一個 retrieval step）。
+> - **Docs-MCP > llms.txt**（最強 signal）：Astro 2026-05 **移除 llms.txt 改用 MCP server**，因為 llms.txt 係 passive（agent 唔自動發現），MCP 係 active（agent 一定 call）。Better Auth / Stripe / Vercel / Prisma 全部 ship 第一方 docs-MCP。
+> - **Reddit 主導 AI answer citation**：Perplexity 46.7% top citations 嚟自 Reddit；ChatGPT 主 source 係 Reddit/SO/forum。StackOverflow + HuggingFace 係 technical query 最常被引。
+> - **Princeton GEO paper（KDD 2024, arxiv 2311.09735）唯一 peer-reviewed data**：cite external sources +115% visibility、加 statistics +41%、加 expert quotes +28%、keyword stuffing ≈ 0。Lower-ranked page 得益最大。
+> - **Schema markup 令 LLM extraction accuracy 16% → 54%**（Semrush GPT-4 test）。
+> - **Training-data incumbency** 係 root：模型推 lodash 因為佢喺 10M training examples，你個新 lib 喺 12 個。短期冇 GEO tactic 解到，只有 docs-MCP / Context7 繞得過。
+
+| Source / Tool | 做咩用 | 點用 / URL | access |
+|------|--------|-----------|--------|
+| **Context7** | 第三方 index 你個 lib docs，Cursor/Claude Code 自動 inject（4.7M monthly installs, 56K⭐）。**submit 你個 repo = zero-effort win** | github.com/upstash/context7 · context7.com/add-library | 免費 submit |
+| **GitMCP** | `github.com` → `gitmcp.io` 即刻將任何 repo 變 MCP endpoint，auto 讀 llms.txt/README（8.1K⭐） | gitmcp.io | 免費，零 setup |
+| **LangChain mcpdoc** | 包任何 `llms-full.txt` URL 變 MCP tool：`npx mcpdoc --url .../llms-full.txt` | github.com/langchain-ai/mcpdoc | 免費 OSS |
+| **llms.txt 生成 + validate** | Firecrawl generator（爬任何 site 出 llms.txt+full）· llmstxthub.com directory · rankability/rankray validator | llmstxt.firecrawl.dev · llmstxthub.com | 免費 |
+| **Perplexity Sonar API** | programmatically query Perplexity 睇佢答咩 / 引咩 source（測「AI 有冇推我」） | docs.perplexity.ai | API key, $1/M tok + $5-12/1K req |
+| **SerpApi / DataForSEO / SearchAPI.io** | Google **AI Overview** + AI Mode SERP extraction（測你有冇出現喺 AIO） | serpapi.com（100 free/mo）· dataforseo.com · searchapi.io | API key, free tier |
+| **Cloudflare AI Analytics** | 睇 GPTBot/ClaudeBot/PerplexityBot/Google-Extended 有冇爬你 site（free，built-in CF dashboard） | dash.cloudflare.com | 免費（任何 CF plan） |
+| **Dark Visitors** | AI bot traffic analytics + LLM referral tracking + auto robots.txt（freemium，generous free tier） | darkvisitors.com | freemium |
+| **AI-visibility trackers（free tier）** | 量度 brand/package 喺 AI answer 出現率 + share-of-voice。**有免費**：Rankscale（free tier）· Knowatoa（free audit）· Trakkr（free plan）· AIVO/Leapd/Radarkit（free snapshot/ext） | rankscale.ai · knowatoa.com · trakkr.ai · radarkit.ai | 免費 tier / one-shot |
+| **AI-visibility trackers（paid）** | enterprise-grade：Profound（$399+/mo, 10+ engines, Walmart/Figma）· Otterly（$29+, 7-day trial）· Peec（€89+）· Scrunch（$250+, 埋 crawler analytics）· Semrush/SE Ranking AI（$65-140, bolt-on） | tryprofound.com · otterly.ai · peec.ai | paid, 多數有 trial |
+| **Docs platforms（auto MCP+llms.txt）** | Mintlify（auto MCP at /mcp + llms.txt, free Hobby）· Fern（auto llms.txt+MCP, 90% token cut, free Hobby）· ReadMe · Kapa.ai（free for OSS） | mintlify.com · buildwithfern.com | 免費 Hobby / OSS |
+
+**Round 11 — AI-native library 嘅完整 file hierarchy（ship 哂呢啲 = 最 AI-discoverable）：**
+1. `llms.txt` + `llms-full.txt`（docs root）— for Cursor @Docs + GitMCP auto-discovery
+2. **第一方 docs-MCP server**（或 submit Context7）— 最強 active signal
+3. `AGENTS.md`（repo root, 21.8K⭐ standard, Linux Foundation adopted）— agent operational instructions
+4. `.cursorrules` / `.windsurfrules` — IDE agent rules
+5. `SKILL.md` bundled in npm package（npm-agentskills format）— install 即 inject 你 docs
+6. `context7.json` — control Context7 indexing
+7. 完整 TypeScript types + JSDoc — 減 method hallucination（typed codebase agent 表現 dramatically 好）
 
 **新 API（Round 9 新增 — Podcast & Media）：**
 
@@ -222,6 +258,42 @@
 | **CoinGecko** | 17K+ crypto 價格/市值/volume | `curl "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd"` | 免費零 key 5-15 req/min；免費 demo key 30 req/min |
 | **Open-Meteo** | 天氣（1940 年至今）+ 氣候預測 | `curl "https://api.open-meteo.com/v1/forecast?latitude=43.65&longitude=-79.38&hourly=temperature_2m"` | 免費，零 key，10K req/day |
 | **ip-api.com** | IP → 國家/城市/ISP | `curl "http://ip-api.com/json/8.8.8.8"` | 免費，零 key，45 req/min（HTTP only） |
+
+**新 API（Round 10 新增 — Blockchain & On-chain Data）：**
+
+> 所有鏈上活動都係 public。做 crypto/DeFi/NFT research、wallet & token analytics、smart-money / insider 追蹤、DEX flow、prediction market 用呢組。
+> 核心 insight：高勝率 wallet ≠ 你跟單會賺。Latency（Polygon 4-14 秒）、thin market 滑點、exit-liquidity trap、insider 用 fresh wallet，全部會破壞 naive copy-trading。分 skill vs luck 要用 binomial p-value（p<0.001）+ 100+ trade 樣本 gate；捉 fresh-wallet insider 要用 funding-source clustering（唔係 track record）。
+
+| API | 做咩用 | 點用 | 限制 |
+|-----|--------|------|------|
+| **DeFiLlama** | TVL/yields/stablecoins/DEX volume/protocol revenue，全鏈 | `curl "https://api.llama.fi/protocols"`；`curl "https://yields.llama.fi/pools"` | 免費，零 key，零 limit |
+| **DexScreener** | Live DEX token pair 價格/流動性/volume，全鏈（memecoin 必備） | `curl "https://api.dexscreener.com/latest/dex/search?q=SYMBOL"` | 免費，零 key，300 req/min |
+| **GeckoTerminal** | DEX pool/OHLCV per chain | `curl "https://api.geckoterminal.com/api/v2/networks/solana/pools?sort=h24_volume_usd_desc"` | 免費，零 key，30 req/min |
+| **Etherscan V2 (multichain)** | 一個 key 打 60+ EVM 鏈：txns/token transfer/balance/contract source | `curl "https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address=0x...&apikey=KEY"`（chainid: 1=ETH 137=Polygon 8453=Base 42161=Arb 56=BSC） | 免費 key，5 req/sec |
+| **Solana RPC / Solscan** | Solana txns/SPL token flow | `curl https://api.mainnet-beta.solana.com -d '{"jsonrpc":"2.0","id":1,"method":"getSignaturesForAddress","params":["ADDR",{"limit":20}]}'` | 免費 public RPC（有 rate limit）；Solscan free tier |
+| **mempool.space** | Bitcoin txns/mempool/fees | `curl "https://mempool.space/api/address/{addr}"` | 免費，零 key |
+| **Dune Analytics API** | 跑 SQL over decoded chain tables，攞任何 public query 結果 | `curl -H "X-Dune-API-Key: KEY" "https://api.dune.com/api/v1/query/{id}/results"` | 免費 tier（有 credit），需 key |
+| **The Graph** | GraphQL subgraph：protocol-specific entities（position/PnL/holder） | `POST "https://gateway.thegraph.com/api/{key}/subgraphs/id/{id}"` | 需 Graph API key（free tier） |
+| **Bitquery** | GraphQL on-chain 含 DEX trades/transfers/balance，40+ 鏈 | GraphQL endpoint | 免費 tier，需 key |
+| **Covalent/GoldRush · Moralis · Alchemy** | Unified multichain wallet/token/NFT API | REST/SDK | 免費 tier，需 key |
+| **Polymarket Gamma** | Prediction market metadata：conditionId/clobTokenIds/outcomePrices/volume/resolution | `curl "https://gamma-api.polymarket.com/markets?closed=false&limit=10&order=volume&ascending=false"` | 免費，零 key |
+| **Polymarket Data API** | ⭐ Per-wallet PnL 預先計好（smart-money 分析核心） | `curl "https://data-api.polymarket.com/positions?user=0xADDR&sortBy=CASHPNL&sortDirection=DESC"`（→ realizedPnl/avgPrice/cashPnl）；`/trades?limit=100`（proxyWallet/side/price/timestamp/txHash）；`/activity?user=`；`/value?user=` | 免費，零 key |
+| **Polymarket Leaderboard** | Volume 排行 | `curl "https://lb-api.polymarket.com/volume?window=all&limit=20"` | 免費，零 key（PnL-ranked path 未公開） |
+| **Nansen** | Rule-based + clustered「Smart Money」labels，30+ 鏈 | Web/API | 💰 $49/mo Pro（無 published accuracy，heuristic） |
+| **Arkham** | ML entity attribution/deanonymization + bounty marketplace | Web/API | Freemium（attribution 係 inference 唔係 fact） |
+| **Lookonchain** | Whale/smart-money 即時 alert（editorial） | Web/feed | 大致免費 |
+
+**Blockchain 數據 — 開源 reference（睇 methodology）：**
+
+| Repo | Stars | 學咩 |
+|------|-------|------|
+| `harish-garg/Awesome-Polymarket-Tools` | 108 | Polymarket 工具 aggregator |
+| `Drakkar-Software/OctoBot-Prediction-Market` | 88 | 最可信 OSS Polymarket bot（copy-trade + arb） |
+| `web3-data-research/smart-money-tracker` | 29 | Jupyter notebook，documented smart-money 策略（打新/生死追蹤），有中文 doc |
+| `suislanchez/polymarket-insider-detector` | — | Binomial p-value 統計檢測 insider（p<0.001 flag）+ 0-10 suspicion score |
+| `pselamy/polymarket-insider-tracker` | — | 「niche market + unusual sizing + fresh wallet」triad 偵測 |
+| `demwick/polymarket-agent-mcp` | 8 | MCP 48 tools：discover_flow（consensus signal）、score_trader（5 維）、backtest |
+| Dune `couldbebasic/top-traders` | — | De-facto memecoin wallet screen（win rate/ROI/realized PnL/sample gate） |
 
 **MCP for Academic Search（Round 5 新增）：**
 
@@ -684,6 +756,11 @@ If Twitter spend > $5/mo     → ⚠️ review if reads are worth it
 ---
 
 ## Sharpening Log
+
+### Round 11（2026-05-30）— GEO cluster + Health Check + Forum MCP mandate
+- **新 cluster 20：GEO / AI Answer-Engine Visibility**（見上面 SEO section 後）— 補返 engine 一直缺嘅 gap：點令 product/package 俾 AI engine + coding agent 發現/推薦/用啱。核心 evidence：llms.txt 對 AI search ≈ 0（limy.ai 500M event study、Google 官方否認）但對 coding agent 有用；**docs-MCP > llms.txt**（Astro 移除 llms.txt 改 MCP）；Reddit 主導 AI citation（Perplexity 46.7%）；Context7 submit = zero-effort win。
+- **Health check script**（`health-check.sh`）— 逐個 ping zero-key API + CLI + 列 connected MCP，出 `health-check-report.md`。首次跑：**54 個 zero-key API 入面 11 個 dead**。死咗：Reddit .json (403)、Bluesky (403)、Semantic Scholar (429)、GDELT (429)、Google PSI (429)、YC OSS (404, URL 變)、crt.sh (502)、DOAJ (000)、Hashnode (301)、Open Library (422)、Perplexity (403)。**呢個就係之前 agent silently fetch 唔到嘢嘅 root cause** — 以後 research session 前必跑。
+- **Forum MCP mandate**（skill 更新）— Reddit + login-gated forum 強制用 MCP（dialog-mcp）或 logged-in Chrome session，禁 raw curl `.json`（surface + rate-limited）。實證：同一個 topic，curl forum agent 攞到 **0 Reddit data**（"completely blocked"），dialog-mcp + browser agent 攞到 **15+ 完整 comment thread**。
 
 ### Round 1（2026-03-22）
 搵到 30+ 新工具。安裝 5 個：idea-reality、dialog-mcp、free-web-search、newsmcp、mcp-hn。
