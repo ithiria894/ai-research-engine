@@ -286,7 +286,7 @@
 | `memory-management` | 同 Nicole 自己嘅 memory 系統 + externalize-state rule 重疊/衝突 |
 | `keyword-research` · `meta-tags-optimizer` · `seo-content-writer` · `internal-linking-optimizer` · `content-refresher` | 要 keyword-tool data 或純 content-doer，唔屬 research |
 
-> 用法：要做 GEO 工作先 `Read skills/geo/<skill>/SKILL.md`（共享 reference 喺 `skills/geo/_references/`）。零 session 開銷。
+> 用法：要做 GEO 工作先 `Read skills/geo/<skill>/SKILL.md`（每個 skill 自帶 `references/` 有 templates/guides/examples）。零 session 開銷。已刪走 repo 頂層 `_references/`（27 個 ADR/evolution/proposal governance junk，skills 一個都冇引用）。
 > coreyhaines31/marketingskills（⭐31K）嘅 `schema-markup` 同上面 `schema-markup-generator` 重疊，未另外 download。
 
 | ~~**Peec.ai**~~ | ❌ 冇 public API（verified 2026-05-31：`api.peec.ai` / `peec.ai/api` 都 404）。標準 plan 只有 CSV export + Looker connector，API 淨係 Enterprise/custom。**唔好當 API 用** | watch-list only | enterprise-only |
