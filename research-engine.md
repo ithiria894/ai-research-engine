@@ -251,6 +251,22 @@
 | ⭐ `GET /v1/reports/brand/{id}/recommendations` | 可執行 GEO 建議 |
 | `GET·POST /v1/audits/geo/crawlability-checks` · `/content-checks` | GEO audit：crawlability + content check（POST 開 check，GET 攞結果） |
 | `GET /v1/workspaces` · `/{id}/tags` · `/v1/accounts/info` | Workspace / account meta |
+
+**GEO/AEO Skills landscape（2026-05-31 用 zero-key skill API 實 pull，按 install 量排）：**
+
+> 透過 skills.sh（`/api/search?q=`）+ agentskills.to pull。`source` field = GitHub repo，install：`npx skills add <owner/repo>`（或加 `/skill` 揀單個）。⚠️ 每裝一個 SKILL.md，個 description 每次 session 入 context — 揀住裝，唔好 bulk。
+
+| Skill | installs | Source repo（⭐） | 用途 |
+|-------|:--------:|------------------|------|
+| `schema-markup` | 55K | **coreyhaines31/marketingskills**（⭐31,265） | ⭐ 對應 engine 已記 evidence：schema → LLM extraction 16%→54% |
+| `seo-audit` | 124K | coreyhaines31/marketingskills | full SEO audit（broad marketing repo） |
+| `ai-seo` / `programmatic-seo` | 63K / 76K | coreyhaines31/marketingskills | AI-SEO / 批量 SEO |
+| `seo-geo` | 28K | **ReScienceLab/opc-skills**（⭐903） | 單一 GEO 優化 skill |
+| **整套 seo-geo-claude-skills（20 個）** | 4-21K each | **aaron-he-zhu/seo-geo-claude-skills**（⭐1,919, Apache-2.0, CORE-EEAT+CITE framework） | ⭐ **最對口 GEO research toolkit**：geo-content-optimizer · content-gap-analysis · competitor-analysis · technical-seo-checker · on-page-seo-auditor · backlink-analyzer · meta-tags-optimizer · keyword-research… |
+| `audit-website` · `competitor-alternatives` | 55K · 11.6K | agentskills.to | site audit · 競品比較頁 |
+
+> **建議**（未裝，要用先揀）：要單一最對口 = `aaron-he-zhu/seo-geo-claude-skills` 入面嘅 `geo-content-optimizer`；要 engine evidence 對應 = `coreyhaines31/marketingskills` 嘅 `schema-markup`；要成套 GEO workflow = 裝全 `aaron-he-zhu/seo-geo-claude-skills`（但 20 個 description 入 context）。
+
 | ~~**Peec.ai**~~ | ❌ 冇 public API（verified 2026-05-31：`api.peec.ai` / `peec.ai/api` 都 404）。標準 plan 只有 CSV export + Looker connector，API 淨係 Enterprise/custom。**唔好當 API 用** | watch-list only | enterprise-only |
 | **Docs platforms（auto MCP+llms.txt）** | Mintlify（auto MCP at /mcp + llms.txt, free Hobby）· Fern（auto llms.txt+MCP, 90% token cut, free Hobby）· ReadMe · Kapa.ai（free for OSS） | mintlify.com · buildwithfern.com | 免費 Hobby / OSS |
 | **⭐ Skills marketplace APIs（zero-key，verified 2026-05-31）** | Programmatic 查 AI-agent skills（GEO/AEO/SEO 相關 SKILL.md）+ install 量遙測。**skills.sh**（Vercel-Labs directory）：`GET https://www.skills.sh/api/search?q=geo`（200 JSON，含 install counts，GET-only；CLI `npx skills add owner/repo`）。**agentskills.to**（marketplace，注意 `.to` 唔係 `.io`）：`GET https://www.agentskills.to/api/skills?q=seo`（200 JSON，含 total_install/weekly_install + 現成 install_command）。**skilldock.io**（registry，**API 喺 `api.` subdomain**）：`GET https://api.skilldock.io/v1/skills`（200，免 auth 返 188 skills）· `/v1/stats` · `/openapi.json`；官方 SDK `pip install skilldock`（Apache-2.0） | skills.sh · agentskills.to · api.skilldock.io | 免費，零 key |
