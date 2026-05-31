@@ -755,7 +755,7 @@ Compile all findings into structured report:
 |-----|--------|--------------|---------------|
 | `scrapegraph` | `npx scrapegraph-mcp-server` → npm 404（package 從未存在） | `uvx scrapegraph-mcp`（官方 ScrapeGraphAI，78⭐）但**要收費 `SGAI_API_KEY`** | open-websearch / firecrawl / tavily 已 cover scraping |
 | `free-web-search` | `npx free-web-search-ultimate` → npm 404（package 已消失） | 搵返可信版本，或轉 `npx duckduckgo-mcp-server` | **`open-websearch`（1335⭐，已裝）** — Phase 1 改用咗佢 |
-| `jobspy` | `npx jobspy-mcp-server` → npm 404；PyPI 同名版 author null 疑 squatter（**唔好裝**） | clone `borgius/jobspy-mcp-server` source（Node，未 publish npm）→ 本地 build 指落 config。底層 `python-jobspy` lib healthy | 暫無（hiring-signal 數據要等修好） |
+| ~~`jobspy`~~ ✅ **修好咗 2026-05-31** | ~~npm 404~~ | **已 clone `borgius/jobspy-mcp-server` → `~/MyGithub/jobspy-mcp-server`，`npm ci`，修咗 prompt registration bug（SDK 1.27.1 要 raw shape 唔係 `z.object()`），boot-test 出 `search_jobs` tool**。config 已指去 `node .../src/index.js`（ENABLE_SSE=0） | — 已修 |
 | `scholar-mcp` | 1⭐ solo，被 paper-search（1630⭐）完全蓋過 | 唔修，直接換 → `paper-search-mcp`（已裝）或 `JackKuo666/Google-Scholar-MCP-Server`（343⭐） | **`paper-search` / `arxiv`（已裝）** |
 
 > 修好步驟：boot-test（stdio `initialize`+`tools/list`）→ `claude mcp remove <name>` 舊 entry → `claude mcp add -s user <name> -- <new cmd>` → 跑 health-check.sh 確認 → engine 劃走。
@@ -766,7 +766,9 @@ Compile all findings into structured report:
 
 > 2026-05-31 audit：config 入面**冇一個 research-data free-key API 配咗 key** → 下面全部 listed 但用唔到（endpoint verified alive-needs-key）。撳完 signup 攞到 key，話我知我即刻配落去 + 測試。**優先按 research 用得多嘅排**。
 >
-> ⚡ **唔使 signup 即刻用**：Congress.gov / govinfo.gov / OpenFEC 全部 `api_key=DEMO_KEY` 即得（rate 低但夠 test）。
+> ⚡ **唔使 signup 即刻用**：Congress.gov / govinfo.gov / OpenFEC 全部 `api_key=DEMO_KEY` 即得（2026-05-31 實測：Congress 200、govinfo 41 collections、OpenFEC 返真 candidate data）。
+>
+> 🗝️ **Keys 已建 scaffold**：`~/.config/research-engine/keys.env`（gitignored，chmod 600）。DEMO_KEY 嗰啲已填好可即用；signup key 留空。用法：`set -a; source ~/.config/research-engine/keys.env; set +a` 然後 curl 用 `${FRED_API_KEY}` 等。攞到新 key 填入去就即刻通。
 
 | 優先 | API | 解鎖 | Signup（多數 instant email） |
 |:---:|-----|------|------------------------------|
@@ -898,8 +900,9 @@ If Twitter spend > $5/mo     → ⚠️ review if reads are worth it
 ### Round 13（2026-05-31）— Engine-wide sharpen（非 GEO）：fix broken MCP + 16 個新 zero-key source + dormant-key audit
 
 **1. 4 個 MCP 而家根本起唔到（npm 404，config 有但靜靜地 fail — 同 silent-fetch-nothing 同一 root cause）**，全部我親手 `curl registry.npmjs.org` 確認 404。**Nicole 指示：唔好 remove，park 喺「💀 死咗 MCP — 待 fix queue」section 慢慢修**（見下面）：
-- `scrapegraph` · `free-web-search` · `jobspy` → **保留喺 config + parked 待 fix**（fix path 見 queue）。⚠️ 未 fix 前每 session 會 show connection error（係刻意嘅 reminder）。
-- `mcp-hn`（`npx mcp-hn` 404）→ **已修好 → `uvx mcp-hn`**（PyPI 正版，boot-tested，唔係 removal 係 fix）。
+- `mcp-hn` → **已修** → `uvx mcp-hn`（PyPI 正版，boot-tested）。
+- `jobspy` → **已修**（clone borgius source → `~/MyGithub/jobspy-mcp-server`，`npm ci`，patch 咗 SDK 1.27.1 prompt bug〔`z.object()`→raw shape〕，boot 出 `search_jobs`）。config 指去本地 build。
+- `scrapegraph`（替代要收費 SGAI key）· `free-web-search`（被 open-websearch 取代）· `scholar-mcp`（被 paper-search 取代）→ **保留喺 config + parked**（見「💀 死咗 MCP queue」）。⚠️ 未處理前每 session show connection error，係刻意 reminder。
 - 其餘 research MCP 全 audit 過：healthy（idea-reality 708⭐、open-websearch 1335⭐、arxiv 2803⭐、paper-search 1630⭐、google-trends 81⭐…）；`scholar-mcp`（1⭐）被 paper-search 蓋過，列入 queue 待換。
 
 **2. 16 個新 zero-key source（全部我 curl 200，開新 domain）** — 見上面「Round 13 新增」cluster。最高值：OpenReview（peer-review discourse）、CourtListener（美國 case-law）、SEC EFTS（filing 全文）、Socrata（救返 data.gov）、OpenRouter（live LLM catalog）。另 5 個 free-key（govinfo/OpenFEC `DEMO_KEY` 即用）。
