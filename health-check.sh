@@ -9,8 +9,10 @@
 
 set -uo pipefail
 REPORT="$(dirname "$0")/health-check-report.md"
-TIMEOUT=12
+TIMEOUT=25          # per-try ceiling; crt.sh / S2 are slow, give them room
+CONNECT_TIMEOUT=10
 PASS=0; FAIL=0; WARN=0
+CLAUDE_CFG="$HOME/.claude.json"
 
 # Each test: name | method | url | extra-curl-args | expect-substring (optional)
 # We check HTTP 2xx AND a non-empty plausible body.
@@ -23,7 +25,12 @@ check() {
   # ONE curl per endpoint (body to tmp, code via -w). Doing two separate curls
   # would double-hit rate-limited APIs (e.g. GDELT 1req/5s) and falsely fail them.
   tmp=$(mktemp)
-  code=$(curl -s --max-time "$TIMEOUT" -A "ResearchEngineHealthCheck/1.0" "${extra[@]}" -o "$tmp" -w "%{http_code}" "$url" 2>/dev/null)
+  # --retry 3 + --retry-all-errors so transient 429 / 5xx / 000-timeout (DOAJ,
+  # crt.sh, Semantic Scholar, PyPI) get re-attempted instead of falsely reported
+  # dead. curl retries on a fresh transfer each time, with exponential-ish backoff.
+  code=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" \
+    --retry 3 --retry-delay 2 --retry-all-errors --retry-connrefused \
+    -A "ResearchEngineHealthCheck/1.0" "${extra[@]}" -o "$tmp" -w "%{http_code}" "$url" 2>/dev/null)
   size=$(wc -c < "$tmp" 2>/dev/null || echo 0)
   rm -f "$tmp"
   if [[ "$code" =~ ^2 ]] && [[ "$size" -gt 2 ]]; then
@@ -109,6 +116,79 @@ check "GitMCP (reachable)"      "https://gitmcp.io/"
 # Perplexity / OpenAI / Anthropic probing = key-based APIs, not zero-key. Not tested here.
 #   Use Sonar (api.perplexity.ai) with PERPLEXITY_API_KEY for AI-answer probing.
 
+# ── GEO skills-marketplace APIs (Round 12, verified 2026-05-31) ────────
+check "skills.sh search"        "https://www.skills.sh/api/search?q=geo"
+check "agentskills.to list"     "https://www.agentskills.to/api/skills?q=seo"
+check "Otterly OpenAPI spec"    "https://data.otterly.ai/v1/openapi.json"
+
+# ── MCP liveness probe (Round 12) ─────────────────────────────────────
+# CONNECTED ≠ WORKING. A configured MCP can be quota-dead. We hit each keyed
+# service's REST endpoint with the REAL key (read from ~/.claude.json) so the
+# report shows ACTUAL usability, not just "listed in config".
+#   ⚠️ tavily/exa probes spend ~1 search credit each when quota IS available
+#      (free when already exhausted). Worth it: accurate > free (engine philosophy).
+#   OAuth MCPs (dialog-mcp) can't be auth'd from bash — only Claude's stored
+#   token works; we report reachability + tell the agent to confirm in-session.
+mcp_results=()
+if [[ -f "$CLAUDE_CFG" ]]; then
+  TKEY=$(jq -r '.mcpServers.tavily.url // ""' "$CLAUDE_CFG" | grep -oP 'tavilyApiKey=\K[^&"]+' || true)
+  if [[ -n "${TKEY:-}" ]]; then
+    c=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" -o /dev/null -w "%{http_code}" \
+      -X POST "https://api.tavily.com/search" -H "Authorization: Bearer $TKEY" \
+      -H "Content-Type: application/json" -d '{"query":"healthcheck","max_results":1}')
+    case "$c" in
+      2*)  mcp_results+=("✅ | tavily | $c | search OK — quota available");;
+      432) mcp_results+=("❌ | tavily | 432 | QUOTA EXCEEDED — connected but search DEAD");;
+      4*)  mcp_results+=("⚠️ | tavily | $c | reachable, auth/plan issue");;
+      *)   mcp_results+=("❌ | tavily | ${c:-000} | unreachable");;
+    esac
+  else mcp_results+=("⚠️ | tavily | — | not configured / no key in ~/.claude.json"); fi
+
+  EKEY=$(jq -r '.mcpServers.exa.url // ""' "$CLAUDE_CFG" | grep -oP 'exaApiKey=\K[^&"]+' || true)
+  if [[ -n "${EKEY:-}" ]]; then
+    c=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" -o /dev/null -w "%{http_code}" \
+      -X POST "https://api.exa.ai/search" -H "x-api-key: $EKEY" \
+      -H "Content-Type: application/json" -d '{"query":"healthcheck","numResults":1}')
+    case "$c" in
+      2*)  mcp_results+=("✅ | exa | $c | search OK — credits available");;
+      402) mcp_results+=("❌ | exa | 402 | CREDITS EXCEEDED — connected but search DEAD");;
+      4*)  mcp_results+=("⚠️ | exa | $c | reachable, auth/plan issue");;
+      *)   mcp_results+=("❌ | exa | ${c:-000} | unreachable");;
+    esac
+  else mcp_results+=("⚠️ | exa | — | not configured / no key in ~/.claude.json"); fi
+
+  FKEY=$(jq -r '.mcpServers.firecrawl.env.FIRECRAWL_API_KEY // ""' "$CLAUDE_CFG")
+  if [[ -n "${FKEY:-}" ]]; then
+    body=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" \
+      "https://api.firecrawl.dev/v1/team/credit-usage" -H "Authorization: Bearer $FKEY")
+    rem=$(echo "$body" | jq -r '.data.remaining_credits // empty' 2>/dev/null)
+    if [[ -n "$rem" ]]; then mcp_results+=("✅ | firecrawl | 200 | $rem credits remaining");
+    else mcp_results+=("❌ | firecrawl | — | credit-usage probe failed (key dead?)"); fi
+  else mcp_results+=("⚠️ | firecrawl | — | no FIRECRAWL_API_KEY in config"); fi
+
+  # dialog-mcp: OAuth remote MCP — bash can't present Claude's token. initialize
+  # without auth returns 401 (= endpoint reachable). True test = Claude calling it.
+  DURL=$(jq -r '.mcpServers["dialog-mcp"].url // ""' "$CLAUDE_CFG")
+  if [[ -n "$DURL" ]]; then
+    c=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" -o /dev/null -w "%{http_code}" \
+      -X POST "$DURL" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
+      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"hc","version":"1"}}}')
+    case "$c" in
+      401|403) mcp_results+=("➖ | dialog-mcp | $c | endpoint reachable (OAuth) — confirm via Claude tool call");;
+      2*)      mcp_results+=("✅ | dialog-mcp | $c | initialize OK");;
+      *)       mcp_results+=("❌ | dialog-mcp | ${c:-000} | unreachable");;
+    esac
+  fi
+
+  # context7: stdio MCP, zero-key. Probe public API; real test = Claude resolve-library-id.
+  c=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" -o /dev/null -w "%{http_code}" \
+    "https://context7.com/api/v1/search?query=react" || true)
+  case "$c" in
+    2*) mcp_results+=("✅ | context7 | $c | search API OK");;
+    *)  mcp_results+=("➖ | context7 | ${c:-000} | stdio MCP — confirm via Claude resolve-library-id");;
+  esac
+fi
+
 # ── Write report ──────────────────────────────────────────────────────
 {
   echo "# Research Engine — Health Check Report"
@@ -144,9 +224,20 @@ check "GitMCP (reachable)"      "https://gitmcp.io/"
     echo "| ⚠️ | gh (auth) | NOT authenticated — gh search may fail |"
   fi
   echo ""
-  echo "## Connected MCP servers"
+  echo "## MCP liveness (real probe — CONNECTED ≠ WORKING)"
+  echo ""
+  echo "Each keyed service hit with its real key. ❌ = configured but the actual"
+  echo "call fails (quota/credits dead). ➖ = endpoint reachable but final word"
+  echo "needs Claude calling the tool in-session (OAuth / stdio transport)."
+  echo ""
+  echo "| Status | MCP | HTTP | Note |"
+  echo "|--------|-----|------|------|"
+  printf '%s\n' "${mcp_results[@]:-}" | sed '/^$/d; s/^/| /; s/ | /| /g; s/$/ |/'
+  echo ""
+  echo "## All configured MCP servers"
   echo ""
   echo "Detected from Claude config. A research agent can only use an MCP if it shows here."
+  echo "Presence = configured (may still be quota-dead — see liveness table above)."
   echo ""
   echo "| MCP server |"
   echo "|------------|"
@@ -156,8 +247,6 @@ check "GitMCP (reachable)"      "https://gitmcp.io/"
       break
     fi
   done
-  echo ""
-  echo "_Note: MCP liveness isn't pinged here (each server has a different probe). Absence from this list = definitely unavailable. Presence = configured, but may still error at call time._"
 } > "$REPORT"
 
 echo ""

@@ -1,6 +1,6 @@
 # Research Engine — 資料搜集工具 Inventory
 
-> 最後更新：2026-04-03（Round 9: 16-agent comprehensive audit — trend/influencer, patents, podcasts, community, package registries, gov/economic, company/startup, SEO, citations, AI brand visibility, workflow improvements）
+> 最後更新：2026-05-31（Round 12: retry logic + 真 MCP liveness probe + stale-URL sweep〔再 fix 8 個〕+ skills-marketplace zero-key API + Otterly OpenAPI）。前置：Round 11（GEO cluster + health-check）、Round 9（16-agent audit）。
 > 呢個 file 係 research 工具嘅 master list。定期更新（搵新 API、MCP、data source）。
 > Skill: `/market-research` 會 reference 呢個 file。
 >
@@ -10,6 +10,13 @@
 ---
 
 ## 已安裝（✅ 即刻可用）
+
+> ⚠️ **CONNECTED ≠ WORKING（2026-05-31 live-probe）**：MCP 喺 config 入面 ≠ 真係用得。今次實測：
+> - **Tavily**：`tavily_search` 返 `432 — plan usage limit exceeded`（**quota 爆咗，search 用唔到**）。
+> - **Exa**：`web_search_exa` 返 `402 — credits exceeded`（**$10 one-time credit 用晒**）。
+> - ✅ 仲 work：Firecrawl（972/1000 credit）、Context7、dialog-mcp（Reddit）。
+>
+> 即係 research 前**一定要跑 `health-check.sh`** 睇個 MCP liveness table（佢用真 key 打 search endpoint 偵測 quota 死），唔好假設「config 有 = 用得」。Tavily/Exa quota 爆 → fallback `free-web-search` / `open-webSearch` / Firecrawl Search。
 
 ### Deep Research
 
@@ -33,7 +40,7 @@
 
 | Tool | 做咩用 | 成本 | MCP Tool |
 |------|--------|------|----------|
-| **Firecrawl Scrape/Crawl/Map/Search/Extract** | 抓網頁 → clean markdown | 500 credits free | `mcp__firecrawl__*` |
+| **Firecrawl Scrape/Crawl/Map/Search/Extract** | 抓網頁 → clean markdown | **1000 credits/月**（2026-05-31 verified：plan_credits 1000，月度 reset，唔再係舊 500 lifetime） | `mcp__firecrawl__*` |
 
 ### Product Validation & Competitive Intelligence（Round 1 新增）
 
@@ -63,10 +70,10 @@
 | **arXiv cs.IR** | Information Retrieval 學術 papers（search benchmark 類） | `https://export.arxiv.org/rss/cs.IR` |
 | **arXiv cs.AI** | AI 學術 papers | `https://export.arxiv.org/rss/cs.AI` |
 | **arXiv cs.LG** | Machine Learning papers | `https://export.arxiv.org/rss/cs.LG` |
-| **Papers with Code** | 最新 ML papers + benchmark results | `https://paperswithcode.com/latest.rss` |
-| **Hugging Face Papers** | Curated AI papers，有社群討論 | `https://huggingface.co/papers.rss` |
-| **OpenAI News** | OpenAI research + product announcements | `https://openai.com/news/rss.xml` |
-| **LangChain Blog** | LangChain engineering findings | `https://blog.langchain.com/rss/` |
+| ~~**Papers with Code**~~ | ❌ **DEAD（verified 2026-05-31）** — PwC 被 HuggingFace 收購，`latest.rss` 302→HF papers HTML，冇 RSS。Workaround：用 HF papers MCP 或 `rsshub.app/huggingface/daily-papers`（rate-limited） | ~~`https://paperswithcode.com/latest.rss`~~ |
+| ~~**Hugging Face Papers**~~ | ❌ **DEAD（verified 2026-05-31）** — HF 移除咗 `papers.rss`（404，所有 variant 都死）。Workaround：`rsshub.app/huggingface/daily-papers`（403 rate-limited）或 scrape `huggingface.co/papers/trending` | ~~`https://huggingface.co/papers.rss`~~ |
+| **OpenAI News** | OpenAI research + product announcements | `https://openai.com/news/rss.xml` ✅ verified 2026-05-31 |
+| ~~**LangChain Blog**~~ | ❌ **DEAD（verified 2026-05-31）** — blog 搬離 Ghost，`blog.langchain.com/rss/` 301→`www.langchain.com/blog/rss`→301→`/blog`（HTML，唔係 feed）。LangChain 似乎已撤 RSS | ~~`https://blog.langchain.com/rss/`~~ |
 | **The Gradient** | Deep-dive AI research commentary | `https://thegradient.pub/rss` |
 | **Simon Willison** | LLM tool findings + practical benchmarks（高 signal） | `https://simonwillison.net/atom/everything/` |
 | **Import AI** | Jack Clark weekly AI research digest | `https://importai.substack.com/feed` |
@@ -175,7 +182,7 @@
 |-----|--------|------|------|
 | **SEC EDGAR** | US 上市公司 filings（10-K/Q/Form D） | `curl "https://data.sec.gov/submissions/CIK0000320193.json" -H "User-Agent: MyApp/1.0"` | 免費，零 key，10 req/sec |
 | **UK Companies House** | 英國公司董事/帳目/filing history | `curl "https://api.company-information.service.gov.uk/search/companies?q=..." -u "{api_key}:"` | 免費 key，600 req/5min |
-| **YC OSS API** | 5,690 YC 公司，每日更新 | `curl "https://raw.githubusercontent.com/yc-oss/api/main/companies/all.json"`（⚠️ 舊 `batches/latest.json` 404；最新 batch 用 `batches/fall-2026.json`） | 免費，零 key |
+| **YC OSS API** | YC 公司，每日更新 | `all.json` 仲 work 喺 raw host：`curl "https://raw.githubusercontent.com/yc-oss/api/main/companies/all.json"`。⚠️ **但 per-batch 要用 github.io host（2026-05-31 fix）**：`https://yc-oss.github.io/api/batches/<batch>.json`（raw host 嘅 `batches/` 路徑 404）。最新 batch 睇 `https://yc-oss.github.io/api/meta.json` → 而家係 summer-2026 / fall-2026 / **winter-2027** | 免費，零 key |
 | **AI Funding API** | AI startup funding rounds | `curl "https://aifunding.me/api/v1/rounds?limit=20"` | 免費，零 key |
 | **Finnhub** | 股票/新聞/fundamentals/IPO calendar | `curl "https://finnhub.io/api/v1/stock/profile2?symbol=AAPL&token={key}"` | 免費 key，60 req/min |
 | **FMP** | IPO calendar + M&A data + financials | `curl "https://financialmodelingprep.com/api/v3/ipo_calendar?apikey={key}"` | 免費 key，250 req/day |
@@ -185,7 +192,7 @@
 
 | API | 做咩用 | 點用 | 限制 |
 |-----|--------|------|------|
-| **USPTO PatentsView** | US 專利搜尋（發明人/分類/citation） | `curl "https://search.patentsview.org/api/v1/patent/?q=..."` | 免費 key，45 req/min（⚠️ 遷移至 data.uspto.gov，舊 API 2026-04-20 關） |
+| **USPTO ODP（前 PatentsView）** | US 專利搜尋（發明人/分類/citation） | `curl "https://data.uspto.gov/api/v1/patent/applications/search?q=..."`（GET 或 POST JSON 都得，verified 200 2026-05-31） | 免費（部分要 key）。⚠️ **舊 `search.patentsview.org` 2026-03-20 已遷移，而家 DNS NXDOMAIN（死）** |
 | **EPO OPS** | 歐洲 + WIPO + 多國專利 | `https://ops.epo.org/3.2/rest-services/` | 免費 registration，4 GB/week |
 | **Lens.org** | 140M+ 專利 + scholarly citation 交叉分析 | `curl "https://api.lens.org/patent/search"` | 免費 for non-commercial research（需申請 key） |
 | **Google Patents BigQuery** | 76M+ 全球專利（US/EU/CN/JP/KR） | BigQuery SQL | Google Cloud 1 TB/mo 免費 |
@@ -195,12 +202,12 @@
 | API | 做咩用 | 點用 | 限制 |
 |-----|--------|------|------|
 | **Open PageRank** | Domain authority（Common Crawl-based） | `curl "https://openpagerank.com/api/v1.0/getPageRank?domains[]=example.com" -H "API-OPR: {key}"` | 免費 key，4.3M lookups/day |
-| **OpenRank.io** | Bulk domain authority，40M domains | `curl "https://openrank.io/api/v1/domain?d=example.com"` | 免費，10K req/24h |
+| ~~**OpenRank.io**~~ | ❌ **DEAD（verified 2026-05-31）** — `openrank.io` 而家 serve React SPA，`/api/v1/domain` 返 404 HTML，搵唔到公開 JSON API（似已停運）。改用 Open PageRank（上面，免費 key，仲 work） | ~~`https://openrank.io/api/v1/domain?d=...`~~ |
 | **crt.sh** | SSL cert lookup + subdomain discovery | `curl "https://crt.sh/?q=example.com&output=json"` | 免費，零 key，零 limit |
 | **Google PageSpeed Insights** | Lighthouse scores + Core Web Vitals | `curl "...runPagespeed?url=...&key={PAGESPEED_API_KEY}"` | ⚠️ keyless quota 而家 = 0（429）。要免費 API key（console.cloud.google.com），25K req/day |
 | **Tranco** | Research-grade top-1M domain ranking | `curl "https://tranco-list.eu/api/ranks/domain/example.com"` | 免費，零 key |
 | **Wayback CDX** | URL snapshot history + timestamps | `curl "http://web.archive.org/cdx/search/cdx?url=example.com&output=json"` | 免費，零 key |
-| **Common Crawl CDX** | Web-scale crawl index（607M domains） | `curl "https://index.commoncrawl.org/CC-MAIN-2026-13-index?url=example.com&output=json"` | 免費，零 key |
+| **Common Crawl CDX** | Web-scale crawl index（607M domains） | ⚠️ **唔好 hardcode index 日期**（2026-05-31：`CC-MAIN-2026-13` 已 roll over，404）。先攞最新：`curl "https://index.commoncrawl.org/collinfo.json"` → 用 `[0].id`（而家係 `CC-MAIN-2026-21`）→ `curl "https://index.commoncrawl.org/CC-MAIN-2026-21-index?url=example.com&output=json"` | 免費，零 key |
 | **Cloudflare Radar** | DNS-based domain popularity ranking | Cloudflare API | 免費 CF key |
 | **Serper.dev** | Google SERP JSON（最慷慨 free tier） | REST API | 免費 2,500 searches/mo |
 
@@ -228,8 +235,12 @@
 | **Cloudflare AI Analytics** | 睇 GPTBot/ClaudeBot/PerplexityBot/Google-Extended 有冇爬你 site（free，built-in CF dashboard） | dash.cloudflare.com | 免費（任何 CF plan） |
 | **Dark Visitors** | AI bot traffic analytics + LLM referral tracking + auto robots.txt（freemium，generous free tier） | darkvisitors.com | freemium |
 | **AI-visibility trackers（free tier）** | 量度 brand/package 喺 AI answer 出現率 + share-of-voice。**有免費**：Rankscale（free tier）· Knowatoa（free audit）· Trakkr（free plan）· AIVO/Leapd/Radarkit（free snapshot/ext） | rankscale.ai · knowatoa.com · trakkr.ai · radarkit.ai | 免費 tier / one-shot |
-| **AI-visibility trackers（paid）** | enterprise-grade：Profound（$399+/mo, 10+ engines, Walmart/Figma）· Otterly（$29+, 7-day trial）· Peec（€89+）· Scrunch（$250+, 埋 crawler analytics）· Semrush/SE Ranking AI（$65-140, bolt-on） | tryprofound.com · otterly.ai · peec.ai | paid, 多數有 trial |
+| **AI-visibility trackers（paid）** | enterprise-grade：Profound（$399+/mo, 10+ engines, Walmart/Figma）· Scrunch（$250+, 埋 crawler analytics）· Semrush/SE Ranking AI（$65-140, bolt-on） | tryprofound.com | paid, 多數有 trial |
+| **⭐ Otterly.ai — 有真 API（verified 2026-05-31）** | AI-answer visibility + share-of-voice，**唯一查到有公開 OpenAPI 嘅 tracker**。Base `https://data.otterly.ai/v1`。**Zero-key OpenAPI spec**（可直接攞做 reference）：`GET https://data.otterly.ai/v1/openapi.json`（200）。實際 data：`Authorization: Bearer oai_live_xxx`（unauth→401）。**Trial 都拎到 key**（7 日試用即生成，無 free-forever tier）。仲有 **Claude Skill**：`claude skill add` 個 `.skill`（otterly-skills.s3...） | data.otterly.ai/v1/openapi.json · app.otterly.ai/api-keys | freemium（trial 給 key） |
+| ~~**Peec.ai**~~ | ❌ 冇 public API（verified 2026-05-31：`api.peec.ai` / `peec.ai/api` 都 404）。標準 plan 只有 CSV export + Looker connector，API 淨係 Enterprise/custom。**唔好當 API 用** | watch-list only | enterprise-only |
 | **Docs platforms（auto MCP+llms.txt）** | Mintlify（auto MCP at /mcp + llms.txt, free Hobby）· Fern（auto llms.txt+MCP, 90% token cut, free Hobby）· ReadMe · Kapa.ai（free for OSS） | mintlify.com · buildwithfern.com | 免費 Hobby / OSS |
+| **⭐ Skills marketplace APIs（zero-key，verified 2026-05-31）** | Programmatic 查 AI-agent skills（GEO/AEO/SEO 相關 SKILL.md）+ install 量遙測。**skills.sh**（Vercel-Labs directory）：`GET https://www.skills.sh/api/search?q=geo`（200 JSON，含 install counts，GET-only；CLI `npx skills add owner/repo`）。**agentskills.to**（marketplace，注意 `.to` 唔係 `.io`）：`GET https://www.agentskills.to/api/skills?q=seo`（200 JSON，含 total_install/weekly_install + 現成 install_command） | skills.sh · agentskills.to | 免費，零 key（undocumented，可能變） |
+| **agentskills-mcp（有 MCP 可裝）** | 將 AgentSkills/SKILL.md 生態變 MCP：discover + install skills from GitHub collections。**Nicole「有 MCP 就裝」首選** | `github.com/pinkpixel-dev/agentskills-mcp`（FastMCP）· 另有 mrsimpson/zouyingcao 版本 | 免費 |
 
 **Round 11 — AI-native library file hierarchy（2026-05-30 Round 2 修正排序，按真實 leverage）：**
 
@@ -241,7 +252,7 @@
 4. `AGENTS.md`（repo root, 134K+ files, Linux Foundation）— **淨係 FACTS**（path/command/config shape），每項 ≤1 句、正面 phrasing。只幫 clone 你 repo 嘅人。
 5. `context7.json` — 認領/控制你 Context7 listing（1,740 files, ownership land-grab）。
 6. `llms.txt` + `llms-full.txt` — llms-full 有用（manual Cursor @Docs paste + GitMCP）；llms.txt 對 AI search ≈ 0（多個 500M+ event study 確認）但 Lighthouse 13.3.0 而家 audit 佢。低 priority、cheap、唔好 oversell。
-7. `.cursorrules` / `.windsurfrules`；watch **WebMCP**（Feb 2026 Chrome preview, 未有 adoption data）。
+7. `.cursorrules` / `.windsurfrules`；watch **WebMCP**（verified 2026-05-31：W3C **Web Machine Learning** group draft，Microsoft+Google co-edit，**唔係 WICG**；JS API `navigator.modelContext.registerTool()`；Chrome 146 起 flag-gated DevTrial（`chrome://flags` → Experimental Web Platform Features）。spec repo `github.com/webmachinelearning/webmcp`（有 `index.bs` Bikeshed + `w3c.json`）。**仲未可以攞嚟做 research data source**——係畀網站 expose tool 畀 agent，無 hosted endpoint 查。純 watch-list）。
 
 **新 API（Round 9 新增 — Podcast & Media）：**
 
@@ -257,7 +268,7 @@
 
 | API | 做咩用 | 點用 | 限制 |
 |-----|--------|------|------|
-| **Frankfurter** | 160+ 央行匯率，歷史數據 | `curl "https://api.frankfurter.dev/latest?from=USD"` | 免費，零 key，零 limit |
+| **Frankfurter** | 160+ 央行匯率，歷史數據 | `curl "https://api.frankfurter.dev/v1/latest?from=USD"`（⚠️ 2026-05-31 fix：path 加咗 `/v1/`；舊 `/latest` 而家 404。`api.frankfurter.app` 301→同樣 `/v1`） | 免費，零 key，零 limit |
 | **CoinGecko** | 17K+ crypto 價格/市值/volume | `curl "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd"` | 免費零 key 5-15 req/min；免費 demo key 30 req/min |
 | **Open-Meteo** | 天氣（1940 年至今）+ 氣候預測 | `curl "https://api.open-meteo.com/v1/forecast?latitude=43.65&longitude=-79.38&hourly=temperature_2m"` | 免費，零 key，10K req/day |
 | **ip-api.com** | IP → 國家/城市/ISP | `curl "http://ip-api.com/json/8.8.8.8"` | 免費，零 key，45 req/min（HTTP only） |
@@ -720,11 +731,11 @@ Compile all findings into structured report:
 |------|---------|:------------------:|---------|
 | **Tavily** | 1000 credits/mo（每月 reset） | 2.4 個月嘅 heavy use 先爆 | 超額 $0.01/search |
 | **Exa** | $10 one-time credit | ~71 次 research session | 要畀 $0.007/search |
-| **Firecrawl** | 500 credits（lifetime！唔 reset） | 6 個月 normal use | 要畀 $16/mo（Hobby plan） |
+| **Firecrawl** | ~~500 lifetime~~ → **1000 credits/月**（2026-05-31 verified，月度 reset） | normal use 用唔晒 | 超額先 $16/mo（Hobby） |
 
 ### ⚠️ Firecrawl 係唯一真正會「用完」嘅
 
-Firecrawl 500 credits 係 **lifetime，唔係每月**。用完就要 subscribe。策略：
+⚠️ **2026-05-31 更正**：Firecrawl 而家係 **1000 credits/月（月度 reset）**，唔再係舊嘅 500 lifetime — 風險細咗好多。以下慳 credit 策略仍然係好習慣，但唔再係「用完就死」嘅 hard limit：
 
 ```
 慳 Firecrawl credits 嘅方法：
@@ -737,10 +748,13 @@ Firecrawl 500 credits 係 **lifetime，唔係每月**。用完就要 subscribe�
 ### 免費替代 priority（當 paid tool quota 用完）
 
 ```
-Tavily quota 用完 → free-web-search-ultimate（10+ engines，零 key）
-Exa quota 用完   → free-web-search + Tavily Search
-Firecrawl 用完   → Tavily Extract（single page）+ WebFetch（raw HTML）
+Tavily quota 用完 → free-web-search-ultimate（10+ engines，零 key）/ open-webSearch
+Exa quota 用完   → free-web-search + open-webSearch（⚠️ 唔好 fallback 去 Tavily — 2026-05-31 Tavily 都爆咗）
+Firecrawl 用完   → WebFetch（raw HTML）/ Tavily Extract（如 Tavily 有返 quota）
 Twitter 太貴     → free-web-search search Twitter（有 Twitter engine）
+
+⚠️ 2026-05-31 實況：Tavily（432）+ Exa（402）quota 兩個都爆 → 任何 search 一律行
+   free-web-search-ultimate / open-webSearch（零 key）；Firecrawl Search 仲有 972 credit 可補。
 ```
 
 ### Monthly Cost Alert Rules
@@ -754,11 +768,40 @@ If Twitter spend > $5/mo     → ⚠️ review if reads are worth it
 
 > **結論：Normal usage（每週 2 次 research）= ~$8 CAD/月。遠低於 $30 預算。**
 > **即使 heavy usage 都只係 ~$20 CAD/月。要做到 $30+ 要極端頻繁使用。**
-> **真正嘅 risk 只有 Firecrawl — 500 lifetime credits 用完就要 $16/mo。慳住用。**
+> **~~真正嘅 risk 只有 Firecrawl~~（2026-05-31 更正：Firecrawl 升咗做 1000/月 reset，風險細咗）。而家真正 risk 係 Tavily（432）+ Exa（402）quota 兩個都爆，search 要靠零 key fallback。**
 
 ---
 
 ## Sharpening Log
+
+### Round 12（2026-05-31）— Retry logic + 真 MCP liveness + stale-URL sweep + skills-marketplace APIs
+
+**1. Health-check retry**：`check()` 加 `--retry 3 --retry-delay 2 --retry-all-errors --retry-connrefused`，timeout 12→25s。效果：之前誤報 dead 嘅 **crt.sh + DOAJ（都係 000 timeout）retry 即返生**。WARN 3→1、PASS 47→52。剩 GDELT（shared-IP 1req/5s，慣性 flaky）+ Open Library 偶發 transient。
+
+**2. 真 MCP liveness probe（最大發現）**：以前個 script 淨係 LIST connected MCP。而家用**真 key 打 search endpoint**偵測 quota 死。實測 **CONNECTED ≠ WORKING**：
+- ❌ **Tavily 432 — plan usage limit exceeded**（quota 爆）
+- ❌ **Exa 402 — credits exceeded**（$10 用晒）
+- ✅ Firecrawl 972/1000 credit、Context7 search API OK、dialog-mcp OAuth reachable（真 call `discover_operations` work）
+- 啟示：`initialize` probe 200 唔代表用得，要真 `tools/call` / REST search 先驗到 quota。OAuth MCP（dialog-mcp）bash 探唔到，要 Claude in-session call。
+
+**3. Stale-URL sweep（除咗 Round 11 嗰 11 個，再揾到 8 個，全部 curl verified 2026-05-31）**：
+- ❌ **USPTO PatentsView** DNS NXDOMAIN（死）→ `https://data.uspto.gov/api/v1/patent/applications/search`（2026-03-20 遷移）
+- ❌ **Common Crawl** `CC-MAIN-2026-13` rolled（404）→ 動態攞 `collinfo.json[0].id`（而家 `CC-MAIN-2026-21`）
+- ❌ **YC OSS** `batches/` 錯 host → `yc-oss.github.io/api/batches/<batch>.json`（all.json 喺 raw host 仲 work）
+- ❌ **Frankfurter** `/latest` 404 → `/v1/latest`
+- ❌ **OpenRank.io** 變 React SPA，API 死 → 改用 Open PageRank
+- ❌ **PapersWithCode RSS / HuggingFace papers.rss / LangChain blog RSS** 全部撤咗 feed
+- ✅ **KEY-required API 全部 ALIVE-NEEDS-KEY（endpoint 冇搬）**：FRED、Census、Finnhub、FMP、OpenCorporates、Open PageRank、Serper、PodcastIndex、UK Companies House、Lens、EPO、Dune、Etherscan、CORE、Unpaywall。**Congress.gov DEMO_KEY 仲 work**；BLS v1、libraries.io 零 key 仲出 data。
+- 📊 **Firecrawl quota 更正**：engine 一直寫「500 lifetime」，實測係 **1000 credits/月**（月度 reset）。
+
+**4. 新 source（task #4，全部 live verified，加入 GEO cluster）**：
+- ✅ **skills.sh** zero-key JSON API `GET /api/search?q=`（Vercel-Labs skill directory，含 install counts）
+- ✅ **agentskills.to** zero-key JSON API `GET /api/skills?q=`（注意 `.to` 唔係 `.io`；`.io` 係 spec docs）
+- ✅ **Otterly.ai** 唯一有公開 OpenAPI 嘅 AI-visibility tracker（`data.otterly.ai/v1/openapi.json` zero-key spec、trial 給 key、有 Claude Skill）
+- ✅ **agentskills-mcp**（`pinkpixel-dev/agentskills-mcp`）可裝 — 合 Nicole「有 MCP 就裝」
+- ❌ **Peec.ai** 冇 public API（404，enterprise-only）；**WebMCP** W3C draft + Chrome 146 flag，未可做 data source（純 watch）
+
+**Verification 原則**：呢輪所有 status 都係今次 curl/tool 實測（唔信舊註解）。未親手測過嘅 ~100 個工具**冇**亂 stamp「verified」date——只有上面打 ✅/❌ + 日期嗰啲先係真驗過。Dead endpoint 嘅 silence ≠「found nothing」。
 
 ### Round 11（2026-05-30）— GEO cluster + Health Check + Forum MCP mandate
 - **新 cluster 20：GEO / AI Answer-Engine Visibility**（見上面 SEO section 後）— 補返 engine 一直缺嘅 gap：點令 product/package 俾 AI engine + coding agent 發現/推薦/用啱。核心 evidence：llms.txt 對 AI search ≈ 0（limy.ai 500M event study、Google 官方否認）但對 coding agent 有用；**docs-MCP > llms.txt**（Astro 移除 llms.txt 改 MCP）；Reddit 主導 AI citation（Perplexity 46.7%）；Context7 submit = zero-effort win。
@@ -933,7 +976,7 @@ GDELT、PubMed、Europe PMC、bioRxiv、DBLP、DOAJ、Zenodo、The News API、Ne
 |------|-----------|---------|:----------:|
 | **Tavily** | 1000 credits/mo | $0.01/search | ✅ 每月 |
 | **Exa** | $10 one-time | $0.007/search | ❌ one-time |
-| **Firecrawl** | 500 credits lifetime ⚠️ | $16/mo Hobby | ❌ lifetime |
+| **Firecrawl** | **1000 credits/月**（2026-05-31 verified；舊「500 lifetime」已過時） | $16/mo Hobby（超額先要） | ✅ 每月 |
 | **Semantic Scholar** | 100 req/5min | 有 key 10 RPS | ✅ rolling |
 | **CORE** | 免費 key required | — | — |
 | **Unpaywall** | 免費（email required） | — | — |
