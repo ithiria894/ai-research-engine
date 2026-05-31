@@ -231,14 +231,17 @@
 | **AI-visibility trackers（paid）** | enterprise-grade：Profound（$399+/mo, 10+ engines, Walmart/Figma）· Otterly（$29+, 7-day trial）· Peec（€89+）· Scrunch（$250+, 埋 crawler analytics）· Semrush/SE Ranking AI（$65-140, bolt-on） | tryprofound.com · otterly.ai · peec.ai | paid, 多數有 trial |
 | **Docs platforms（auto MCP+llms.txt）** | Mintlify（auto MCP at /mcp + llms.txt, free Hobby）· Fern（auto llms.txt+MCP, 90% token cut, free Hobby）· ReadMe · Kapa.ai（free for OSS） | mintlify.com · buildwithfern.com | 免費 Hobby / OSS |
 
-**Round 11 — AI-native library 嘅完整 file hierarchy（ship 哂呢啲 = 最 AI-discoverable）：**
-1. `llms.txt` + `llms-full.txt`（docs root）— for Cursor @Docs + GitMCP auto-discovery
-2. **第一方 docs-MCP server**（或 submit Context7）— 最強 active signal
-3. `AGENTS.md`（repo root, 21.8K⭐ standard, Linux Foundation adopted）— agent operational instructions
-4. `.cursorrules` / `.windsurfrules` — IDE agent rules
-5. `SKILL.md` bundled in npm package（npm-agentskills format）— install 即 inject 你 docs
-6. `context7.json` — control Context7 indexing
-7. 完整 TypeScript types + JSDoc — 減 method hallucination（typed codebase agent 表現 dramatically 好）
+**Round 11 — AI-native library file hierarchy（2026-05-30 Round 2 修正排序，按真實 leverage）：**
+
+> 重心已由 llms.txt 移去 **SKILL.md**（agentskills.io, Anthropic open standard, 「npm of AI agents」, AAIF/Linux Foundation governed）。社群共識：**唔好信 prose，externalize 落 executable gate（types/tests/linters）+ measure**。冇 measured A/B 證明任何 markdown file 改變 agent recommendation — ship 係因為低成本 + 已成標準 + 幫 correct-usage，唔係 growth lever。
+
+1. **完整 TypeScript types + JSDoc** — library 版「executable gate」，**減 API hallucination 比任何 markdown 都有效**。最高 actual leverage。
+2. **第一方 docs-MCP server**（或 submit Context7）— 最強 active signal。Context7 submit = zero-effort（4.7M monthly installs distribution）。
+3. **`SKILL.md` in npm package**（agentskills.io format, `npx skills add`）— install 即 inject。⚠️ **唔係 deterministic**：有 Activation step，個 `description` field 先係 discoverability surface，要 sharp + trigger-rich + 人手寫 lean（LLM-generated context file 實測**減** success + cost 20%↑）。Model：timescale/pg-aiguide（1,750⭐ skills+MCP combo）。
+4. `AGENTS.md`（repo root, 134K+ files, Linux Foundation）— **淨係 FACTS**（path/command/config shape），每項 ≤1 句、正面 phrasing。只幫 clone 你 repo 嘅人。
+5. `context7.json` — 認領/控制你 Context7 listing（1,740 files, ownership land-grab）。
+6. `llms.txt` + `llms-full.txt` — llms-full 有用（manual Cursor @Docs paste + GitMCP）；llms.txt 對 AI search ≈ 0（多個 500M+ event study 確認）但 Lighthouse 13.3.0 而家 audit 佢。低 priority、cheap、唔好 oversell。
+7. `.cursorrules` / `.windsurfrules`；watch **WebMCP**（Feb 2026 Chrome preview, 未有 adoption data）。
 
 **新 API（Round 9 新增 — Podcast & Media）：**
 
