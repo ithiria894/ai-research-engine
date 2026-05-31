@@ -781,12 +781,13 @@ Compile all findings into structured report:
 | ✅ | **Open PageRank** | 已攞 + **實測通**（rank）。domain authority |
 | ✅ | **FMP** | 已攞 + **實測通**（`/stable/`）。股票/IPO/financials |
 | ✅ | **OpenStates** | 已攞 + **實測通**（Google OAuth）。州立法 |
-| ⏳ | **Finnhub** | account 建好，key 暫 invalid，要 retest |
+| ✅ | **OpenSanctions** | 已攞 + **實測通**（Google OAuth，free trial key）。制裁/PEP 篩查 |
+| ⏳ | **Finnhub** | account + email verified，但 key 仍 reject（疑 anti-bot flag），retest |
 | ⏳ | **CORE** | register form submit 咗，key 經 email（多數要審批），未到 |
 | ❌ | **Serper.dev** | 自動註冊被 server hard-block（"not possible to register"）— 人手 signup |
 | ❌ | **Etherscan** | Cloudflare bot wall 擋 submit — 人手 signup |
 | ❌ | **PodcastIndex** | signup widget captcha — 人手 signup |
-| — | **OpenSanctions / WAQI** | 未申請（WAQI `demo` token 即用）|
+| ✅ | **WAQI** | `demo` token 即用 |
 
 > 規律：**gov/research/finance（FRED/Census/OpenPageRank/FMP/OpenStates）自動申請順；SERP+crypto+podcast（Serper/Etherscan/PodcastIndex）有強 anti-bot captcha，要人手。**
 
