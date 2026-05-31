@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Research Engine Health Check
-# Tests every zero-key free API, CLI, and detects connected MCP servers.
-# Writes a timestamped report so research agents skip dead tools instead of
+# Research Engine Health Check + Repair Triage
+# Tests: (1) zero-key free APIs, (2) keyed APIs with REAL keys from keys.env,
+# (3) MCP liveness with real keys (quota-death detection), (4) CLIs.
+# Writes a timestamped report that, for every failure, TELLS you how to fix it
+# (⚠️ ACTION NEEDED section), so research agents skip dead tools instead of
 # silently fetching nothing.
 #
 # Usage: bash health-check.sh
+# Keys:  ~/.config/research-engine/keys.env (sourced if present)
 # Output: health-check-report.md (in this dir)
 
 set -uo pipefail
@@ -14,9 +17,18 @@ CONNECT_TIMEOUT=10
 PASS=0; FAIL=0; WARN=0
 CLAUDE_CFG="$HOME/.claude.json"
 
+# Load obtained API keys so keyed APIs get a REAL probe (not just "needs key").
+KEYS_FILE="$HOME/.config/research-engine/keys.env"
+if [[ -f "$KEYS_FILE" ]]; then set -a; source "$KEYS_FILE" 2>/dev/null; set +a; fi
+
 # Each test: name | method | url | extra-curl-args | expect-substring (optional)
 # We check HTTP 2xx AND a non-empty plausible body.
 results=()
+keyed=()       # real-key probe rows
+actions=()     # ⚠️ ACTION NEEDED triage: each = "icon|what|how-to-fix"
+
+# Record a repair action (shown at top of report so the check TELLS you the fix).
+act(){ actions+=("$1"); }
 
 check() {
   local name="$1" url="$2"; shift 2
@@ -205,6 +217,64 @@ if [[ -f "$CLAUDE_CFG" ]]; then
   esac
 fi
 
+# ── Keyed-API real-key probe (Round 14) ──────────────────────────────
+# CONNECTED ≠ USABLE for key-gated APIs too. Now that we hold real keys
+# (keys.env), hit each with its actual key so the report shows ✅ verified
+# instead of a dormant "needs key". Empty key → ➖ + an ACTION to go get it.
+kcheck(){  # name | keyvar | success-grep | curl-args...
+  local name="$1" kv="$2" ok="$3"; shift 3
+  local key="${!kv:-}" tmp code
+  if [[ -z "$key" ]]; then
+    keyed+=("🔑 | $name | — | no key set")
+    act "🔑|$name 未有 key|申請 free key 填入 ~/.config/research-engine/keys.env（見 engine「🔑 Key Activation Checklist」）"
+    return
+  fi
+  tmp=$(mktemp)
+  code=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" --retry 2 --retry-delay 2 \
+        -A "ResearchEngineHealthCheck/1.0" -o "$tmp" -w "%{http_code}" "$@" 2>/dev/null)
+  if [[ "$code" =~ ^2 ]] && grep -qi "$ok" "$tmp" 2>/dev/null; then
+    keyed+=("✅ | $name | $code | key OK")
+  elif [[ "$code" =~ ^2 ]]; then
+    keyed+=("⚠️ | $name | $code | 2xx 但搵唔到「$ok」（key 弱/受限？）")
+    act "⚠️|$name key 回應異常 ($code)|檢查 plan limit / endpoint 版本"
+  else
+    keyed+=("❌ | $name | ${code:-000} | key REJECTED / endpoint down")
+    act "❌|$name key 唔 work ($code)|retest；過期或被 flag 就去 dashboard 重新生成"
+  fi
+  rm -f "$tmp"; sleep 0.3
+}
+echo "Probing keyed APIs with real keys..."
+kcheck "FRED"          FRED_API_KEY          "observations" "https://api.stlouisfed.org/fred/series/observations?series_id=GDP&api_key=${FRED_API_KEY:-}&file_type=json&limit=1"
+kcheck "US Census"     CENSUS_API_KEY        "NAME"         "https://api.census.gov/data/2021/acs/acs5?get=NAME&for=state:06&key=${CENSUS_API_KEY:-}"
+kcheck "Open PageRank" OPENPAGERANK_API_KEY  "page_rank"    "https://openpagerank.com/api/v1.0/getPageRank?domains%5B%5D=google.com" -H "API-OPR: ${OPENPAGERANK_API_KEY:-}"
+kcheck "FMP"           FMP_API_KEY           "symbol"       "https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=${FMP_API_KEY:-}"
+kcheck "OpenStates"    OPENSTATES_API_KEY    "results"      "https://v3.openstates.org/jurisdictions?per_page=1" -H "X-API-Key: ${OPENSTATES_API_KEY:-}"
+kcheck "OpenSanctions" OPENSANCTIONS_API_KEY "results"      "https://api.opensanctions.org/search/default?q=test&limit=1" -H "Authorization: ApiKey ${OPENSANCTIONS_API_KEY:-}"
+kcheck "Congress.gov"  CONGRESS_API_KEY      "bills"        "https://api.congress.gov/v3/bill?api_key=${CONGRESS_API_KEY:-}&format=json&limit=1"
+kcheck "govinfo"       GOVINFO_API_KEY       "collection"   "https://api.govinfo.gov/collections?api_key=${GOVINFO_API_KEY:-}"
+kcheck "OpenFEC"       OPENFEC_API_KEY       "results"      "https://api.open.fec.gov/v1/candidates/?api_key=${OPENFEC_API_KEY:-}&per_page=1"
+kcheck "Finnhub"       FINNHUB_API_KEY       "c"            "https://finnhub.io/api/v1/quote?symbol=AAPL&token=${FINNHUB_API_KEY:-}"
+
+# ── Build repair triage from zero-key failures + MCP quota deaths ──────
+for row in "${results[@]:-}"; do
+  case "$row" in
+    "❌ | "*) nm=$(echo "$row"|awk -F' \\| ' '{print $2}'); co=$(echo "$row"|awk -F' \\| ' '{print $3}')
+      case "$nm" in
+        GDELT*)        act "❌|GDELT ${co}|shared-IP 1req/5s，慣性 flaky — retry / 換時間，唔好當真死";;
+        "Open Library"*) act "❌|Open Library ${co}|偶發 timeout — retry 通常返生";;
+        crt.sh*)       act "❌|crt.sh ${co}|postgres 慢，已加 retry — 持續死先當 dead";;
+        *)             act "❌|$nm ${co}|curl 重試；查 endpoint 有冇搬（見 engine stale-URL log）";;
+      esac;;
+  esac
+done
+for row in "${mcp_results[@]:-}"; do
+  case "$row" in
+    "❌ | tavily"*) act "❌|Tavily quota 爆 (432)|search 改用 open-websearch / Firecrawl Search";;
+    "❌ | exa"*)    act "❌|Exa credits 爆 (402)|改用 open-websearch；或 top-up dashboard.exa.ai";;
+    "❌ | "*)       nm=$(echo "$row"|awk -F' \\| ' '{print $2}'); act "❌|MCP $nm 唔通|睇 engine「💀 死咗 MCP queue」嘅 fix path";;
+  esac
+done
+
 # ── Write report ──────────────────────────────────────────────────────
 {
   echo "# Research Engine — Health Check Report"
@@ -215,6 +285,27 @@ fi
   echo "**Summary: ✅ $PASS working · ⚠️ $WARN suspect · ❌ $FAIL dead** (of $((PASS+WARN+FAIL)) zero-key APIs tested)"
   echo ""
   echo "Agents: only use ✅ sources from this list. Treat ❌ as unavailable — do NOT cite \"found nothing\" from a dead endpoint as evidence of absence."
+  echo ""
+  # ── ⚠️ ACTION NEEDED (repair triage) — the check now TELLS you how to fix ──
+  echo "## ⚠️ ACTION NEEDED — repair triage"
+  echo ""
+  if [[ ${#actions[@]} -eq 0 ]]; then
+    echo "✅ 全部健康，冇嘢要修。"
+  else
+    echo "| | 問題 | 點修 |"
+    echo "|---|------|------|"
+    printf '%s\n' "${actions[@]}" | awk -F'|' '{printf "| %s | %s | %s |\n",$1,$2,$3}'
+    echo ""
+    echo "> 🔑 = 去申請 free key · ❌ = 壞咗要 fix/換 · ⚠️ = 要查。Fix 完 re-run \`bash health-check.sh\` 確認。"
+  fi
+  echo ""
+  echo "## 🔑 Keyed APIs (real-key probe)"
+  echo ""
+  echo "用 keys.env 真 key 打。✅ = key verified working；🔑 = 未有 key；❌ = key 唔 work。"
+  echo ""
+  echo "| Status | API | HTTP | Note |"
+  echo "|--------|-----|------|------|"
+  printf '%s\n' "${keyed[@]:-}" | sed '/^$/d; s/^/| /; s/ | /| /g; s/$/ |/'
   echo ""
   echo "## Zero-key free APIs"
   echo ""

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep Research Engine — Mind Map</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121723; --line:#222b3a; --ink:#e6edf3; --dim:#8b97a8;
+    --accent:#6ee7ff; --free:#3fb950; --obtained:#2f81f7; --pending:#d29922;
+    --blocked:#f85149; --needkey:#a371f7; --mcp:#56d4dd; --dead:#6e7681;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 30% -10%,#15203250,transparent),var(--bg);
+       color:var(--ink); font:14px/1.5 -apple-system,"Segoe UI",Roboto,"PingFang HK","Noto Sans CJK HK",sans-serif;
+       -webkit-font-smoothing:antialiased; user-select:none; overflow:hidden}
+  .wrap{display:grid; grid-template-columns:1fr 380px; height:100vh}
+  /* ---- map side ---- */
+  .map{position:relative; overflow:hidden}
+  .map h1{position:absolute; top:16px; left:20px; z-index:5; font-size:15px; letter-spacing:.5px; color:var(--dim); font-weight:600}
+  .map h1 b{color:var(--ink)}
+  .map .legend{position:absolute; bottom:14px; left:20px; z-index:5; display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:var(--dim)}
+  .map .legend span{display:flex; align-items:center; gap:5px}
+  .dot{width:9px; height:9px; border-radius:50%; display:inline-block}
+  svg.lines{position:absolute; inset:0; width:100%; height:100%; pointer-events:none}
+  .node{position:absolute; transform:translate(-50%,-50%); cursor:pointer; text-align:center;
+        transition:transform .15s ease}
+  .node:hover{transform:translate(-50%,-50%) scale(1.08)}
+  .node .chip{background:var(--panel); border:1px solid var(--line); border-radius:12px;
+        padding:7px 11px; min-width:86px; box-shadow:0 4px 14px #0006}
+  .node .chip .em{font-size:18px; display:block}
+  .node .chip .nm{font-size:11.5px; font-weight:600; margin-top:1px; line-height:1.2}
+  .node .chip .ct{font-size:10px; color:var(--dim); margin-top:1px}
+  .node.center .chip{min-width:120px; padding:14px 16px; border-color:var(--accent);
+        background:linear-gradient(160deg,#16263a,#0e1420); box-shadow:0 0 30px #6ee7ff22}
+  .node.center .em{font-size:26px}
+  .node.center .nm{font-size:13px; color:var(--accent)}
+  .node.active .chip{border-color:var(--accent); box-shadow:0 0 0 2px #6ee7ff44,0 4px 14px #0008}
+  .node .bar{height:3px; border-radius:3px; margin-top:6px; opacity:.85}
+  /* ---- detail panel ---- */
+  .panel{background:var(--panel); border-left:1px solid var(--line); overflow-y:auto; padding:0}
+  .panel::-webkit-scrollbar{width:8px} .panel::-webkit-scrollbar-thumb{background:#2a3548; border-radius:8px}
+  .phead{position:sticky; top:0; background:var(--panel); padding:18px 20px 14px; border-bottom:1px solid var(--line); z-index:2}
+  .phead .em{font-size:30px}
+  .phead h2{font-size:18px; margin:6px 0 2px}
+  .phead .sub{font-size:12px; color:var(--dim)}
+  .stats{display:flex; gap:7px; margin-top:11px; flex-wrap:wrap}
+  .stats b{font-size:11px; font-weight:600; padding:3px 8px; border-radius:20px; border:1px solid var(--line)}
+  .srcs{padding:8px 14px 40px}
+  .src{display:flex; gap:9px; align-items:flex-start; padding:9px 8px; border-radius:9px; user-select:text}
+  .src:hover{background:#1a2233}
+  .src .s-dot{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:0 0 auto}
+  .src .s-body{flex:1; min-width:0}
+  .src .s-nm{font-size:13px; font-weight:600}
+  .src .s-note{font-size:11.5px; color:var(--dim); margin-top:1px; word-break:break-word}
+  .src .s-tag{font-size:10px; color:var(--dim); border:1px solid var(--line); border-radius:6px; padding:1px 6px; margin-top:4px; display:inline-block}
+  .intro{padding:40px 26px; color:var(--dim); font-size:13px}
+  .intro h2{color:var(--ink); font-size:16px; margin-bottom:10px}
+  .intro p{margin-bottom:10px}
+  .intro .k{color:var(--accent)}
+  @media(max-width:820px){.wrap{grid-template-columns:1fr} .panel{position:fixed; inset:auto 0 0 0; height:55vh; transform:translateY(100%); transition:.25s} .panel.show{transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="map" id="map">
+    <h1><b>🧠 Deep Research Engine</b> &nbsp;·&nbsp; 16 domain · ~140 distinct source &nbsp;·&nbsp; <span style="color:var(--accent)">click 任何 cluster</span></h1>
+    <svg class="lines" id="lines"></svg>
+    <div class="legend" id="legend"></div>
+  </div>
+  <div class="panel" id="panel">
+    <div class="intro" id="intro">
+      <h2>點睇呢個 mind map</h2>
+      <p><span class="k">中間</span> = engine 核心。<span class="k">內圈</span> = 入口（web search）+ orchestration（點跑）。<span class="k">外圈 16 個</span> = research domain，按你問題性質揀邊個。</p>
+      <p>撳任何一個 cluster → 右邊列晒佢入面所有 source、即用狀態同 endpoint。</p>
+      <p>狀態：🟢 zero-key 即用 · 🔵 已攞 key+實測 · 🟡 pending · 🟣 要免費 key · 🔴 blocked/dead · 🟦 MCP/tool</p>
+      <p style="margin-top:20px;font-size:11px">數字說明：raw 計到 ~400 行（含 wishlist + reference + log），真正 distinct 可用 source ≈ 140。</p>
+    </div>
+  </div>
+</div>
+<script>
+const ST = {
+  free:    {c:'var(--free)',    label:'🟢 zero-key 即用'},
+  obtained:{c:'var(--obtained)',label:'🔵 已攞 key + 實測通'},
+  pending: {c:'var(--pending)', label:'🟡 pending / 待跟進'},
+  needkey: {c:'var(--needkey)', label:'🟣 要免費 key（未攞）'},
+  blocked: {c:'var(--blocked)', label:'🔴 blocked / dead'},
+  mcp:     {c:'var(--mcp)',     label:'🟦 MCP / tool'},
+};
+const DATA = [
+  {id:'entry', ring:1, em:'🔎', name:'Web Search 入口', color:'#6ee7ff', sources:[
+    {n:'Tavily (search/extract/crawl/map/research)', s:'pending', t:'MCP · ⚠️ quota 432 爆'},
+    {n:'Exa (semantic + code context)', s:'pending', t:'MCP · ⚠️ credits 402 爆'},
+    {n:'Firecrawl (scrape→markdown)', s:'mcp', t:'972/1000 credit'},
+    {n:'open-websearch (8 引擎)', s:'free', t:'MCP · 零 key · free-web-search 替代'},
+    {n:'Marginalia (indie web index)', s:'free', t:'api.marginalia.nu'},
+    {n:'WebSearch / WebFetch', s:'mcp', t:'built-in'},
+    {n:'Serper.dev (Google SERP)', s:'blocked', t:'❌ 自動註冊被 block'},
+  ]},
+  {id:'orch', ring:1, em:'🧩', name:'Orchestration', color:'#a371f7', sources:[
+    {n:'Workflow v2', s:'mcp', t:'Phase0 Reality→Phase1 6-agent→Phase2 deep→Phase3 synth'},
+    {n:'Deep-research agents (~18)', s:'mcp', t:'GPT-Researcher·STORM·local-deep-research·gptr-mcp…'},
+    {n:'health-check.sh', s:'free', t:'跑前驗 source 生死 + MCP quota'},
+    {n:'changedetection.io', s:'mcp', t:'監控 6 個 leaderboard'},
+  ]},
+  {id:'acad', ring:2, em:'📚', name:'Academic / Papers', color:'#3fb950', sources:[
+    {n:'arXiv', s:'free'},{n:'OpenAlex', s:'free', t:'250M papers'},{n:'Crossref', s:'free'},
+    {n:'Semantic Scholar', s:'free', t:'429 rate-limit'},{n:'CORE', s:'pending', t:'⏳ key 審批中'},
+    {n:'Unpaywall', s:'free'},{n:'PubMed', s:'free'},{n:'Europe PMC', s:'free'},{n:'bioRxiv / medRxiv', s:'free'},
+    {n:'DBLP', s:'free'},{n:'DOAJ', s:'free'},{n:'Zenodo', s:'free'},{n:'OpenCitations', s:'free'},
+    {n:'NIH iCite', s:'free'},{n:'ORCID', s:'free'},{n:'ROR', s:'free'},{n:'OpenAIRE', s:'free'},
+    {n:'OpenReview ⭐', s:'free', t:'peer-review discourse (新)'},
+    {n:'MCP: paper-search·semantic-scholar·arxiv·scholar·paper-distill', s:'mcp'},
+  ]},
+  {id:'news', ring:2, em:'📰', name:'News & Real-time', color:'#f0883e', sources:[
+    {n:'GDELT', s:'free', t:'全球 event/news, 65+ 語言'},{n:'newsmcp', s:'mcp'},
+    {n:'google-trends', s:'mcp'},{n:'rss-reader', s:'mcp'},{n:'Federal Register', s:'free'},
+    {n:'Wikimedia Pageviews ⭐', s:'free', t:'attention signal (新)'},
+  ]},
+  {id:'social', ring:2, em:'💬', name:'Social & Forums', color:'#db61a2', sources:[
+    {n:'Reddit (dialog-mcp)', s:'mcp', t:'HARD RULE: 一定用 MCP 唔用 curl'},
+    {n:'Hacker News (Algolia/Firebase/mcp-hn)', s:'free'},{n:'Bluesky', s:'free', t:'api.bsky.app'},
+    {n:'Mastodon', s:'free'},{n:'Lemmy', s:'free'},{n:'Lobste.rs', s:'free'},
+    {n:'StackExchange', s:'free'},{n:'Twitter/X', s:'mcp', t:'$0.01/read'},
+    {n:'Truth Social', s:'needkey', t:'bearer token'},{n:'last30days', s:'mcp', t:'13K⭐ skill'},
+  ]},
+  {id:'dev', ring:2, em:'📦', name:'Dev Ecosystem / Packages', color:'#2f81f7', sources:[
+    {n:'npm (downloads API)', s:'free'},{n:'PyPI Stats', s:'free'},{n:'crates.io', s:'free'},
+    {n:'NuGet', s:'free'},{n:'Packagist', s:'free'},{n:'RubyGems', s:'free'},{n:'Homebrew Analytics', s:'free'},
+    {n:'Docker Hub', s:'free'},{n:'HuggingFace Hub', s:'free'},{n:'libraries.io', s:'free'},
+    {n:'VS Code Marketplace', s:'free'},{n:'OSV.dev (漏洞)', s:'free'},{n:'GitHub CLI', s:'mcp'},
+  ]},
+  {id:'gov', ring:2, em:'🏛️', name:'Government & Economic', color:'#56d4dd', sources:[
+    {n:'FRED ✅', s:'obtained', t:'84萬經濟時序'},{n:'US Census ✅', s:'obtained'},
+    {n:'BLS', s:'free', t:'v1 零 key'},{n:'Congress.gov', s:'free', t:'DEMO_KEY'},
+    {n:'govinfo ✅', s:'free', t:'DEMO_KEY'},{n:'OpenFEC ✅', s:'free', t:'DEMO_KEY'},
+    {n:'OpenStates ✅', s:'obtained', t:'州立法'},{n:'World Bank', s:'free'},{n:'IMF', s:'free'},
+    {n:'OECD', s:'free'},{n:'USASpending', s:'free'},{n:'Socrata ⭐', s:'free', t:'救返 data.gov (新)'},
+  ]},
+  {id:'company', ring:2, em:'🏢', name:'Company / Startup / Finance', color:'#7ee787', sources:[
+    {n:'SEC EDGAR', s:'free'},{n:'SEC EFTS 全文 ⭐', s:'free', t:'(新)'},{n:'YC OSS API', s:'free'},
+    {n:'AI Funding API', s:'free'},{n:'Finnhub', s:'pending', t:'⏳ key 仍 reject'},
+    {n:'FMP ✅', s:'obtained', t:'股票/IPO/financials'},{n:'OpenCorporates', s:'needkey'},
+    {n:'UK Companies House', s:'needkey'},{n:'OpenSanctions ✅', s:'obtained', t:'制裁/PEP'},
+  ]},
+  {id:'legal', ring:2, em:'⚖️', name:'Legal / Regulatory', color:'#d2a8ff', sources:[
+    {n:'CourtListener v4 ⭐', s:'free', t:'美國 case-law (新)'},{n:'CanLII', s:'obtained', t:'加拿大判例'},
+    {n:'OpenStates ✅', s:'obtained'},{n:'Federal Register', s:'free'},{n:'govinfo', s:'free', t:'DEMO_KEY'},
+  ]},
+  {id:'science', ring:2, em:'🔬', name:'Science / Health Data', color:'#39d353', sources:[
+    {n:'ClinicalTrials.gov v2 ⭐', s:'free', t:'(新)'},{n:'PubChem ⭐', s:'free', t:'化學 (新)'},
+    {n:'GBIF ⭐', s:'free', t:'生物多樣性 (新)'},{n:'USGS Earthquake ⭐', s:'free', t:'(新)'},
+    {n:'WHO GHO ⭐', s:'free', t:'全球健康 (新)'},{n:'openFDA', s:'free'},
+  ]},
+  {id:'patent', ring:2, em:'📐', name:'Patents & IP', color:'#bc8cff', sources:[
+    {n:'USPTO ODP', s:'needkey', t:'data.uspto.gov (舊 PatentsView 已死)'},
+    {n:'EPO OPS', s:'needkey'},{n:'Lens.org', s:'needkey'},{n:'Google Patents BigQuery', s:'needkey'},
+  ]},
+  {id:'seo', ring:2, em:'🔍', name:'SEO / Web Infra', color:'#ffa657', sources:[
+    {n:'Open PageRank ✅', s:'obtained', t:'domain authority'},{n:'crt.sh', s:'free', t:'subdomain'},
+    {n:'Tranco', s:'free', t:'top-1M rank'},{n:'Wayback CDX', s:'free'},
+    {n:'Common Crawl', s:'free', t:'動態攞 collinfo.json'},{n:'Serper / DataForSEO', s:'needkey'},
+  ]},
+  {id:'geo', ring:2, em:'🤖', name:'GEO / AI-Visibility', color:'#79c0ff', sources:[
+    {n:'Context7', s:'mcp', t:'4.7M installs · submit repo = win'},{n:'GitMCP', s:'free'},
+    {n:'Otterly.ai ⭐', s:'needkey', t:'唯一有 OpenAPI 嘅 tracker'},
+    {n:'skills.sh', s:'free', t:'zero-key skill API'},{n:'agentskills.to', s:'free'},
+    {n:'skilldock.io', s:'free', t:'免 auth /v1/skills'},{n:'Perplexity Sonar', s:'needkey'},
+    {n:'Dark Visitors / Cloudflare AI Analytics', s:'free', t:'bot traffic'},
+    {n:'GEO skills (vendored skills/geo/)', s:'free', t:'10 個本地 SKILL.md'},
+  ]},
+  {id:'chain', ring:2, em:'⛓️', name:'Blockchain / Crypto', color:'#f0c674', sources:[
+    {n:'DeFiLlama', s:'free', t:'TVL/yields'},{n:'DexScreener', s:'free'},{n:'GeckoTerminal', s:'free'},
+    {n:'Etherscan V2', s:'blocked', t:'❌ 註冊 bot wall, key 未攞'},{n:'Solana RPC', s:'free'},
+    {n:'mempool.space', s:'free'},{n:'Dune Analytics', s:'needkey'},{n:'The Graph', s:'needkey'},
+    {n:'Bitquery', s:'needkey'},{n:'CoinGecko', s:'free'},
+    {n:'Polymarket (Gamma/Data/Leaderboard)', s:'free', t:'×3 endpoint'},{n:'Frankfurter (匯率)', s:'free'},
+  ]},
+  {id:'media', ring:2, em:'🎙️', name:'Media / Podcast / Books', color:'#ff7b72', sources:[
+    {n:'PodcastIndex', s:'blocked', t:'❌ captcha 擋註冊'},{n:'iTunes / Apple Podcasts', s:'free'},
+    {n:'Open Library', s:'free'},{n:'Internet Archive', s:'free'},{n:'youtube-transcript', s:'mcp'},
+  ]},
+  {id:'world', ring:2, em:'🌍', name:'Geo / Weather / Knowledge', color:'#a5d6ff', sources:[
+    {n:'Open-Meteo', s:'free', t:'天氣 1940→'},{n:'Nominatim (OSM)', s:'free', t:'geocoding (新)'},
+    {n:'ip-api.com', s:'free'},{n:'Wikipedia API', s:'free'},
+    {n:'Wikidata SPARQL ⭐', s:'free', t:'任意 structured query (新)'},{n:'WAQI 空氣質素', s:'free', t:'demo token'},
+  ]},
+  {id:'aimeta', ring:2, em:'🧬', name:'AI/LLM Meta & Benchmarks', color:'#d2a8ff', sources:[
+    {n:'OpenRouter ⭐', s:'free', t:'live LLM catalog/pricing (新)'},
+    {n:'Ollama registry ⭐', s:'free', t:'trending open models (新)'},
+    {n:'Leaderboards ×6', s:'mcp', t:'SWE-bench·LMSYS·LiveBench·Aider·PwC (changedetection)'},
+  ]},
+];
+// distinct source count
+const total = DATA.filter(d=>d.ring===2).reduce((a,d)=>a+d.sources.length,0)
+            + DATA.filter(d=>d.ring===1).reduce((a,d)=>a+d.sources.length,0);
+
+const map=document.getElementById('map'), svg=document.getElementById('lines'), panel=document.getElementById('panel'), intro=document.getElementById('intro');
+function layout(){
+  map.querySelectorAll('.node').forEach(n=>n.remove());
+  svg.innerHTML='';
+  const W=map.clientWidth, H=map.clientHeight, cx=W/2, cy=H/2;
+  const r1=Math.min(W,H)*0.20, r2=Math.min(W,H)*0.40;
+  // center
+  mkNode({em:'🧠',name:'Engine',ct:total+' source',center:true}, cx, cy, null);
+  const ring1=DATA.filter(d=>d.ring===1), ring2=DATA.filter(d=>d.ring===2);
+  ring1.forEach((d,i)=>{ const a=-Math.PI/2 + i*(2*Math.PI/ring1.length)+0.0;
+    place(d, cx+Math.cos(a)*r1, cy+Math.sin(a)*r1, cx,cy); });
+  ring2.forEach((d,i)=>{ const a=-Math.PI/2 + i*(2*Math.PI/ring2.length);
+    place(d, cx+Math.cos(a)*r2, cy+Math.sin(a)*r2, cx,cy); });
+}
+function place(d,x,y,cx,cy){
+  line(cx,cy,x,y,d.color);
+  const ct=d.sources.length+' src';
+  const n=mkNode({em:d.em,name:d.name,ct,color:d.color}, x,y, d);
+}
+function line(x1,y1,x2,y2,col){
+  const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+  l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2);
+  l.setAttribute('stroke',col||'#2a3548');l.setAttribute('stroke-width','1.3');l.setAttribute('opacity','0.35');
+  svg.appendChild(l);
+}
+function mkNode(o,x,y,d){
+  const n=document.createElement('div'); n.className='node'+(o.center?' center':'');
+  n.style.left=x+'px'; n.style.top=y+'px';
+  let bar = d? `<div class="bar" style="background:${d.color}"></div>`:'';
+  n.innerHTML=`<div class="chip"><span class="em">${o.em}</span><div class="nm">${o.name}</div><div class="ct">${o.ct||''}</div>${bar}</div>`;
+  if(d){ n.onclick=()=>{ document.querySelectorAll('.node').forEach(x=>x.classList.remove('active')); n.classList.add('active'); show(d); }; }
+  map.appendChild(n); return n;
+}
+function show(d){
+  intro.style.display='none';
+  const cnt={};
+  d.sources.forEach(s=>cnt[s.s]=(cnt[s.s]||0)+1);
+  let stats=Object.entries(cnt).map(([k,v])=>`<b style="color:${ST[k].c};border-color:${ST[k].c}66">${ST[k].label.split(' ')[0]} ${v}</b>`).join('');
+  let rows=d.sources.map(s=>`<div class="src"><span class="s-dot" style="background:${ST[s.s].c}"></span>
+    <div class="s-body"><div class="s-nm">${s.n}</div>${s.t?`<div class="s-note">${s.t}</div>`:''}
+    <span class="s-tag" style="color:${ST[s.s].c}">${ST[s.s].label}</span></div></div>`).join('');
+  panel.innerHTML=`<div class="phead"><span class="em">${d.em}</span><h2>${d.name}</h2>
+    <div class="sub">${d.sources.length} 個 source</div><div class="stats">${stats}</div></div>
+    <div class="srcs">${rows}</div>`;
+  panel.classList.add('show');
+}
+// legend
+document.getElementById('legend').innerHTML = Object.values(ST).map(s=>`<span><i class="dot" style="background:${s.c}"></i>${s.label.replace(/^\S+\s/,'')}</span>`).join('');
+layout(); window.addEventListener('resize', ()=>{layout(); });
+</script>
+</body>
+</html>
