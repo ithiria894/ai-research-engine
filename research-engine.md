@@ -773,10 +773,10 @@ Compile all findings into structured report:
 | 優先 | API | 解鎖 | Signup（多數 instant email） |
 |:---:|-----|------|------------------------------|
 | 🔥 | **CORE** | 3億 paper metadata + 4000萬 full-text PDF | core.ac.uk/services/api |
-| 🔥 | **FRED** | 84萬經濟時序（GDP/利率/通脹/就業） | fred.stlouisfed.org/docs/api/api_key.html |
-| 🔥 | **Serper.dev** | Google SERP JSON，2,500 free/mo | serper.dev |
+| ✅ | **FRED** | **已攞 key（2026-05-31，實測通，存 keys.env）** | — |
+| 🔥 | **Serper.dev** | Google SERP JSON，2,500 free/mo | ⚠️ **自動註冊被 server hard-block**（Turnstile pass 都 "not possible to register"）— 要人手 signup |
 | 🔥 | **Finnhub** | 股票/IPO/fundamentals/news | finnhub.io/register |
-| ◆ | **US Census** | 美國人口/經濟/住房 demographics | api.census.gov/data/key_signup.html |
+| ✅ | **US Census** | **已攞 key（2026-05-31，已啟用，存 keys.env）** | — |
 | ◆ | **Open PageRank** | domain authority（4.3M lookup/day） | domcop.com/openpagerank |
 | ◆ | **PodcastIndex** | 4M+ podcast index | api.podcastindex.org |
 | ◆ | **FMP** | IPO calendar + M&A + financials | financialmodelingprep.com |
