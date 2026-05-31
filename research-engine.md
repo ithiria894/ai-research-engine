@@ -339,6 +339,24 @@
 
 **❌ Verified dead / skip（唔好試）：** data.gov CKAN（404 全變體）· ReliefWeb v1（410 deprecated）· Product Hunt GraphQL（要 OAuth）· nostr.band（000 down）· youtube-transcript-mcp（59⭐ 但 2025-07 stale，engine 已有 yt-dlp+Groq）· Stack Overflow MCP（最好得 7⭐，繼續用 raw StackExchange API）。
 
+**新 cluster（Round 15 — 2026-05-31）— 🛍️ Shopping / Product / Gift research：**
+
+> Use case：「我想買個產品 / 送個禮，根據我嘅需求幫我搵」。之前 engine 冇 document，但工具其實齊。**入口 = `/shop` skill**（畀需求+budget，跨店比 specs/價/review）。
+
+| Source | 做咩 | 點用 / 狀態 |
+|--------|------|------------|
+| ⭐ **`/shop` skill** | 主力入口：理解需求 → 並行 agent 跨店搜 → 比 specs/價/review/availability | Skill（用 amazon/agora/superprecio/scrapegraph/tavily/exa/firecrawl） |
+| ⭐ **Serper Shopping** | **Google Shopping** — 任何產品→真價+邊間店賣（gift 必備） | ✅ `POST google.serper.dev/shopping` `{"q":"gift for mom"}`（用 SERPER key，已攞，200 verified） |
+| **Amazon MCP** | 產品搜尋 / review / category / gift ideas | `mcp__amazon__*`（已裝；raw amazon.ca 反爬，一定用 MCP） |
+| **agora-mcp** | 跨店 universal product search | `mcp__agora__*`（已裝，`agora-mcp`） |
+| **superprecio MCP** | 價格比較 / deals / shopping list | `mcp__superprecio__*`（已裝） |
+| ⭐ **Reddit gift subs**（dialog-mcp） | 「送 [某類人] 咩好」最高 signal：r/giftideas · r/Gifts · r/GiftIdeas · r/BuyItForLife（耐用）· r/findfashion | dialog-mcp（raw .json 403，一定用 MCP） |
+| **Gift-guide scrape** | 抓專業 gift guide / 評測：Wirecutter · RTINGS · NYT/BuzzFeed gift guides · The Strategist | Firecrawl/Tavily Extract/Exa（畀 URL 或 search「best gift for X 2026」） |
+| **Product Hunt · idea-reality** | 新奇 / 獨特產品 | idea-reality MCP（已裝） |
+| 要 free key（未攞） | **eBay Browse API**（二手/罕有 gift）· **Etsy API**（handmade/personalised gift） | 入「Key Activation Checklist」，eBay/Etsy 要 dev signup |
+
+> **送禮 workflow**：① 問清收禮人（關係/興趣/年齡/budget）→ ② Reddit gift subs 搵「送呢類人咩好」嘅真人推薦 → ③ Serper Shopping + Amazon/agora 搵實物+價 → ④ Firecrawl 抓 gift guide 對證 → ⑤ 出 3-5 個推薦連價+買邊度。直接用 `/shop "送 [描述] 嘅禮物，budget $X"` 一條龍。
+
 **新 cluster（Round 14 — 2026-05-31）— 🛡️ AI Security / AI Safety tracking（全部 curl verified）：**
 
 > Nicole（security engineer + AI safety researcher）專用。睇 AI security/safety 最近邊個傾乜、出咩 research。全部 zero-key RSS/API。
