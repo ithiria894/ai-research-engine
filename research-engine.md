@@ -772,16 +772,23 @@ Compile all findings into structured report:
 
 | 優先 | API | 解鎖 | Signup（多數 instant email） |
 |:---:|-----|------|------------------------------|
-| 🔥 | **CORE** | 3億 paper metadata + 4000萬 full-text PDF | core.ac.uk/services/api |
-| ✅ | **FRED** | **已攞 key（2026-05-31，實測通，存 keys.env）** | — |
-| 🔥 | **Serper.dev** | Google SERP JSON，2,500 free/mo | ⚠️ **自動註冊被 server hard-block**（Turnstile pass 都 "not possible to register"）— 要人手 signup |
-| 🔥 | **Finnhub** | 股票/IPO/fundamentals/news | finnhub.io/register |
-| ✅ | **US Census** | **已攞 key（2026-05-31，已啟用，存 keys.env）** | — |
-| ◆ | **Open PageRank** | domain authority（4.3M lookup/day） | domcop.com/openpagerank |
-| ◆ | **PodcastIndex** | 4M+ podcast index | api.podcastindex.org |
-| ◆ | **FMP** | IPO calendar + M&A + financials | financialmodelingprep.com |
-| ○ | **Etherscan** | 60+ EVM 鏈 txns/token（一個 key） | etherscan.io/apis |
-| ○ | **OpenStates / OpenSanctions / WAQI** | 州立法 / 制裁篩查 / 空氣質素 | 見 Round 13 cluster |
+> **2026-05-31 申請結果**（Claude 經 Chrome 自動申請，key 存 `~/.config/research-engine/keys.env`，account 密碼存 `credentials.txt` + accounts.md ledger）：
+
+| 狀態 | API | 用途 / 備註 |
+|:---:|-----|------|
+| ✅ | **FRED** | 已攞 + **實測通**（GDP）。經濟時序 |
+| ✅ | **US Census** | 已攞 + 啟用。人口/經濟 demographics |
+| ✅ | **Open PageRank** | 已攞 + **實測通**（rank）。domain authority |
+| ✅ | **FMP** | 已攞 + **實測通**（`/stable/`）。股票/IPO/financials |
+| ✅ | **OpenStates** | 已攞 + **實測通**（Google OAuth）。州立法 |
+| ⏳ | **Finnhub** | account 建好，key 暫 invalid，要 retest |
+| ⏳ | **CORE** | register form submit 咗，key 經 email（多數要審批），未到 |
+| ❌ | **Serper.dev** | 自動註冊被 server hard-block（"not possible to register"）— 人手 signup |
+| ❌ | **Etherscan** | Cloudflare bot wall 擋 submit — 人手 signup |
+| ❌ | **PodcastIndex** | signup widget captcha — 人手 signup |
+| — | **OpenSanctions / WAQI** | 未申請（WAQI `demo` token 即用）|
+
+> 規律：**gov/research/finance（FRED/Census/OpenPageRank/FMP/OpenStates）自動申請順；SERP+crypto+podcast（Serper/Etherscan/PodcastIndex）有強 anti-bot captcha，要人手。**
 
 ---
 
