@@ -238,10 +238,23 @@
 | **AI-visibility trackers（有真 API 但 paid — verified 2026-05-31）** | **Trakkr.ai**：最乾淨 OpenAPI 3.0.3（`https://trakkr.ai/openapi.json` 200，server `api.trakkr.ai`，8 個 GET：brands/scores/citations/competitor…；key 要 `sk_live_`，API 喺 Scale plan）· **Rankscale.ai**：兩個 API surface（`rankscale.ai/v1/metrics/*` + `api.rankscaleai.com`，401 needs-key 已驗），**有官方 OpenClaw Skill `Rankscale/Rankscale-GEO-Skill`**（integration shortcut），API 喺付費 plan | trakkr.ai/openapi.json · api.rankscaleai.com | paid（有 key 先用到，無 free-tier API） |
 | **AI-visibility trackers（paid）** | enterprise-grade：Profound（$399+/mo, 10+ engines, Walmart/Figma）· Scrunch（$250+, 埋 crawler analytics）· Semrush/SE Ranking AI（$65-140, bolt-on） | tryprofound.com | paid, 多數有 trial |
 | **⭐ Otterly.ai — 有真 API（verified 2026-05-31）** | AI-answer visibility + share-of-voice，**唯一查到有公開 OpenAPI 嘅 tracker**。Base `https://data.otterly.ai/v1`。**Zero-key OpenAPI spec**（可直接攞做 reference）：`GET https://data.otterly.ai/v1/openapi.json`（200）。實際 data：`Authorization: Bearer oai_live_xxx`（unauth→401）。**Trial 都拎到 key**（7 日試用即生成，無 free-forever tier）。仲有 **Claude Skill**：`claude skill add` 個 `.skill`（otterly-skills.s3...） | data.otterly.ai/v1/openapi.json · app.otterly.ai/api-keys | freemium（trial 給 key） |
+
+**Otterly API — 21 個 endpoint（2026-05-31 拆 spec，GEO research 最有用嗰啲標 ⭐）：**
+
+| Endpoint | 攞咩 |
+|----------|------|
+| `GET /v1/engines` | 支援嘅 AI engine + 國家 list（query 前先睇覆蓋面） |
+| `GET /v1/reports/brand` · `/{id}` · `/{id}/stats` | Brand visibility report（你個 brand 喺 AI answer 出現率） |
+| ⭐ `GET /v1/reports/brand/{id}/citations` · `/citations/stats` | **AI 答案引咗邊啲 source URL**（GEO 核心：邊個域名被引最多） |
+| ⭐ `GET /v1/reports/brand/{id}/citations/prompts` | 某條被引 URL 係由邊啲 prompt 觸發 |
+| ⭐ `GET /v1/reports/brand/{id}/prompts` · `/{promptId}` · `/{promptId}/ai-responses` | **AI engine 對每條 prompt 嘅原文答案**（睇佢真係點講你 brand） |
+| ⭐ `GET /v1/reports/brand/{id}/recommendations` | 可執行 GEO 建議 |
+| `GET·POST /v1/audits/geo/crawlability-checks` · `/content-checks` | GEO audit：crawlability + content check（POST 開 check，GET 攞結果） |
+| `GET /v1/workspaces` · `/{id}/tags` · `/v1/accounts/info` | Workspace / account meta |
 | ~~**Peec.ai**~~ | ❌ 冇 public API（verified 2026-05-31：`api.peec.ai` / `peec.ai/api` 都 404）。標準 plan 只有 CSV export + Looker connector，API 淨係 Enterprise/custom。**唔好當 API 用** | watch-list only | enterprise-only |
 | **Docs platforms（auto MCP+llms.txt）** | Mintlify（auto MCP at /mcp + llms.txt, free Hobby）· Fern（auto llms.txt+MCP, 90% token cut, free Hobby）· ReadMe · Kapa.ai（free for OSS） | mintlify.com · buildwithfern.com | 免費 Hobby / OSS |
 | **⭐ Skills marketplace APIs（zero-key，verified 2026-05-31）** | Programmatic 查 AI-agent skills（GEO/AEO/SEO 相關 SKILL.md）+ install 量遙測。**skills.sh**（Vercel-Labs directory）：`GET https://www.skills.sh/api/search?q=geo`（200 JSON，含 install counts，GET-only；CLI `npx skills add owner/repo`）。**agentskills.to**（marketplace，注意 `.to` 唔係 `.io`）：`GET https://www.agentskills.to/api/skills?q=seo`（200 JSON，含 total_install/weekly_install + 現成 install_command）。**skilldock.io**（registry，**API 喺 `api.` subdomain**）：`GET https://api.skilldock.io/v1/skills`（200，免 auth 返 188 skills）· `/v1/stats` · `/openapi.json`；官方 SDK `pip install skilldock`（Apache-2.0） | skills.sh · agentskills.to · api.skilldock.io | 免費，零 key |
-| **agentskills-mcp（有 MCP 可裝）** | 將 AgentSkills/SKILL.md 生態變 MCP：discover + install skills from GitHub collections。**Nicole「有 MCP 就裝」首選** | `github.com/pinkpixel-dev/agentskills-mcp`（FastMCP）· 另有 mrsimpson/zouyingcao 版本 | 免費 |
+| **agentskills-mcp（✅ 已裝 2026-05-31，user scope）** | 搜尋 1,600+ skills across curated GitHub repos + 按需安裝。Boot-tested，6 個 tool：`github_skills_search_skills` / `get_skill` / `install_skill` / `list_repositories` / `suggest_skill_scaffold`。裝法：`claude mcp add -s user agentskills -- uvx pinkpixel-agentskills-mcp`（PyPI，MIT）。**另一用途**：`zouyingcao/agentskills-mcp`（18★，`pip install mcp-agentskills`）係 serve 你本地 clone 落嚟嘅 skills（progressive disclosure），唔係 marketplace 搜尋 — 兩者互補 | ✅ `pinkpixel-agentskills-mcp`（uvx）· alt `mcp-agentskills`（pip） | 免費，零 key |
 
 **Round 11 — AI-native library file hierarchy（2026-05-30 Round 2 修正排序，按真實 leverage）：**
 
@@ -807,6 +820,10 @@ If Twitter spend > $5/mo     → ⚠️ review if reads are worth it
 - ⚠️ **Trakkr.ai**（OpenAPI 3.0.3 `trakkr.ai/openapi.json`，最乾淨）+ **Rankscale.ai**（雙 API surface + 官方 OpenClaw Skill）→ 有真 API 但 **gate 喺付費 plan**，free tier 無 API → watch（有 key 先用）
 - ❌ **Knowatoa**（free 得 dashboard/CSV，API $249/mo+，Heroku Rails session-only）+ **AIVO**（係 methodology standard 唔係 tool，email-gated）+ **Radarkit/Leapd**（dashboard-only）→ drop programmatic 用途
 - 5 個全部**冇 MCP**。已更正 engine 入面「AI-visibility trackers（free tier）」嗰行嘅 overclaim（免費 tier 其實攞唔到 API data）。
+
+**6. Improvements（2026-05-31）**：
+- 📖 拆咗 **Otterly OpenAPI 全部 21 endpoint** 寫入 engine，標 ⭐ GEO research 最有用嗰 5 個（citations / citations-prompts / prompts-ai-responses / recommendations / geo-audits）。
+- ✅ **真裝咗 `agentskills-mcp`**（`pinkpixel-agentskills-mcp`，user scope，boot-tested 6 個 tool）— 合「有 MCP 就裝」。揀 pinkpixel 版（marketplace 搜尋+安裝）over zouyingcao 18★ 版（後者 serve 本地 skills，用途唔同）。Config 改前已備份 `~/.claude.json`。
 
 **Verification 原則**：呢輪所有 status 都係今次 curl/tool 實測（唔信舊註解）。未親手測過嘅 ~100 個工具**冇**亂 stamp「verified」date——只有上面打 ✅/❌ + 日期嗰啲先係真驗過。Dead endpoint 嘅 silence ≠「found nothing」。
 
