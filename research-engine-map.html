@@ -65,7 +65,7 @@
 <body>
 <div class="wrap">
   <div class="map" id="map">
-    <h1><b>🧠 Deep Research Engine</b> &nbsp;·&nbsp; 16 domain · ~140 distinct source &nbsp;·&nbsp; <span style="color:var(--accent)">click 任何 cluster</span></h1>
+    <h1><b>🧠 Deep Research Engine</b> &nbsp;·&nbsp; 17 domain · ~160 source &nbsp;·&nbsp; <span style="color:var(--accent)">click 任何 cluster</span></h1>
     <svg class="lines" id="lines"></svg>
     <div class="legend" id="legend"></div>
   </div>
@@ -96,7 +96,7 @@ const DATA = [
     {n:'open-websearch (8 引擎)', s:'free', t:'MCP · 零 key · free-web-search 替代'},
     {n:'Marginalia (indie web index)', s:'free', t:'api.marginalia.nu'},
     {n:'WebSearch / WebFetch', s:'mcp', t:'built-in'},
-    {n:'Serper.dev (Google SERP)', s:'blocked', t:'❌ 自動註冊被 block'},
+    {n:'Serper.dev (Google SERP)', s:'obtained', t:'✅ key 攞到 2026-05-31, 2500/mo'},
   ]},
   {id:'orch', ring:1, em:'🧩', name:'Orchestration', color:'#a371f7', sources:[
     {n:'Workflow v2', s:'mcp', t:'Phase0 Reality→Phase1 6-agent→Phase2 deep→Phase3 synth'},
@@ -124,6 +124,14 @@ const DATA = [
     {n:'Mastodon', s:'free'},{n:'Lemmy', s:'free'},{n:'Lobste.rs', s:'free'},
     {n:'StackExchange', s:'free'},{n:'Twitter/X', s:'mcp', t:'$0.01/read'},
     {n:'Truth Social', s:'needkey', t:'bearer token'},{n:'last30days', s:'mcp', t:'13K⭐ skill'},
+    {n:'arctic-shift ⭐ (Reddit Pushshift 後繼)', s:'free', t:'full-text 搜含今日 post (新)'},
+    {n:'Misskey (misskey.io)', s:'free', t:'JP fediverse trending (新)'},
+    {n:'mbin / kbin.earth', s:'free', t:'Reddit-like fediverse (新)'},
+    {n:'Lemmy ×4 instance', s:'free', t:'programming.dev·hexbear·sh.itjust·lemmy.ml (新)'},
+    {n:'Neynar (Farcaster casts)', s:'needkey', t:'crypto-native, free key (新)'},
+    {n:'Substack Notes · daily.dev · Slashdot', s:'free', t:'(新)'},
+    {n:'StackExchange /sites (170+ 站)', s:'free', t:'fan-out (新)'},
+    {n:'Telegram + Discord MCP', s:'mcp', t:'最大 chat 平台 (新)'},
   ]},
   {id:'dev', ring:2, em:'📦', name:'Dev Ecosystem / Packages', color:'#2f81f7', sources:[
     {n:'npm (downloads API)', s:'free'},{n:'PyPI Stats', s:'free'},{n:'crates.io', s:'free'},
@@ -190,6 +198,21 @@ const DATA = [
     {n:'OpenRouter ⭐', s:'free', t:'live LLM catalog/pricing (新)'},
     {n:'Ollama registry ⭐', s:'free', t:'trending open models (新)'},
     {n:'Leaderboards ×6', s:'mcp', t:'SWE-bench·LMSYS·LiveBench·Aider·PwC (changedetection)'},
+  ]},
+  {id:'aisec', ring:2, em:'🛡️', name:'AI Security / Safety', color:'#ff6b6b', sources:[
+    {n:'Simon Willison ⭐', s:'free', t:'prompt injection / LLM security 最高 signal'},
+    {n:'Embrace The Red ⭐', s:'free', t:'AI red-team / agent hijack PoC'},
+    {n:'tldr;sec ⭐', s:'free', t:'每週 security aggregator (AI section)'},
+    {n:'LessWrong GraphQL ⭐', s:'free', t:'alignment posts + score (structured trending)'},
+    {n:'arXiv cs.CR (LLM)', s:'free', t:'adversarial ML / jailbreak papers'},
+    {n:'Protect AI · Trail of Bits', s:'free', t:'ML supply-chain / model-file exploit'},
+    {n:'Google Project Zero', s:'free', t:'deep vuln (AI-assisted Big Sleep)'},
+    {n:'NVIDIA AI Red Team', s:'free'},
+    {n:'CAIS AI Safety Newsletter', s:'free', t:'每週 roundup'},
+    {n:'Alignment Forum · EA Forum', s:'free'},
+    {n:'OWASP LLM Top-10 · MITRE ATLAS · NIST AI RMF', s:'free', t:'framework (部分 scrape)'},
+    {n:'OSV (transformers 等漏洞)', s:'free'},
+    {n:'Anthropic / HiddenLayer / Lakera', s:'free', t:'無 RSS, scrape'},
   ]},
 ];
 // distinct source count
