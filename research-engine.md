@@ -265,12 +265,34 @@
 | **整套 seo-geo-claude-skills（20 個）** | 4-21K each | **aaron-he-zhu/seo-geo-claude-skills**（⭐1,919, Apache-2.0, CORE-EEAT+CITE framework） | ⭐ **最對口 GEO research toolkit**：geo-content-optimizer · content-gap-analysis · competitor-analysis · technical-seo-checker · on-page-seo-auditor · backlink-analyzer · meta-tags-optimizer · keyword-research… |
 | `audit-website` · `competitor-alternatives` | 55K · 11.6K | agentskills.to | site audit · 競品比較頁 |
 
-> **建議**（未裝，要用先揀）：要單一最對口 = `aaron-he-zhu/seo-geo-claude-skills` 入面嘅 `geo-content-optimizer`；要 engine evidence 對應 = `coreyhaines31/marketingskills` 嘅 `schema-markup`；要成套 GEO workflow = 裝全 `aaron-he-zhu/seo-geo-claude-skills`（但 20 個 description 入 context）。
+**⚠️ 唔好 `npx skills add`（install = 每 session load 落 context 嘥 token）。Skill 不過係 MD file —— download 落本地、揀有用嘅 link 入 engine、要用先 Read。**
+
+**已 download + review aaron-he-zhu/seo-geo-claude-skills（20 個），filter 後 keep 10 → `skills/geo/`（on-demand Read，唔入 context）：**
+
+| ✅ Kept（research / 純 methodology，靠你 fetch 嘅 data 行，無 live-tool 依賴） | 用途 |
+|------|------|
+| `geo-content-optimizer` | ⭐ 優化內容俾 ChatGPT/Perplexity/AIO/Gemini 引用（GEO 旗艦） |
+| `schema-markup-generator` | JSON-LD（FAQ/HowTo/Article…）— 對應 engine evidence：schema→extraction 16%→54% |
+| `entity-optimizer` | Knowledge Graph / Wikidata / sameAs entity 信號 |
+| `content-quality-auditor` | **80-item CORE-EEAT scoring** + veto + fix plan（716L，正經 framework） |
+| `domain-authority-auditor` | **40-item CITE scoring** |
+| `competitor-analysis` · `content-gap-analysis` · `serp-analysis` | research：競品 / 內容 gap / SERP+AIO 分析 |
+| `on-page-seo-auditor` · `technical-seo-checker` | audit 你 fetch 落嚟嘅 page（crawl/index/CWV/meta） |
+
+| ❌ Skipped（junk for research：要 live SEO-tool data、或 ops/reporting、或同你 setup 撞） | 點解唔要 |
+|------|------|
+| `rank-tracker` · `performance-reporter` · `alert-manager` | 要 rank/analytics export + 連 GSC/GA，純 ops monitoring，唔係 research |
+| `backlink-analyzer` | 要 backlink-tool（Ahrefs 類）data source，我哋無 |
+| `memory-management` | 同 Nicole 自己嘅 memory 系統 + externalize-state rule 重疊/衝突 |
+| `keyword-research` · `meta-tags-optimizer` · `seo-content-writer` · `internal-linking-optimizer` · `content-refresher` | 要 keyword-tool data 或純 content-doer，唔屬 research |
+
+> 用法：要做 GEO 工作先 `Read skills/geo/<skill>/SKILL.md`（共享 reference 喺 `skills/geo/_references/`）。零 session 開銷。
+> coreyhaines31/marketingskills（⭐31K）嘅 `schema-markup` 同上面 `schema-markup-generator` 重疊，未另外 download。
 
 | ~~**Peec.ai**~~ | ❌ 冇 public API（verified 2026-05-31：`api.peec.ai` / `peec.ai/api` 都 404）。標準 plan 只有 CSV export + Looker connector，API 淨係 Enterprise/custom。**唔好當 API 用** | watch-list only | enterprise-only |
 | **Docs platforms（auto MCP+llms.txt）** | Mintlify（auto MCP at /mcp + llms.txt, free Hobby）· Fern（auto llms.txt+MCP, 90% token cut, free Hobby）· ReadMe · Kapa.ai（free for OSS） | mintlify.com · buildwithfern.com | 免費 Hobby / OSS |
 | **⭐ Skills marketplace APIs（zero-key，verified 2026-05-31）** | Programmatic 查 AI-agent skills（GEO/AEO/SEO 相關 SKILL.md）+ install 量遙測。**skills.sh**（Vercel-Labs directory）：`GET https://www.skills.sh/api/search?q=geo`（200 JSON，含 install counts，GET-only；CLI `npx skills add owner/repo`）。**agentskills.to**（marketplace，注意 `.to` 唔係 `.io`）：`GET https://www.agentskills.to/api/skills?q=seo`（200 JSON，含 total_install/weekly_install + 現成 install_command）。**skilldock.io**（registry，**API 喺 `api.` subdomain**）：`GET https://api.skilldock.io/v1/skills`（200，免 auth 返 188 skills）· `/v1/stats` · `/openapi.json`；官方 SDK `pip install skilldock`（Apache-2.0） | skills.sh · agentskills.to · api.skilldock.io | 免費，零 key |
-| **agentskills-mcp（✅ 已裝 2026-05-31，user scope）** | 搜尋 1,600+ skills across curated GitHub repos + 按需安裝。Boot-tested，6 個 tool：`github_skills_search_skills` / `get_skill` / `install_skill` / `list_repositories` / `suggest_skill_scaffold`。裝法：`claude mcp add -s user agentskills -- uvx pinkpixel-agentskills-mcp`（PyPI，MIT）。**另一用途**：`zouyingcao/agentskills-mcp`（18★，`pip install mcp-agentskills`）係 serve 你本地 clone 落嚟嘅 skills（progressive disclosure），唔係 marketplace 搜尋 — 兩者互補 | ✅ `pinkpixel-agentskills-mcp`（uvx）· alt `mcp-agentskills`（pip） | 免費，零 key |
+| ~~**agentskills-mcp**~~（裝咗又移除 2026-05-31） | ❌ **唔保留**：always-on MCP 每 session load 6 個 tool schema 入 context，而佢主功能（`install_skill`）正正係我哋唔想要嘅 install 模式。**Skill discovery 用 zero-key API 就得**（`curl skills.sh/api/search`），唔使常駐 MCP。需要時先手動 `uvx pinkpixel-agentskills-mcp`（PyPI/MIT，6 tool：search/get/install/list/scaffold） | 唔常駐；要用先 uvx | 免費 |
 
 **Round 11 — AI-native library file hierarchy（2026-05-30 Round 2 修正排序，按真實 leverage）：**
 
@@ -839,7 +861,8 @@ If Twitter spend > $5/mo     → ⚠️ review if reads are worth it
 
 **6. Improvements（2026-05-31）**：
 - 📖 拆咗 **Otterly OpenAPI 全部 21 endpoint** 寫入 engine，標 ⭐ GEO research 最有用嗰 5 個（citations / citations-prompts / prompts-ai-responses / recommendations / geo-audits）。
-- ✅ **真裝咗 `agentskills-mcp`**（`pinkpixel-agentskills-mcp`，user scope，boot-tested 6 個 tool）— 合「有 MCP 就裝」。揀 pinkpixel 版（marketplace 搜尋+安裝）over zouyingcao 18★ 版（後者 serve 本地 skills，用途唔同）。Config 改前已備份 `~/.claude.json`。
+- 🔁 **agentskills-mcp 裝咗又移除**（Nicole 指正）：skill 不過係 MD，install/常駐 MCP 都係嘥 per-session context。改用 **download-link-on-demand** 模式。
+- 📥 **Download + filter GEO skills**：clone `aaron-he-zhu/seo-geo-claude-skills`（20 個），逐個 review frontmatter，**keep 10 / skip 10** → 存 `skills/geo/`（on-demand Read，零 context 開銷）。Keep = 純 methodology（geo-content-optimizer、content-quality-auditor〔CORE-EEAT 80-item〕、domain-authority-auditor〔CITE 40-item〕、entity-optimizer、schema-markup-generator、competitor/content-gap/serp-analysis、on-page/technical auditor）；Skip = 要 live SEO-tool data 或 ops/reporting 或同 Nicole memory 系統撞（rank-tracker、performance-reporter、alert-manager、backlink-analyzer、memory-management、keyword-research…）。
 
 **Verification 原則**：呢輪所有 status 都係今次 curl/tool 實測（唔信舊註解）。未親手測過嘅 ~100 個工具**冇**亂 stamp「verified」date——只有上面打 ✅/❌ + 日期嗰啲先係真驗過。Dead endpoint 嘅 silence ≠「found nothing」。
 
