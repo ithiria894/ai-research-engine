@@ -353,12 +353,12 @@
 | **superprecio MCP** | 價格比較 / deals / shopping list | `mcp__superprecio__*`（已裝） |
 | ~~**amazon-mcp**~~ ❌ | **廢的** — verified：21 行 no-op stub，0 tool / 0 HTTP call，乜都唔做。`/shop` skill 叫 `mcp__amazon__*` 其實攞唔到嘢 → 改用 Apify/Canopy | uninstall（drama-fm/amazon-mcp） |
 | ~~**agora-mcp**~~ ❌ | **裝錯** — npm `agora-mcp` 係 Agora **chat** bot（WIP「will not work」），唔係 shopping。真 shopping Agora（Fewsats/SearchAgora）個 API host 已死（000）→ 唔好追 | uninstall |
-| ⭐ **Reddit gift subs**（dialog-mcp） | 「送 [某類人] 咩好」最高 signal：r/giftideas · r/Gifts · r/GiftIdeas · r/BuyItForLife（耐用）· r/findfashion | dialog-mcp（raw .json 403，一定用 MCP） |
+| ⭐ **Reddit（dialog-mcp）— 按產品品類 discover sub** | 用 `discover_subreddits` 搵嗰個產品嘅真實社群攞用家推薦/避雷，**唔係淨係 gift sub**：廚具→r/cookware·r/Cooking·r/castiron·r/BuyItForLife；耳機→r/headphones·r/HeadphoneAdvice；monitor→r/Monitors；床褥→r/Mattress…。**只有明確送禮**先加 r/giftideas·r/Gifts | dialog-mcp（raw .json 403，一定用 MCP） |
 | **Gift-guide scrape** | 抓專業 gift guide / 評測：Wirecutter · RTINGS · NYT/BuzzFeed gift guides · The Strategist | Firecrawl/Tavily Extract/Exa（畀 URL 或 search「best gift for X 2026」） |
 | **Product Hunt · idea-reality** | 新奇 / 獨特產品 | idea-reality MCP（已裝） |
 | 要 free key（未攞） | **eBay Browse API**（二手/罕有 gift）· **Etsy API**（handmade/personalised gift） | 入「Key Activation Checklist」，eBay/Etsy 要 dev signup |
 
-> **送禮 workflow**：① 問清收禮人（關係/興趣/年齡/budget）→ ② Reddit gift subs 搵「送呢類人咩好」嘅真人推薦 → ③ Serper Shopping + Amazon/agora 搵實物+價 → ④ Firecrawl 抓 gift guide 對證 → ⑤ 出 3-5 個推薦連價+買邊度。直接用 `/shop "送 [描述] 嘅禮物，budget $X"` 一條龍。
+> **送禮 workflow**：① 問清收禮人（關係/興趣/年齡/budget）→ ② Reddit（dialog-mcp discover_subreddits）按產品品類搵真人推薦（送禮先加 gift sub） → ③ Serper Shopping + Amazon/agora 搵實物+價 → ④ Firecrawl 抓 gift guide 對證 → ⑤ 出 3-5 個推薦連價+買邊度。直接用 `/shop "送 [描述] 嘅禮物，budget $X"` 一條龍。
 
 **新 cluster（Round 14 — 2026-05-31）— 🛡️ AI Security / AI Safety tracking（全部 curl verified）：**
 
