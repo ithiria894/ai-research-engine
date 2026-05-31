@@ -122,6 +122,21 @@ check "agentskills.to list"     "https://www.agentskills.to/api/skills?q=seo"
 check "skilldock.io skills"     "https://api.skilldock.io/v1/skills"
 check "Otterly OpenAPI spec"    "https://data.otterly.ai/v1/openapi.json"
 
+# ── Round 13 new zero-key sources (verified 2026-05-31) ───────────────
+check "OpenReview"              "https://api2.openreview.net/notes?content.venue=ICLR%202025&limit=2"
+check "CourtListener v4"        "https://www.courtlistener.com/api/rest/v4/search/?q=copyright&type=o"
+check "SEC EFTS full-text"      "https://efts.sec.gov/LATEST/search-index?q=%22AI%22&forms=10-K"
+check "Socrata Discovery"       "https://api.us.socrata.com/api/catalog/v1?q=budget&limit=2"
+check "OpenRouter models"       "https://openrouter.ai/api/v1/models"
+check "Ollama registry"         "https://ollama.com/api/tags"
+check "ClinicalTrials v2"       "https://clinicaltrials.gov/api/v2/studies?query.cond=cancer&pageSize=2"
+check "PubChem PUG-REST"        "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/aspirin/property/MolecularFormula/JSON"
+check "GBIF occurrence"         "https://api.gbif.org/v1/occurrence/search?q=Puma&limit=2"
+check "USGS Earthquake"         "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&limit=2&starttime=2026-05-01"
+check "WHO GHO OData"           "https://ghoapi.azureedge.net/api/Indicator"
+check "Marginalia Search"       "https://api.marginalia.nu/public/search/llm?count=2"
+check "Wikimedia Pageviews"     "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/2026/05/01"
+
 # ── MCP liveness probe (Round 12) ─────────────────────────────────────
 # CONNECTED ≠ WORKING. A configured MCP can be quota-dead. We hit each keyed
 # service's REST endpoint with the REAL key (read from ~/.claude.json) so the

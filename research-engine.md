@@ -1,6 +1,6 @@
 # Research Engine — 資料搜集工具 Inventory
 
-> 最後更新：2026-05-31（Round 12: retry logic + 真 MCP liveness probe + stale-URL sweep〔再 fix 8 個〕+ skills-marketplace zero-key API + Otterly OpenAPI）。前置：Round 11（GEO cluster + health-check）、Round 9（16-agent audit）。
+> 最後更新：2026-05-31（Round 13: engine-wide sharpen — fix 4 個 broken MCP〔3 個 parked 待修〕+ 16 個新 zero-key source〔OpenReview/CourtListener/SEC-EFTS/Socrata/OpenRouter…〕+ dormant-key checklist）。前置：Round 12（retry + 真 MCP liveness + GEO skills）、Round 11（GEO cluster）、Round 9（16-agent audit）。
 > 呢個 file 係 research 工具嘅 master list。定期更新（搵新 API、MCP、data source）。
 > Skill: `/market-research` 會 reference 呢個 file。
 >
@@ -48,7 +48,8 @@
 |------|--------|------|------------|
 | **idea-reality-mcp** | Scan GitHub + HN + npm + PyPI + PH，出 reality score 0-100 | 免費 | `idea-reality` |
 | **reddit-research-mcp (Dialog)** | Semantic search 20K+ subreddits，免 Reddit API creds | 免費 | `dialog-mcp`（HTTP） |
-| **free-web-search-ultimate** | 10+ engines（DuckDuckGo、Bing、Google、Brave、YouTube、Reddit、arXiv）零 API key | 免費 | `free-web-search` |
+| ~~**free-web-search-ultimate**~~ ❌ | **死咗（npm 404，見「💀 死咗 MCP」queue）** — 改用 `open-websearch` | — | ~~`free-web-search`~~ → `open-websearch` |
+| **open-websearch** ✅ | 8 引擎（Bing/Baidu/DDG/Brave/Exa/GitHub…）零 key，1335⭐ | 免費 | `open-websearch`（已裝，free-web-search 嘅替代） |
 
 ### News & Trends（Round 2 新增）
 
@@ -307,6 +308,36 @@
 5. `context7.json` — 認領/控制你 Context7 listing（1,740 files, ownership land-grab）。
 6. `llms.txt` + `llms-full.txt` — llms-full 有用（manual Cursor @Docs paste + GitMCP）；llms.txt 對 AI search ≈ 0（多個 500M+ event study 確認）但 Lighthouse 13.3.0 而家 audit 佢。低 priority、cheap、唔好 oversell。
 7. `.cursorrules` / `.windsurfrules`；watch **WebMCP**（verified 2026-05-31：W3C **Web Machine Learning** group draft，Microsoft+Google co-edit，**唔係 WICG**；JS API `navigator.modelContext.registerTool()`；Chrome 146 起 flag-gated DevTrial（`chrome://flags` → Experimental Web Platform Features）。spec repo `github.com/webmachinelearning/webmcp`（有 `index.bs` Bikeshed + `w3c.json`）。**仲未可以攞嚟做 research data source**——係畀網站 expose tool 畀 agent，無 hosted endpoint 查。純 watch-list）。
+
+**新 API（Round 13 新增 — 2026-05-31，全部我親手 curl verified 200／開新 domain）：**
+
+> 呢輪跳出 GEO，補返 engine cover 唔到嘅 domain。全部 zero-key + live。
+
+| API | 開咩新 domain | 點用（verified 200） |
+|-----|--------------|---------------------|
+| ⭐ **OpenReview** | **學術 peer-review discourse**（ratings/accept-reject rationale，ICLR/NeurIPS）— arXiv/S2 得 paper 冇 review | `https://api2.openreview.net/notes?content.venue=ICLR%202025&limit=10` |
+| ⭐ **CourtListener v4** | **美國全套 case-law + dockets**（36K+ opinion／query）— engine 完全冇法律 | `https://www.courtlistener.com/api/rest/v4/search/?q=...&type=o` |
+| ⭐ **SEC EFTS full-text** | EDGAR **全文**搜（搵每份提到某詞嘅 10-K），metadata API 做唔到 | `https://efts.sec.gov/LATEST/search-index?q="AI"&forms=10-K`（要 UA header） |
+| ⭐ **Socrata Discovery** | **救返死咗嘅 data.gov**（CKAN 404）— 搜全美 state/city open-data portal | `https://api.us.socrata.com/api/catalog/v1?q=budget` |
+| ⭐ **OpenRouter models** | **live LLM catalog**（pricing/context/modality 跨所有 provider）— 對 AI research engine 最 on-mission | `https://openrouter.ai/api/v1/models` |
+| **Ollama registry** | trending 開源/local model（配 HF 睇 open-model 脈搏） | `https://ollama.com/api/tags` |
+| **OpenCollective GraphQL** | OSS 項目 funding/expenses/backers（engine wishlist 一直想要） | `POST https://api.opencollective.com/graphql/v2` |
+| **ClinicalTrials.gov v2** | 藥物/intervention trial registry（PubMed/openFDA 冇） | `https://clinicaltrials.gov/api/v2/studies?query.cond=cancer` |
+| **PubChem PUG-REST** | 化合物/化學數據（engine 零 chem coverage） | `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{name}/property/.../JSON` |
+| **GBIF** | 生物多樣性 occurrence records | `https://api.gbif.org/v1/occurrence/search?q=...` |
+| **USGS Earthquake** | real-time 地球物理事件 feed | `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson` |
+| **Nominatim (OSM)** | 免費 geocoding（place→coords，engine 得 ip-api） | `https://nominatim.openstreetmap.org/search?q=...&format=json`（要 UA） |
+| **Wikimedia Pageviews** | 全球 attention signal（睇大眾喺睇咩，補 Google Trends） | `https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/{Y}/{M}/{D}` |
+| **WHO GHO OData** | 全球健康指標（engine 零 WHO） | `https://ghoapi.azureedge.net/api/Indicator` |
+| **Marginalia Search** | indie/small-web index（Google 埋沒嘅 long-tail page） | `https://api.marginalia.nu/public/search/{q}?count=10` |
+| **Wikidata SPARQL** | 任意 structured query（唔淨係 entity lookup） | `https://query.wikidata.org/sparql?format=json&query=...`（要 UA） |
+
+**需要 free key（endpoint verified live，要 signup）：** govinfo.gov（`DEMO_KEY` 即用，全套聯邦出版物）· OpenFEC（`DEMO_KEY` 即用，競選財務）· OpenStates v3（州級立法，Congress 得聯邦）· OpenSanctions（制裁/PEP 篩查）· WAQI air quality（`demo` token 即用）。
+
+**Gap-filling MCP（install-menu，唔好 bulk 裝 — cyanheads 一個 framework 出咗 ~35 個 research MCP，多數同 engine 已有 raw API 重疊。只裝真 gap）：**
+- `cyanheads/clinicaltrialsgov-mcp-server`（76⭐）· `cyanheads/courtlistener-mcp-server` 或 `blakeox/courtlistener-mcp`（12⭐）· `cyanheads/socrata-mcp-server` · `cyanheads/pubmed-mcp-server`（101⭐）· `cyanheads/secedgar-mcp-server`
+
+**❌ Verified dead / skip（唔好試）：** data.gov CKAN（404 全變體）· ReliefWeb v1（410 deprecated）· Product Hunt GraphQL（要 OAuth）· nostr.band（000 down）· youtube-transcript-mcp（59⭐ 但 2025-07 stale，engine 已有 yt-dlp+Groq）· Stack Overflow MCP（最好得 7⭐，繼續用 raw StackExchange API）。
 
 **新 API（Round 9 新增 — Podcast & Media）：**
 
@@ -645,7 +676,7 @@ Agent 0: Does this already exist?
 
 ```
 Agent A: Direct Competitors — FREE
-  → free-web-search-ultimate（10+ engines，零 key）
+  → open-websearch（8 engines，零 key）  # ⚠️ free-web-search 死咗，用呢個
   → gh search repos（GitHub landscape）
   → npm search + npm Downloads API（package ecosystem）
   → WebSearch（built-in）
@@ -654,7 +685,7 @@ Agent B: User Pain Points — FREE
   → reddit-research-mcp / dialog（semantic search 20K+ subreddits）
   → Reddit .json（specific subreddit top posts）
   → Stack Overflow API（tagged questions volume）
-  → free-web-search（"[category] problems frustrations reddit"）
+  → open-websearch（"[category] problems frustrations reddit"）
 
 Agent C: Market Trends + News — FREE
   → newsmcp（real-time clustered news）
@@ -677,7 +708,7 @@ Agent E: Distribution Landscape — FREE
 
 Agent F: Market Signals — FREE
   → jobspy（hiring trends = market demand signal）
-  → free-web-search（"[category] funding" "series A"）
+  → open-websearch（"[category] funding" "series A"）  # free-web-search 死咗
   → Open Collective API（OSS project funding）
 ```
 
@@ -713,6 +744,42 @@ Compile all findings into structured report:
   → Go/No-go recommendation with reasoning
   → Cost spent this session: $X.XX
 ```
+
+---
+
+## 💀 死咗 MCP — 待 fix queue
+
+> 呢度啲 MCP 喺 config 入面但**而家起唔到**（npm package 404 / 被取代）。**唔 remove**，parked 喺度做 to-fix 待辦，慢慢修。⚠️ 未修前每 session 會 show connection error — 係刻意嘅 reminder。修好一個就搬去返「已安裝」+ 喺度劃走。
+
+| MCP | 點解死 | 真正 fix path | 替代品（暫用） |
+|-----|--------|--------------|---------------|
+| `scrapegraph` | `npx scrapegraph-mcp-server` → npm 404（package 從未存在） | `uvx scrapegraph-mcp`（官方 ScrapeGraphAI，78⭐）但**要收費 `SGAI_API_KEY`** | open-websearch / firecrawl / tavily 已 cover scraping |
+| `free-web-search` | `npx free-web-search-ultimate` → npm 404（package 已消失） | 搵返可信版本，或轉 `npx duckduckgo-mcp-server` | **`open-websearch`（1335⭐，已裝）** — Phase 1 改用咗佢 |
+| `jobspy` | `npx jobspy-mcp-server` → npm 404；PyPI 同名版 author null 疑 squatter（**唔好裝**） | clone `borgius/jobspy-mcp-server` source（Node，未 publish npm）→ 本地 build 指落 config。底層 `python-jobspy` lib healthy | 暫無（hiring-signal 數據要等修好） |
+| `scholar-mcp` | 1⭐ solo，被 paper-search（1630⭐）完全蓋過 | 唔修，直接換 → `paper-search-mcp`（已裝）或 `JackKuo666/Google-Scholar-MCP-Server`（343⭐） | **`paper-search` / `arxiv`（已裝）** |
+
+> 修好步驟：boot-test（stdio `initialize`+`tools/list`）→ `claude mcp remove <name>` 舊 entry → `claude mcp add -s user <name> -- <new cmd>` → 跑 health-check.sh 確認 → engine 劃走。
+
+---
+
+## 🔑 Key Activation Checklist（dormant 待啟用）
+
+> 2026-05-31 audit：config 入面**冇一個 research-data free-key API 配咗 key** → 下面全部 listed 但用唔到（endpoint verified alive-needs-key）。撳完 signup 攞到 key，話我知我即刻配落去 + 測試。**優先按 research 用得多嘅排**。
+>
+> ⚡ **唔使 signup 即刻用**：Congress.gov / govinfo.gov / OpenFEC 全部 `api_key=DEMO_KEY` 即得（rate 低但夠 test）。
+
+| 優先 | API | 解鎖 | Signup（多數 instant email） |
+|:---:|-----|------|------------------------------|
+| 🔥 | **CORE** | 3億 paper metadata + 4000萬 full-text PDF | core.ac.uk/services/api |
+| 🔥 | **FRED** | 84萬經濟時序（GDP/利率/通脹/就業） | fred.stlouisfed.org/docs/api/api_key.html |
+| 🔥 | **Serper.dev** | Google SERP JSON，2,500 free/mo | serper.dev |
+| 🔥 | **Finnhub** | 股票/IPO/fundamentals/news | finnhub.io/register |
+| ◆ | **US Census** | 美國人口/經濟/住房 demographics | api.census.gov/data/key_signup.html |
+| ◆ | **Open PageRank** | domain authority（4.3M lookup/day） | domcop.com/openpagerank |
+| ◆ | **PodcastIndex** | 4M+ podcast index | api.podcastindex.org |
+| ◆ | **FMP** | IPO calendar + M&A + financials | financialmodelingprep.com |
+| ○ | **Etherscan** | 60+ EVM 鏈 txns/token（一個 key） | etherscan.io/apis |
+| ○ | **OpenStates / OpenSanctions / WAQI** | 州立法 / 制裁篩查 / 空氣質素 | 見 Round 13 cluster |
 
 ---
 
@@ -827,6 +894,19 @@ If Twitter spend > $5/mo     → ⚠️ review if reads are worth it
 ---
 
 ## Sharpening Log
+
+### Round 13（2026-05-31）— Engine-wide sharpen（非 GEO）：fix broken MCP + 16 個新 zero-key source + dormant-key audit
+
+**1. 4 個 MCP 而家根本起唔到（npm 404，config 有但靜靜地 fail — 同 silent-fetch-nothing 同一 root cause）**，全部我親手 `curl registry.npmjs.org` 確認 404。**Nicole 指示：唔好 remove，park 喺「💀 死咗 MCP — 待 fix queue」section 慢慢修**（見下面）：
+- `scrapegraph` · `free-web-search` · `jobspy` → **保留喺 config + parked 待 fix**（fix path 見 queue）。⚠️ 未 fix 前每 session 會 show connection error（係刻意嘅 reminder）。
+- `mcp-hn`（`npx mcp-hn` 404）→ **已修好 → `uvx mcp-hn`**（PyPI 正版，boot-tested，唔係 removal 係 fix）。
+- 其餘 research MCP 全 audit 過：healthy（idea-reality 708⭐、open-websearch 1335⭐、arxiv 2803⭐、paper-search 1630⭐、google-trends 81⭐…）；`scholar-mcp`（1⭐）被 paper-search 蓋過，列入 queue 待換。
+
+**2. 16 個新 zero-key source（全部我 curl 200，開新 domain）** — 見上面「Round 13 新增」cluster。最高值：OpenReview（peer-review discourse）、CourtListener（美國 case-law）、SEC EFTS（filing 全文）、Socrata（救返 data.gov）、OpenRouter（live LLM catalog）。另 5 個 free-key（govinfo/OpenFEC `DEMO_KEY` 即用）。
+
+**3. Dormant-key audit**：config 入面**冇一個 research-data free-key API 配咗 key**（淨係 canlii/devto/firecrawl/gemini/twitter 等）→ FRED/Finnhub/Census/CORE/Serper/PodcastIndex/FMP/OpenPageRank 全部 listed 但用唔到。見下面「🔑 Key Activation Checklist」。Congress.gov + govinfo + OpenFEC 用 `DEMO_KEY` 即刻可用，唔使 signup。
+
+**4. Config 改動已備份** `~/.claude.json.bak-r13-*`，用官方 `claude mcp` CLI 改，改完 validate JSON ✓。
 
 ### Round 12（2026-05-31）— Retry logic + 真 MCP liveness + stale-URL sweep + skills-marketplace APIs
 
