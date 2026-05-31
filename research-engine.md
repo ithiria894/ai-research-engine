@@ -1,6 +1,6 @@
 # Research Engine — 資料搜集工具 Inventory
 
-> 最後更新：2026-05-31（Round 13: engine-wide sharpen — fix 4 個 broken MCP〔3 個 parked 待修〕+ 16 個新 zero-key source〔OpenReview/CourtListener/SEC-EFTS/Socrata/OpenRouter…〕+ dormant-key checklist）。前置：Round 12（retry + 真 MCP liveness + GEO skills）、Round 11（GEO cluster）、Round 9（16-agent audit）。
+> 最後更新：2026-05-31（Round 14: health-check repair triage + 申請到 7 個 API key + 🛡️ AI-Security cluster + 💬 Social 擴充 + interactive mind map）。前置：Round 13（fix broken MCP + 16 zero-key source）、Round 12（retry + 真 MCP liveness + GEO skills）、Round 11（GEO cluster）。
 > 呢個 file 係 research 工具嘅 master list。定期更新（搵新 API、MCP、data source）。
 > Skill: `/market-research` 會 reference 呢個 file。
 >
@@ -338,6 +338,59 @@
 - `cyanheads/clinicaltrialsgov-mcp-server`（76⭐）· `cyanheads/courtlistener-mcp-server` 或 `blakeox/courtlistener-mcp`（12⭐）· `cyanheads/socrata-mcp-server` · `cyanheads/pubmed-mcp-server`（101⭐）· `cyanheads/secedgar-mcp-server`
 
 **❌ Verified dead / skip（唔好試）：** data.gov CKAN（404 全變體）· ReliefWeb v1（410 deprecated）· Product Hunt GraphQL（要 OAuth）· nostr.band（000 down）· youtube-transcript-mcp（59⭐ 但 2025-07 stale，engine 已有 yt-dlp+Groq）· Stack Overflow MCP（最好得 7⭐，繼續用 raw StackExchange API）。
+
+**新 cluster（Round 14 — 2026-05-31）— 🛡️ AI Security / AI Safety tracking（全部 curl verified）：**
+
+> Nicole（security engineer + AI safety researcher）專用。睇 AI security/safety 最近邊個傾乜、出咩 research。全部 zero-key RSS/API。
+
+| Source | 睇咩 | Endpoint |
+|--------|------|----------|
+| ⭐ **Simon Willison** | prompt injection / LLM security 最高 signal | `https://simonwillison.net/atom/everything/` |
+| ⭐ **Embrace The Red (wunderwuzzi)** | AI red-team / agent hijack PoC exploits | `https://embracethered.com/blog/index.xml` |
+| ⭐ **tldr;sec** | 每週 security aggregator（有 AI section，meta-source） | `https://tldrsec.com/feed.xml` |
+| ⭐ **LessWrong GraphQL** | alignment posts + score + timestamp（structured trending） | `POST https://www.lesswrong.com/graphql`（`view:"new"`/`"top"`） |
+| ⭐ **arXiv cs.CR (LLM)** | adversarial ML / jailbreak / supply-chain papers | `https://export.arxiv.org/api/query?search_query=cat:cs.CR+AND+abs:LLM&sortBy=submittedDate&sortOrder=descending`（⚠️ 用 /api 唔好用 rss，rss 近乎空） |
+| **Protect AI** | model supply-chain / ML scanning | `https://protectai.com/blog/rss.xml` |
+| **Trail of Bits** | ML supply-chain / model-file exploit audit | `https://blog.trailofbits.com/feed/` |
+| **Google Project Zero** | deep vuln research（含 AI-assisted Big Sleep） | `https://googleprojectzero.blogspot.com/feeds/posts/default` |
+| **NVIDIA AI Red Team** | AI red-team / ML security | `https://developer.nvidia.com/blog/category/cybersecurity/feed/` |
+| **CAIS AI Safety Newsletter** | 每週 AI-safety roundup | `https://newsletter.safe.ai/feed` |
+| **Alignment Forum / EA Forum / LessWrong RSS** | alignment 研究 + 政策 | `alignmentforum.org/feed.xml` · `forum.effectivealtruism.org/feed.xml` · `lesswrong.com/feed.xml` |
+| **OWASP GenAI / LLM Top-10** | LLM Top-10 更新 | `https://genai.owasp.org/feed/` |
+| **DeepMind / OpenAI / Google Security** | safety + 官方 security | `deepmind.google/blog/rss.xml` · `openai.com/news/rss.xml` · `security.googleblog.com/feeds/posts/default` |
+| **OSV (AI/ML libs)** | transformers 等 lib 漏洞 | `POST api.osv.dev/v1/query {"package":{"name":"transformers","ecosystem":"PyPI"}}` |
+| **MITRE ATLAS / NIST AI RMF** | AI 威脅矩陣 / 框架（scrape，無 RSS） | `atlas.mitre.org` · `mitre-atlas/atlas-data`(GH) |
+| **Scrape-only（無 RSS）** | HiddenLayer · Lakera · **Anthropic news** — Webflow/Next.js 無 feed，靠 tldr;sec + Simon Willison surface | scrape `anthropic.com/news` 等 |
+| MCP | `CSOAI-ORG/owasp-agentic-mcp`（prompt-injection/tool-poisoning detection）· `mitre-atlas/atlas-data` | gh |
+
+**🔥「最近興乜」trending endpoints（tech + security，Round 14 verified）：**
+
+| 平台 | Trending / Top-recent endpoint |
+|------|-------------------------------|
+| **Dev.to** | `dev.to/api/articles?tag=TAG&top=7`（last-7d top）；tag: security·ai·machinelearning·llm·aisafety·promptinjection·cybersecurity |
+| **HN** | 最新 filter：`hn.algolia.com/api/v1/search_by_date?query=Q&tags=story`；頭版：`.../search?tags=front_page` |
+| **Lobste.rs** | `lobste.rs/t/security.json` · `/t/ai.json` · `/t/ai,ml,security.json`（multi-tag） |
+| **arXiv** | `/api/query?...&sortBy=submittedDate`（唔好用 rss/） |
+| **GitHub Trending** | 冇官方 API → scrape `github.com/trending?since=daily` 或 `api.github.com/search/repositories?q=...+created:>DATE&sort=stars` |
+| **Reddit** | dialog-mcp（r/netsec·r/MachineLearning·r/LocalLLaMA·r/ChatGPTJailbreak） |
+
+**新 cluster（Round 14）— 💬 Social/Forum 擴充（睇人最近傾乜，全部 curl verified zero-key）：**
+
+| Source | 睇咩 discussion | Endpoint |
+|--------|----------------|----------|
+| ⭐ **arctic-shift** | **Pushshift 後繼** — full-text 搜 Reddit post/comment（含今日最新），補 dialog-mcp | `arctic-shift.photon-reddit.com/api/posts/search?subreddit=X&sort=desc` |
+| ⭐ **Misskey (misskey.io)** | JP-heavy fediverse trending hashtag + local timeline | `POST misskey.io/api/hashtags/trend` · `/notes/local-timeline` |
+| ⭐ **mbin (kbin.earth)** | Reddit-like fediverse link aggregator magazines | `kbin.earth/api/entries?sort=newest` |
+| ⭐ **Lemmy 多 instance** | 分開嘅 firehose：`programming.dev`（dev）· `hexbear.net`· `sh.itjust.works`· `lemmy.ml` | `{instance}/api/v3/post/list?sort=Active` |
+| ⭐ **Neynar (Farcaster)** | crypto-native trending casts（free key；docs key `NEYNAR_API_DOCS` 即試） | `api.neynar.com/v2/farcaster/feed/trending` header `x-api-key` |
+| **Substack Notes** | Substack 作者 short-form（news/政治 commentary） | `substack.com/api/v1/reader/feed` |
+| **daily.dev** | dev community feed（anon GraphQL） | `POST api.daily.dev/graphql`（anonymousFeed） |
+| **PeerTube** | fediverse video + comment，trending | `{instance}/api/v1/videos?sort=-trending` |
+| **Slashdot** | 經典 tech-news 討論（comment-heavy，RSS only） | `rss.slashdot.org/Slashdot/slashdotMain` |
+| **StackExchange /sites** | 列晒 170+ 站 fan-out（ServerFault/SuperUser…） | `api.stackexchange.com/2.3/sites` |
+| **Mastodon trends statuses/links** | post-level + news-link trends | `mastodon.social/api/v1/trends/statuses` · `/trends/links` |
+| MCP（最大 chat 平台，無 public REST） | `chigwell/telegram-mcp`(1,150⭐) · `SaseQ/discord-mcp`(332⭐) · `AustinKelsay/nostr-mcp-server`(36⭐) | gh |
+| ❌ skip | Squabbles（死/parked）· nostr.band（000）· Warpcast/Searchcaster/Disqus/Quora/Threads（locked/dead） | — |
 
 **新 API（Round 9 新增 — Podcast & Media）：**
 
@@ -904,6 +957,14 @@ If Twitter spend > $5/mo     → ⚠️ review if reads are worth it
 ---
 
 ## Sharpening Log
+
+### Round 14（2026-05-31）— Health-check repair triage + API key 申請 + AI-Security cluster + Social 擴充
+
+- **health-check.sh 升級「detect + repair」**：source keys.env 用真 key 探 10 個 keyed API（9 verified ✅）；加「⚠️ ACTION NEEDED」triage——每個 fail（zero-key dead / MCP quota 死 / key 壞 / 無 key）都印埋**點修**。PASS 52→67。
+- **經 Chrome 自動申請 API key（用 ithiria137 Google session）**：✅ 攞到 + 實測通 7 個 — **FRED · Census · OpenPageRank · FMP · OpenStates · OpenSanctions · Serper**（Serper 之前 "not possible to register" 原來係 transient，retry 即成）。⏳ Finnhub（email verified 但 key 仍被 flag）· CORE（要審批）。❌ **Etherscan（硬 Cloudflare bot wall，撳 Create 完全 no-op）· PodcastIndex（captcha）→ 要人手**。規律：gov/research/finance/Google-OAuth 自動順；crypto/SERP/podcast 有強 anti-bot。Key 存 keys.env，account/PW 存 credentials.txt + accounts.md ledger。
+- **新 cluster 🛡️ AI Security / AI Safety**（Nicole 專用）：Simon Willison · Embrace The Red · tldr;sec · LessWrong GraphQL · arXiv cs.CR · Protect AI · Trail of Bits · Project Zero · NVIDIA red team · CAIS · OWASP LLM Top-10 · MITRE ATLAS… + 「最近興乜」trending endpoints（Dev.to top=7 · HN search_by_date · Lobsters tag feeds）。
+- **新 cluster 💬 Social/Forum 擴充**：arctic-shift（Reddit Pushshift 後繼）· Misskey · mbin/kbin · 4 個 Lemmy instance · Neynar Farcaster · Substack Notes · daily.dev · PeerTube · Slashdot · StackExchange /sites + Telegram/Discord/Nostr MCP。
+- **Interactive mind map**（`research-engine-map.html`）：16+ domain · ~140 source · click 展開睇 source + 即用狀態。
 
 ### Round 13（2026-05-31）— Engine-wide sharpen（非 GEO）：fix broken MCP + 16 個新 zero-key source + dormant-key audit
 
