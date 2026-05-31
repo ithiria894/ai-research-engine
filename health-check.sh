@@ -119,6 +119,7 @@ check "GitMCP (reachable)"      "https://gitmcp.io/"
 # ── GEO skills-marketplace APIs (Round 12, verified 2026-05-31) ────────
 check "skills.sh search"        "https://www.skills.sh/api/search?q=geo"
 check "agentskills.to list"     "https://www.agentskills.to/api/skills?q=seo"
+check "skilldock.io skills"     "https://api.skilldock.io/v1/skills"
 check "Otterly OpenAPI spec"    "https://data.otterly.ai/v1/openapi.json"
 
 # ── MCP liveness probe (Round 12) ─────────────────────────────────────
