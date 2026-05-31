@@ -272,6 +272,7 @@
 | ✅ Kept（research / 純 methodology，靠你 fetch 嘅 data 行，無 live-tool 依賴） | 用途 |
 |------|------|
 | `geo-content-optimizer` | ⭐ 優化內容俾 ChatGPT/Perplexity/AIO/Gemini 引用（GEO 旗艦） |
+| `ai-seo`（coreyhaines31, MIT） | ⭐ 最充實 AEO/GEO（485L）：點俾 LLM/AIO/ChatGPT/Perplexity cite，platform-ranking-factors + content-patterns reference |
 | `schema-markup-generator` | JSON-LD（FAQ/HowTo/Article…）— 對應 engine evidence：schema→extraction 16%→54% |
 | `entity-optimizer` | Knowledge Graph / Wikidata / sameAs entity 信號 |
 | `content-quality-auditor` | **80-item CORE-EEAT scoring** + veto + fix plan（716L，正經 framework） |
@@ -287,7 +288,8 @@
 | `keyword-research` · `meta-tags-optimizer` · `seo-content-writer` · `internal-linking-optimizer` · `content-refresher` | 要 keyword-tool data 或純 content-doer，唔屬 research |
 
 > 用法：要做 GEO 工作先 `Read skills/geo/<skill>/SKILL.md`（每個 skill 自帶 `references/` 有 templates/guides/examples）。零 session 開銷。已刪走 repo 頂層 `_references/`（27 個 ADR/evolution/proposal governance junk，skills 一個都冇引用）。
-> coreyhaines31/marketingskills（⭐31K）嘅 `schema-markup` 同上面 `schema-markup-generator` 重疊，未另外 download。
+> **coreyhaines31/marketingskills（⭐31K, MIT）review 結果（2026-05-31）**：43 個 skill，多數 marketing doer（cold-email/cro/popups/copywriting/ads/pricing…）唔關 research 事。只 vendor 咗 `ai-seo`（485L，最充實 AEO，我哋冇同等深度）。`schema` 跳過 —— 睇真內容，aaron 嘅 `schema-markup-generator` reference 更紮實（decision-tree/templates/validation-guide vs coreyhaines 得 schema-examples + evals junk），install 數高唔代表內容好。`programmatic-seo`/`seo-audit` 同已有 skill 重疊，亦跳過。
+> 來源 + license 見 `skills/geo/README.md`。
 
 | ~~**Peec.ai**~~ | ❌ 冇 public API（verified 2026-05-31：`api.peec.ai` / `peec.ai/api` 都 404）。標準 plan 只有 CSV export + Looker connector，API 淨係 Enterprise/custom。**唔好當 API 用** | watch-list only | enterprise-only |
 | **Docs platforms（auto MCP+llms.txt）** | Mintlify（auto MCP at /mcp + llms.txt, free Hobby）· Fern（auto llms.txt+MCP, 90% token cut, free Hobby）· ReadMe · Kapa.ai（free for OSS） | mintlify.com · buildwithfern.com | 免費 Hobby / OSS |
