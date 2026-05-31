@@ -347,9 +347,12 @@
 |--------|------|------------|
 | ⭐ **`/shop` skill** | 主力入口：理解需求 → 並行 agent 跨店搜 → 比 specs/價/review/availability | Skill（用 amazon/agora/superprecio/scrapegraph/tavily/exa/firecrawl） |
 | ⭐ **Serper Shopping** | **Google Shopping** — 任何產品→真價+邊間店賣（gift 必備） | ✅ `POST google.serper.dev/shopping` `{"q":"gift for mom"}`（用 SERPER key，已攞，200 verified） |
-| **Amazon MCP** | 產品搜尋 / review / category / gift ideas | `mcp__amazon__*`（已裝；raw amazon.ca 反爬，一定用 MCP） |
-| **agora-mcp** | 跨店 universal product search | `mcp__agora__*`（已裝，`agora-mcp`） |
+| ⭐ **Apify MCP** | **scrape 硬 site 嘅最佳解** — Amazon/Temu/Taobao/1688/AliExpress/eBay/Walmart/Etsy 都有維護好 anti-bot 嘅 actor（`junglee/Amazon-crawler`、`piotrv1001/temu-listings-scraper`、`sian.agency/taobao-tmall-product-scraper`、`zen-studio/1688-wholesale-scraper`…） | remote MCP `https://mcp.apify.com`（OAuth）或 `@apify/actors-mcp-server` + `APIFY_TOKEN`。$5 free/mo，無 card。**要裝** |
+| ⭐ **Canopy API** | 免費結構化 Amazon（product/review/deals by ASIN，GraphQL） | `POST https://graphql.canopyapi.co/`（401 verified）。free Hobby 100 req/mo，canopyapi.co 攞 key |
+| **SerpApi engines** | dedicated `engine=amazon`/`walmart`/`ebay`/`google_shopping`（比 parse Google Shopping 乾淨） | `serpapi.com`（401 verified）free 100/mo（⚠️ signup 有 phone wall，未攞） |
 | **superprecio MCP** | 價格比較 / deals / shopping list | `mcp__superprecio__*`（已裝） |
+| ~~**amazon-mcp**~~ ❌ | **廢的** — verified：21 行 no-op stub，0 tool / 0 HTTP call，乜都唔做。`/shop` skill 叫 `mcp__amazon__*` 其實攞唔到嘢 → 改用 Apify/Canopy | uninstall（drama-fm/amazon-mcp） |
+| ~~**agora-mcp**~~ ❌ | **裝錯** — npm `agora-mcp` 係 Agora **chat** bot（WIP「will not work」），唔係 shopping。真 shopping Agora（Fewsats/SearchAgora）個 API host 已死（000）→ 唔好追 | uninstall |
 | ⭐ **Reddit gift subs**（dialog-mcp） | 「送 [某類人] 咩好」最高 signal：r/giftideas · r/Gifts · r/GiftIdeas · r/BuyItForLife（耐用）· r/findfashion | dialog-mcp（raw .json 403，一定用 MCP） |
 | **Gift-guide scrape** | 抓專業 gift guide / 評測：Wirecutter · RTINGS · NYT/BuzzFeed gift guides · The Strategist | Firecrawl/Tavily Extract/Exa（畀 URL 或 search「best gift for X 2026」） |
 | **Product Hunt · idea-reality** | 新奇 / 獨特產品 | idea-reality MCP（已裝） |
