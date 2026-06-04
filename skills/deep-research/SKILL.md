@@ -1,41 +1,185 @@
 ---
 name: deep-research
-description: Unified research skill — general-purpose deep research OR product competitive analysis. Auto-detects mode from input. Use for ANY research task — SEO, market trends, technical analysis, competitive landscape, best practices, industry updates, product positioning.
+description: Unified entry point for ANY search — deep research, buying a product / finding a gift (Shopping mode), product competitive analysis, AI-security tracking, academic papers, news, social/forum discussion, crypto, gov/legal data. Auto-detects mode + routes the query to the right research-engine cluster. Use for any "find me / research / compare / where to buy / what to gift / what are people saying about X" task.
 argument-hint: "<research question, topic, or product name>"
-allowed-tools: [Bash, Read, Write, WebSearch, WebFetch, Agent, mcp__tavily__tavily_search, mcp__tavily__tavily_extract, mcp__tavily__tavily_research, mcp__tavily__tavily_crawl, mcp__tavily__tavily_map, mcp__exa__web_search_exa, mcp__exa__get_code_context_exa, mcp__exa__crawling_exa, mcp__firecrawl__firecrawl_search, mcp__firecrawl__firecrawl_scrape, mcp__firecrawl__firecrawl_crawl, mcp__firecrawl__firecrawl_map, mcp__newsmcp__get_news, mcp__newsmcp__get_topics, mcp__rss-reader__fetch_feed_entries, mcp__rss-reader__fetch_article_content, mcp__devto__get_articles, mcp__twitter__search_tweets, mcp__twitter__search_users, mcp__context7__query-docs, mcp__context7__resolve-library-id, mcp__paper-search__*, mcp__arxiv__*, mcp__semantic-scholar__*, mcp__scholar-mcp__*, mcp__youtube-transcript__*, mcp__open-websearch__*, mcp__paper-distill__*, mcp__superprecio__*, mcp__chrome-devtools__take_screenshot, mcp__gmail__*, mcp__teams__*]
+allowed-tools: [Bash, Read, Write, WebSearch, WebFetch, Agent, mcp__tavily__tavily_search, mcp__tavily__tavily_extract, mcp__tavily__tavily_research, mcp__tavily__tavily_crawl, mcp__tavily__tavily_map, mcp__exa__web_search_exa, mcp__exa__get_code_context_exa, mcp__exa__crawling_exa, mcp__firecrawl__firecrawl_search, mcp__firecrawl__firecrawl_scrape, mcp__firecrawl__firecrawl_crawl, mcp__firecrawl__firecrawl_map, mcp__newsmcp__get_news, mcp__newsmcp__get_topics, mcp__rss-reader__fetch_feed_entries, mcp__rss-reader__fetch_article_content, mcp__devto__get_articles, mcp__twitter__search_tweets, mcp__twitter__search_users, mcp__context7__query-docs, mcp__context7__resolve-library-id, mcp__paper-search__*, mcp__arxiv__*, mcp__semantic-scholar__*, mcp__scholar-mcp__*, mcp__youtube-transcript__*, mcp__open-websearch__*, mcp__paper-distill__*, mcp__superprecio__*, mcp__apify__*, mcp__dialog-mcp__*, mcp__chrome-devtools__*, mcp__gmail__*, mcp__teams__*, mcp__reddit__*, mcp__discourse__*, mcp__hackernews__*, mcp__stackoverflow__*, mcp__xiaohongshu__*, mcp__trend-pulse__*, mcp__activitypub__*, mcp__weibo__*, mcp__ptt__*, mcp__zhihu__*]
 ---
 
 # Research — Unified Deep Research + Product Analysis
 
-**ALWAYS read `research-engine.md`** (in the repo root) for the full tool inventory, cost rules, and Quota Classification.
+## Configuration (edit these paths for your setup)
 
-## Mode Detection
+```
+RESEARCH_ENGINE = ~/MyGithub/ai-research-engine/research-engine.md
+PRODUCT_SPECS   = ~/MyGithub/agentic-journal/projects/products/
+PRODUCTS_INDEX  = ~/MyGithub/agentic-journal/projects/OVERVIEW.md
+OUTPUT_DIR      = ~/MyGithub/agentic-journal/projects/1-think/research/
+```
 
-This skill has two modes. Auto-detect from input:
+**ALWAYS read `RESEARCH_ENGINE` FIRST** for the full tool inventory, cost rules, and Quota Classification.
 
-**Product Mode** — if ANY of these are true:
-- Input is about a specific product the user is building or evaluating
-- Input contains: "competitive", "market", "SWOT", "positioning", "vs", "alternative to", "compare"
-- User explicitly says `--product` or asks about a product idea
+## Step -1: Official Docs Pre-check (MANDATORY, before Mode Detection)
+
+If the user's question is about **an existing tool, product, or platform they already use** (e.g., "how to get better UI for Claude Code", "does X support Y", "alternatives to X for doing Y"):
+
+1. **Read the tool's official documentation FIRST** — use WebFetch on the official docs site, or `context7`, or the tool's own `--help` / built-in commands
+2. **Check session context** — system reminders, startup messages, and existing config may already contain the answer
+3. **If the docs answer the question** → reply directly. Do NOT launch research agents. Done.
+4. **If the docs confirm the feature doesn't exist** → proceed to Mode Detection below, but note what you already ruled out so agents don't waste time re-searching the same ground
+
+**Why this exists:** In April 2026, user asked for a better Claude Code UI. The answer was `/remote-control` + `claude.ai/code` (built-in features, mentioned in the session's own startup message). Instead, 4 research agents were launched, 3 third-party tools were installed and all failed (wrong glibc, needed API key, required registration). 30+ minutes wasted. Official docs would have answered it in 2 minutes.
+
+**Rule: never search for alternatives to X without first knowing what X can do.**
+
+---
+
+## Mode Detection — 統一入口（route ANY search here）
+
+> 呢個 skill 係**所有 search 嘅統一入口**：研究主題、買產品、送禮、追 AI security、查 crypto、搵 paper、睇社群最近傾乜… 全部入呢度，auto-route。
+
+**Step A — 揀 MODE（睇用戶意圖）：**
+
+**🛍️ Shopping / Buy Mode** — 用戶想**買嘢 / 送禮 / 格價**：
+- Input 有「buy」「邊度買」「price」「格價」「cheapest」「gift」「送禮」「禮物」「recommend a [product] under $X」「best [product] for…」
+- → Go to [Shopping Mode Workflow](#shopping-mode-workflow)
+
+**📊 Product (Competitive) Mode** — 分析一個產品/idea 嘅競爭格局（**唔係買**）：
+- Input matches a product name in `PRODUCT_SPECS`；或有「competitive」「market」「SWOT」「positioning」「vs」「alternative to」「compare」「product idea」；或 `--product`
 - → Go to [Product Mode Workflow](#product-mode-workflow)
 
-**General Mode** — everything else:
-- SEO research, technical deep dives, hiring patterns, trend analysis, best practices, any question
+**🔬 General Mode** — 其餘所有 research question：
 - → Go to [General Mode Workflow](#general-mode-workflow)
+
+**Step B — CLUSTER ROUTER（揀啱 source，唔好乜都 web search）：**
+
+讀 `RESEARCH_ENGINE`，按 query 主題 route 去對應 cluster 嘅 source（mind map 17 個 domain）。揀 1-3 個最啱嘅 cluster，淨係用嗰啲 source：
+
+| Query 關於… | Cluster → 用邊啲 source |
+|---|---|
+| 買嘢/送禮/格價 | 🛍️ Shopping：Serper Shopping · Apify · superprecio · **Reddit（dialog-mcp `discover_subreddits` 按產品品類搵 sub**，e.g. 廚具→r/cookware，唔係淨係 gift sub） |
+| 學術/論文/研究 | 📚 Academic：arXiv·OpenAlex·S2·OpenReview + paper-search/arxiv MCP |
+| 新聞/時事 | 📰 News：GDELT·newsmcp·google-trends·rss-reader |
+| 社群最近傾乜 | 💬 Social：dialog-mcp(Reddit)·HN·Bluesky·Mastodon·Lemmy·arctic-shift·last30days |
+| dev/package | 📦 Dev：npm·PyPI·HuggingFace·libraries.io·GitHub GraphQL |
+| 政府/經濟/法律 | 🏛️⚖️ Gov/Legal：FRED✅·Census✅·OpenStates✅·CourtListener·Congress |
+| 公司/金融/制裁 | 🏢 Company：SEC·FMP✅·OpenSanctions✅·Finnhub |
+| AI security/safety | 🛡️ AI-Sec：Simon Willison·Embrace The Red·tldr;sec·LessWrong GraphQL·arXiv cs.CR |
+| crypto/區塊鏈 | ⛓️ Chain：DeFiLlama·DexScreener·Dune·Polymarket·CoinGecko |
+| LLM/model/benchmark | 🧬 AI-meta：OpenRouter·Ollama·leaderboards |
+| domain/SEO/web infra | 🔍 SEO：OpenPageRank✅·Serper·Tranco·Wayback·Common Crawl |
+| 科學/健康/化學 | 🔬 Science：ClinicalTrials·PubChem·GBIF·openFDA·WHO |
+| **韓國醫美/整容/疤痕修復** | 🏥 K-Beauty Med：見下方「韓國醫美 Research Cluster」 |
+
+> ✅ = 已有 API key（存 `~/.config/research-engine/keys.env`，`source` 佢再 curl）。跑前可 `bash ~/MyGithub/ai-research-engine/health-check.sh` 確認 source 生死。
 
 ---
 
 ## Agent Model Selection
 
-Research agents are data collectors, not decision makers. Use the cheapest model that can operate the tools reliably.
+**🚨 Default: launch ALL research agents with `model: "opus"`.** (Nicole's standing rule, 2026-05-30.)
 
-**Default: launch all research agents with `model: "sonnet"`.**
+The research-engine philosophy is **資料質素 > token 成本** — "token cost is not the concern, data quality is". A research agent that mis-reads a source, gives up early, or fails to chain tools wastes the whole run no matter how cheap it was. Opus agents collect more thoroughly, recover from tool errors better, and notice when a source returned nothing (instead of silently reporting "found nothing"). That reliability is worth more than the token saving.
 
-- **Sonnet** — for all search/collect/extract tasks. Can use every MCP tool, follows structured instructions, costs 5x less than Opus.
-- **Haiku** — for simple single-source lookups (e.g., "search arxiv for X"). Costs 25x less than Opus. Use when the agent only needs 1-2 tools.
-- **Opus** — NEVER use for research agents. Opus does synthesis in the main thread after agents return. Sending Opus to do web searches is like sending a surgeon to fetch bandages.
+- **Opus** — DEFAULT for every collect/search/extract agent. Use unless the user explicitly says to save tokens.
+- **Sonnet / Haiku** — only if the user explicitly opts into cheaper models for a trivial single-source lookup. Not the default.
 
-The pattern: **Sonnet/Haiku collect → Opus synthesizes.** Research agents bring back raw data + citations. The main thread (Opus) does cross-referencing, gap analysis, and final judgment.
+The pattern: **Opus collects → Opus (main thread) synthesizes.** Agents bring back raw data + citations; the main thread does cross-referencing, gap analysis, and final judgment.
+
+---
+
+## 韓國醫美 Research Cluster（🏥 K-Beauty Med）
+
+整容、疤痕修復、醫美 research 專用。韓國係全球整容首都，資訊最集中喺韓文平台。
+
+### Source 優先順序
+
+#### Tier 1: Naver API（已有，25K/日）
+最重要嘅 source。韓國人嘅真實後記 90% 喺 Naver 生態圈。
+```bash
+# Blog 後記（最多真人分享）
+curl -s "https://openapi.naver.com/v1/search/blog.json?query=QUERY_ENCODED&display=10&sort=sim" \
+  -H "X-Naver-Client-Id: $NAVER_CLIENT_ID" -H "X-Naver-Client-Secret: $NAVER_CLIENT_SECRET"
+
+# Cafe 社群討論（여우야/퍼플영/재잘재잘/가아사 = 韓國最大整容 Cafe）
+curl -s "https://openapi.naver.com/v1/search/cafearticle.json?query=QUERY_ENCODED&display=10&sort=sim" \
+  -H "X-Naver-Client-Id: $NAVER_CLIENT_ID" -H "X-Naver-Client-Secret: $NAVER_CLIENT_SECRET"
+
+# 知識iN Q&A（專科醫生答問）
+curl -s "https://openapi.naver.com/v1/search/kin.json?query=QUERY_ENCODED&display=10&sort=sim" \
+  -H "X-Naver-Client-Id: $NAVER_CLIENT_ID" -H "X-Naver-Client-Secret: $NAVER_CLIENT_SECRET"
+
+# 地區搜索（搵診所地址/電話）
+curl -s "https://openapi.naver.com/v1/search/local.json?query=QUERY_ENCODED&display=5&sort=comment" \
+  -H "X-Naver-Client-Id: $NAVER_CLIENT_ID" -H "X-Naver-Client-Secret: $NAVER_CLIENT_SECRET"
+
+# DataLab 趨勢（追蹤整容趨勢）
+curl -s -X POST "https://openapi.naver.com/v1/datalab/search" \
+  -H "X-Naver-Client-Id: $NAVER_CLIENT_ID" -H "X-Naver-Client-Secret: $NAVER_CLIENT_SECRET" \
+  -H "Content-Type: application/json" -d '{"startDate":"2024-01-01","endDate":"2026-06-01","timeUnit":"month","keywordGroups":[...]}'
+```
+
+**⚠️ 永遠唔好用 Chrome DevTools / Playwright 操作 Naver 網站 — 即時永久封號**
+
+#### Tier 2: 韓國整容 App 平台（web search 搵佢哋嘅內容）
+呢啲平台冇 public API，但佢哋嘅內容可以通過 web search 搵到。
+
+| 平台 | URL | 內容 | 點搵 |
+|------|-----|------|------|
+| **강남언니 (Gangnam Unni)** | gangnamunni.com | 最大整容 review（10K+ 後記/診所）、醫生 profile、價錢 | `site:gangnamunni.com QUERY` via Tavily/Exa |
+| **여신티켓 (YeoTI)** | yeoshin.co.kr | 醫生驗證、手術價錢、學會資格 | `site:yeoshin.co.kr QUERY` |
+| **바비톡 (BabiTalk)** | babitalk.com | 手術後記 + before/after | `site:babitalk.com QUERY` |
+| **성예사 (SungYeSa)** | sungyesa.com | 醫生評分 + 닥터찾아삼만리（醫生搜索） | `site:sungyesa.com QUERY` |
+| **모두닥 (Modoodoc)** | modoodoc.com | 醫療 review + 認證後記 + 價錢比較 | `site:modoodoc.com QUERY` |
+
+#### Tier 3: 其他韓文論壇
+| 平台 | 內容 | 點搵 |
+|------|------|------|
+| **DC Inside 성형갤러리** | 匿名討論（最真實但最毒舌） | `site:dcinside.com 성형 QUERY` |
+| **뽐뿌 (Ppomppu)** | 格價 + review | `site:ppomppu.co.kr QUERY` |
+
+#### Tier 4: 中文/台灣/國際
+| 平台 | 內容 | 點搵 |
+|------|------|------|
+| **Dcard 醫美板** | 台灣人去韓國整容後記 | `site:dcard.tw 醫美 韓國 QUERY` |
+| **小紅書** | 中國人去韓國整容後記 | Chrome DevTools 搜索 / RedNote MCP |
+| **RealSelf** | 英文 review + 國際患者經驗 | `site:realself.com korea QUERY` |
+
+### 常用韓文搜索詞
+
+| 中文 | 韓文 | 用途 |
+|------|------|------|
+| 鼻翼縮小 | 콧볼축소 / 코날개축소 | 搜手術後記 |
+| 外切 | 외절개 | 指定切口方式 |
+| 內切 | 내절개 / 비절개 | 對比方式 |
+| 疤痕 | 흉터 | 搜疤痕相關 |
+| 疤痕修復 | 흉터수정 / 흉터교정 | 搜修復手術 |
+| 後記 | 후기 | 真人分享 |
+| 副作用 | 부작용 | 搜負面 |
+| 失敗 | 실패 | 搜失敗案例 |
+| 再手術 | 재수술 | 修復/重做 |
+| 推薦 | 추천 | 搜推薦 |
+| 醫生 | 원장 / 의사 | 搜醫生 |
+| 整形外科 | 성형외과 | 搜診所 |
+| 費用 | 비용 / 가격 | 搜價錢 |
+| 諮詢 | 상담 | 搜諮詢經驗 |
+| 恢復期 | 회복기간 / 다운타임 | 搜恢復時間 |
+| 自然 | 자연스러운 | 搜自然效果 |
+
+### 醫生驗證 Checklist
+
+搵到候選醫生後，逐個 verify：
+1. `site:sungyesa.com 醫生名` → 닥터찾아삼만리 profile（學歷/經歷/學會）
+2. `site:gangnamunni.com/doctors 醫生名` → 後記數 + 評分
+3. `site:yeoshin.co.kr/doctors 醫生名` → 學會驗證
+4. Naver Blog 搜「醫生名 후기」→ 真人後記
+5. Naver Blog 搜「醫生名 부작용 실패」→ 負面搜索
+6. `site:dcinside.com 醫生名` → 匿名真話（DC Inside 最毒舌但最真）
+
+### Nicole 嘅 Case: 疤痕修復 + 鼻翼微調
+
+**背景：** 細個整親鼻翼留低疤痕，拉扯到鼻翼高低唔平衡。唔係大整容，係修復 + 微調對稱。
+**需求：** reconstructive（疤痕修復）> cosmetic（美容）。外切。
+**Tracker：** `~/MyGithub/PersonalDoc/trackers/健康-醫療.md` → 「修補疤痕 + 縮鼻翼」section
 
 ---
 
@@ -67,6 +211,152 @@ mcp__twitter__search_tweets — Twitter/X discussions
 mcp__newsmcp__get_news — real-time news clusters
 mcp__rss-reader__fetch_feed_entries — RSS feeds (Simon Willison, HN, etc.)
 gh search issues/repos — GitHub ecosystem data
+```
+
+### Discussion Forums & Communities (use the Forum Deep Dive Agent for these)
+
+Every forum below has a concrete curl command — agents MUST use these, not just web search.
+
+#### Tier 1: Zero Auth, Always Available (🟢 FREE curl)
+```bash
+# Hacker News — full-text search all history (Algolia, zero key, generous limits)
+curl "https://hn.algolia.com/api/v1/search?query=TOPIC&tags=story"
+curl "https://hn.algolia.com/api/v1/search?query=TOPIC&tags=comment"
+# Filter: 30 days, 10+ points
+curl "https://hn.algolia.com/api/v1/search?query=TOPIC&tags=story&numericFilters=created_at_i>$(date -d '30 days ago' +%s),points>10"
+
+# Lobste.rs — append .json (zero key, zero auth)
+curl "https://lobste.rs/search.json?q=TOPIC&what=stories&order=relevance"
+curl "https://lobste.rs/hottest.json"
+
+# Bluesky — public search API (zero auth, generous limits)
+curl "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=TOPIC&limit=25"
+# With date range:
+curl "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=TOPIC&since=2025-01-01T00:00:00Z"
+
+# Mastodon — public search (zero auth on most instances)
+curl "https://mastodon.social/api/v2/search?q=TOPIC&type=statuses&limit=20"
+curl "https://mastodon.social/api/v1/trends/statuses"
+# Other instances: hachyderm.io, infosec.exchange, fosstodon.org
+
+# Lemmy — REST API (zero auth for reads)
+curl "https://lemmy.world/api/v3/search?q=TOPIC&type_=Posts&sort=TopMonth&limit=20"
+# Other instances: lemmy.ml, beehaw.org, sh.itjust.works
+
+# StackExchange — 170+ sites (zero key = 300/day, free key = 10K/day)
+curl -s --compressed "https://api.stackexchange.com/2.3/search/excerpts?order=desc&sort=relevance&q=TOPIC&site=stackoverflow"
+# Change site= for different communities:
+#   health, beauty, cooking, fitness, skeptics, biology, parenting, diy, etc.
+
+# DEV.to — public articles (zero auth)
+curl "https://dev.to/api/articles?tag=TOPIC&per_page=30"
+
+# Reddit — ⛔ DO NOT use raw curl .json (returns 403 from most environments + surface-only).
+#   Use dialog-mcp (reddit-research) OR the logged-in Chrome session instead.
+#   See the HARD RULE in the Forum Deep Dive Agent Template below.
+```
+
+#### Tier 2: Asian Communities (🟡 cookie/逆向工程, higher signal for lifestyle/beauty/culture)
+```bash
+# === 中文 (Chinese) ===
+
+# Bilibili 哔哩哔哩 (中國影片平台, 真人測評最多) — 🟢 免 login
+curl -s "https://api.bilibili.com/x/web-interface/search/all/v2?keyword=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("TOPIC_ZH"))')&page=1" -H "User-Agent: Mozilla/5.0"
+# 高信號：搵 "真实测评"、"翻车"、"半年后" 過濾廣告
+
+# 百度貼吧 (中國論壇) — 🟢 免 login (mobile API 更穩定)
+curl -s "https://tieba.baidu.com/mo/q/search/thread?word=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("TOPIC_ZH"))')&pn=0&rn=20" -H "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)"
+# Desktop fallback:
+curl "https://tieba.baidu.com/f/search/res?qw=TOPIC_ZH&ie=utf-8"
+
+# V2EX (中國 Tech 論壇) — 🟢 免 login
+curl -s "https://www.v2ex.com/api/topics/hot.json"
+# Search via web: site:v2ex.com TOPIC
+
+# Dcard (台灣, 18-30歲) — unofficial API, may break
+curl "https://www.dcard.tw/service/api/v2/search/posts?query=TOPIC_ZH&limit=20"
+curl "https://www.dcard.tw/service/api/v2/forums/FORUM_NAME/posts?popular=true&limit=30"
+# Forums: makeup, skincare, mood, relationship, tech, movie
+
+# PTT (台灣 BBS) — web version, needs over18 cookie
+curl "https://www.ptt.cc/bbs/BOARD/index.html" -H "Cookie: over18=1"
+# Boards: Beauty, MakeUp, e-shopping, Gossiping, Tech_Job
+
+# LIHKG (香港連登) — needs x-li-device header (SHA1 UUID)
+curl "https://lihkg.com/api_v2/thread/search?q=TOPIC_ZH&page=1&count=30" \
+  -H "x-li-device: $(python3 -c 'import uuid,hashlib; print(hashlib.sha1(str(uuid.uuid4()).encode()).hexdigest())')" \
+  -H "x-li-device-type: browser"
+
+# === 日本語 (Japanese) ===
+
+# 5ch (日本最大匿名論壇, 前2ch) — 🟢 免 login (Shift_JIS encoding)
+curl -s "https://kizuna.5ch.net/cook/subject.txt" | iconv -f SHIFT_JIS -t UTF-8
+# Board list: kizuna.5ch.net/cook (料理), egg.5ch.net/kaden (家電)
+
+# Hatena Bookmark はてなブックマーク (日本 social bookmarking) — 🟢 免 login
+curl -s "https://b.hatena.ne.jp/search/text?q=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("TOPIC_JA"))')&sort=popular"
+# Also: https://b.hatena.ne.jp/entry/jsonlite/?url=TARGET_URL
+
+# Kakaku.com 価格.com (日本最大產品比較/評價網) — 🟢 via web search
+# Use: site:review.kakaku.com TOPIC_JA (product reviews)
+# Use: site:bbs.kakaku.com TOPIC_JA (user discussions)
+
+# Amazon.co.jp reviews — via web search
+# site:amazon.co.jp "TOPIC_JA" レビュー
+
+# === 한국어 (Korean) ===
+
+# Naver Blog/Cafe (韓國最大平台) — 🔑 需要免費 API key
+# API: https://openapi.naver.com/v1/search/blog?query=TOPIC_KO (25K calls/day free)
+# API: https://openapi.naver.com/v1/search/cafearticle?query=TOPIC_KO
+# API: https://openapi.naver.com/v1/search/shop?query=TOPIC_KO (shopping reviews)
+# Headers: X-Naver-Client-Id + X-Naver-Client-Secret (from developers.naver.com)
+
+# DC Inside (韓國論壇, 似 Reddit) — 🟢 via web search
+# site:dcinside.com TOPIC_KO
+
+# Naver Shopping Reviews — via web search
+# site:shopping.naver.com TOPIC_KO "후기" (reviews)
+```
+
+#### Tier 3: MCP Servers (📦 install for richer access)
+```
+mcp__reddit__*           — Reddit read/search (uvx reddit-no-auth-mcp-server OR npx -y reddit-mcp-buddy)
+mcp__discourse__*        — Any Discourse forum (npx @discourse/mcp@latest) — official
+mcp__hackernews__*       — HN stories/comments (npx mcp-server-hackernews)
+mcp__stackoverflow__*    — Stack Overflow official (npx mcp-remote mcp.stackoverflow.com)
+mcp__xiaohongshu__*      — 小紅書 notes/comments (needs XHS cookie) ⭐13.6K
+mcp__zhihu__*            — 知乎 Q&A (needs cookie)
+mcp__weibo__*            — 微博 feeds/hot search (uvx mcp-server-weibo, needs cookie)
+mcp__ptt__*              — PTT BBS (Docker, needs PTT account)
+mcp__activitypub__*      — Mastodon/Lemmy/Misskey/Pixelfed (npx @iflow-mcp/cameronrye-activitypub-mcp)
+mcp__trend-pulse__*      — 37 sources: Reddit/HN/Mastodon/Bluesky/PTT/Dcard/Weibo/XHS (uvx trend-pulse, FREE)
+```
+
+#### Tier 4: Chrome CDP Fallback (for logged-in sessions)
+```
+When curl APIs fail or rate-limit, use Chrome DevTools MCP to browse forums
+with the user's logged-in session. Best for:
+- Reddit (when .json is rate-limited)
+- 小紅書 (when cookie expires)
+- LIHKG (when headers change)
+- Any forum requiring login
+
+Tools: mcp__chrome-devtools__navigate_page, evaluate_script, take_snapshot, click, fill, press_key
+```
+
+#### Forum Selection Guide (which forums for which topics)
+```
+Tech/Programming    → HN, Lobste.rs, StackExchange, Reddit r/programming, DEV.to, Discourse (OSS)
+Beauty/Skincare     → Reddit r/SkincareAddiction r/AsianBeauty, 小紅書, Dcard 美妝, PTT MakeUp/Beauty
+Health/Medical      → StackExchange Health, Reddit r/AskDocs, 知乎 醫學, acne.org (web scrape)
+HK/Cantonese        → LIHKG, Reddit r/HongKong
+Taiwan              → PTT, Dcard, 巴哈姆特 (web only)
+China Mainland      → 知乎, 微博, 百度貼吧, 小紅書
+Finance/Investing   → Reddit r/investing, LIHKG 財經台, PTT Stock, Lemmy
+Gaming              → Reddit, 巴哈姆特, Discord (via MCP)
+Startups/Products   → HN, Product Hunt, IndieHackers (web scrape)
+Science/Academic    → StackExchange (multiple sites), Reddit r/askscience
 ```
 
 ### Technical/Code
@@ -105,15 +395,70 @@ Polymarket Gamma API — real-money outcome predictions (free, zero key, zero li
   Polymarket odds are among the highest-signal data — real money > opinion
 ```
 
+### Blockchain & On-chain Data (Round 10)
+```
+# All blockchain activity is public. Use these for crypto/DeFi/NFT research,
+# wallet & token analytics, smart-money / insider tracking, DEX flows, prediction markets.
+
+## Price / market / TVL (zero key)
+DeFiLlama — TVL, yields, stablecoins, DEX volume, protocol revenue (free, zero key, zero limit)
+  curl "https://api.llama.fi/protocols"  ·  curl "https://api.llama.fi/protocol/aave"
+  curl "https://yields.llama.fi/pools"   ·  curl "https://stablecoins.llama.fi/stablecoins"
+CoinGecko — 17K+ coins price/mcap/volume/history (free, zero key 5-15 req/min)
+  curl "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc"
+DexScreener — live DEX token pairs across all chains, price/liquidity/volume (free, zero key)
+  curl "https://api.dexscreener.com/latest/dex/search?q=SYMBOL"
+  curl "https://api.dexscreener.com/token-pairs/v1/{chain}/{tokenAddress}"
+GeckoTerminal — DEX pools/OHLCV per chain (free, zero key)
+  curl "https://api.geckoterminal.com/api/v2/networks/solana/pools?sort=h24_volume_usd_desc"
+
+## Block explorers — txns, token transfers, balances, contract source (free key)
+Etherscan V2 multichain — ONE key, 60+ EVM chains via chainid param (free key, 5 req/sec)
+  curl "https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address=0x...&apikey=KEY"
+  (chainid: 1=ETH, 137=Polygon, 8453=Base, 42161=Arbitrum, 56=BSC, 10=Optimism ...)
+Solana — JSON-RPC (free public RPC) · Solscan API (free tier) for SPL token flows
+  curl https://api.mainnet-beta.solana.com -d '{"jsonrpc":"2.0","id":1,"method":"getSignaturesForAddress","params":["ADDR",{"limit":20}]}'
+mempool.space — Bitcoin txns/mempool/fees (free, zero key) · Blockchair — multi-chain explorer (free tier)
+
+## Indexed / query layers (free tier, key)
+Dune Analytics API — run SQL over decoded chain tables, fetch any public query result (free tier, key)
+  curl -H "X-Dune-API-Key: KEY" "https://api.dune.com/api/v1/query/{query_id}/results"
+The Graph — GraphQL subgraphs for protocol-specific entities (positions, PnL, holders)
+  POST "https://gateway.thegraph.com/api/{key}/subgraphs/id/{subgraph_id}"  (Graph API key)
+Bitquery — GraphQL on-chain incl. DEX trades, transfers, balances, 40+ chains (free tier, key)
+Covalent/GoldRush · Moralis · Alchemy — unified multichain wallet/token/NFT APIs (free tier, key)
+
+## Prediction markets — Polymarket full stack (zero auth)
+Gamma API — market metadata: conditionId, clobTokenIds, outcomePrices, volume, resolution
+  curl "https://gamma-api.polymarket.com/markets?closed=false&limit=10&order=volume&ascending=false"
+Data API — PER-WALLET PnL precomputed (the key endpoint for smart-money work):
+  curl "https://data-api.polymarket.com/positions?user=0xADDR&sortBy=CASHPNL&sortDirection=DESC"
+    → realizedPnl, avgPrice, cashPnl, percentPnl per position
+  curl "https://data-api.polymarket.com/trades?limit=100"  → proxyWallet, side, price, timestamp, txHash
+  curl "https://data-api.polymarket.com/activity?user=0xADDR"  ·  /value?user=0xADDR (portfolio USD)
+Leaderboard — curl "https://lb-api.polymarket.com/volume?window=all&limit=20" (volume confirmed)
+Settlement = USDC on Polygon; CTF Exchange 0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e; UMA oracle resolves.
+
+## Smart-money / insider labels (paid, but highest-signal)
+Nansen ($49/mo Pro) — rule-based + clustered "Smart Money" labels, 30+ chains
+Arkham — ML entity attribution/deanonymization + bounty marketplace · Lookonchain — whale alerts (free)
+Solana copy-trade terminals: GMGN.ai / Photon / BullX (1% fee, 2-5s copy latency — research only)
+
+# CAVEAT for synthesis: high wallet win-rate ≠ copier returns. Latency (4-14s on Polygon),
+# slippage on thin markets, exit-liquidity trap, multi-wallet hedging, and fresh-wallet insiders
+# all break naive copy-trading. Use binomial p-value (p<0.001) + 100+ trade gate to separate
+# skill from luck; use funding-source clustering (not track record) to catch fresh-wallet insiders.
+```
+
 ### Trend & Social Intelligence (Round 9)
 ```
 trendsmcp — Google/YouTube/TikTok/Reddit/Amazon/npm/GitHub trends (100 free/mo)
 social-trends-mcp — Reddit + HN trending (free, zero key)
 google-trends-mcp — Google Trends wrapper (free)
-Bluesky AT Protocol — public.api.bsky.app (free, near-zero rate limit)
+Bluesky AT Protocol — api.bsky.app (free, near-zero rate limit)
 Mastodon API — per-instance public timelines + trending (free, 300 req/5min)
 Lobste.rs JSON — append .json to any URL (free)
-Hashnode GraphQL — gql.hashnode.com (free, zero auth for read)
+Hashnode GraphQL — ⚠️ moved to PAID tier (2026-05-13), no free endpoint; needs a Hashnode PAT
 Discourse API — {instance}/search.json (free, most instances zero auth)
 StackExchange API — 170+ sites beyond SO (free key, 10K req/day)
 Truth Social API — Mastodon-compatible, US political discourse (needs bearer token)
@@ -253,9 +598,9 @@ gh api search/repositories?q=... — advanced search
 
 ## General Mode Workflow
 
-**Architecture: Sonnet collects, Opus synthesizes.**
+**Architecture: Opus collects, Opus synthesizes.**
 
-The skill has three phases. Phase 1 (collection) is delegated to Sonnet/Haiku agents. Phase 1.5 (verification) is one Sonnet agent that audits coverage. Phase 2 (synthesis) is done by you (Opus) in the main thread. NEVER do collection yourself — launch agents.
+The skill has three phases. Phase 1 (collection) is delegated to **Opus agents** (default). Phase 1.5 (verification) is one **Opus** agent that audits coverage. Phase 2 (synthesis) is done by you (Opus) in the main thread. NEVER do collection yourself — launch agents.
 
 ### Step 0: Source Selection — "執藥" (Opus, before launching agents)
 
@@ -277,7 +622,7 @@ Each source has an access type:
 | 3 | **Academic Papers** | 📦 paper-search (free) · 📦 arxiv-mcp (free) · 📦 semantic-scholar (free) · 📦 paper-distill (free) · 🟢 OpenAlex/DBLP/Crossref/DOAJ/Zenodo/arXiv API (all curl, zero key) · 🔑 CORE (free key) | Research, scientific topics |
 | 4 | **Citation & Impact** | 🟢 OpenCitations (curl, zero key) · 🟢 NIH iCite (curl, zero key) · 🟢 ORCID (curl, zero key) · 🟢 ROR (curl, zero key) · 🟢 OpenAIRE (curl, zero key) · 🟢 medRxiv (curl, zero key) · 🔑 Altmetric (free research key) | Research impact, key researchers |
 | 5 | **Patent & IP** | 🔑 USPTO PatentsView (free key) · 🔑 EPO OPS (free registration) · 🔑 Lens.org (free for research) · 🔑 Google Patents BigQuery (1TB/mo free) | Prior art, IP landscape |
-| 6 | **Social Platforms** | 📦 mcp-reddit (free) · 📦 Twitter MCP (💰 paid reads) · 🟢 Bluesky AT Protocol (curl, zero key) · 🟢 Mastodon (curl, zero key) · 🟢 Lemmy (curl, zero key) · 🟢 Discourse (curl, zero key) · 🟢 StackExchange (curl, zero key) · 🟢 Hashnode (curl, zero key) · 📦 DEV.to (free) · 🟢 Lobste.rs (curl, zero key) | Community discussions, sentiment |
+| 6 | **Discussion Forums** | **Reddit → 📦 dialog-mcp (reddit-research) OR 🖥️ logged-in Chrome session — NEVER raw curl (403 + surface-only).** Other login-gated (小紅書/知乎/微博/LIHKG/PTT/Dcard) → their MCP or Chrome CDP. curl OK only for deep zero-auth: 🟢 HN Algolia · 🟢 Lobste.rs · 🟢 Bluesky · 🟢 Mastodon · 🟢 Lemmy · 🟢 StackExchange · 🟢 DEV.to. MCPs: 📦 Discourse (official) · 📦 trend-pulse (37 sources) · 📦 Twitter (💰) | Community discussions, user experiences, sentiment — **USE FORUM DEEP DIVE AGENT TEMPLATE (has the HARD RULE)** |
 | 7 | **Trends & Predictions** | 📦 trendsmcp (100 free/mo) · 📦 google-trends-mcp (free) · 🟢 Polymarket Gamma API (curl, zero key) · 💰 ScrapeCreators TikTok/IG (100 free credits) | Trending topics, predictions |
 | 8 | **Video & Podcasts** | 📦 youtube-transcript (free) · 🔑 PodcastIndex (free key) · 🟢 iTunes API (curl, zero key) · 💰 Listen Notes (freemium) | Conference talks, expert opinions |
 | 9 | **Package Registries** | 🟢 npm/PyPI/crates.io/Packagist/RubyGems/Homebrew/Docker Hub/HuggingFace (all curl, zero key) · 🔑 libraries.io (free key) · 🟢 VS Code Marketplace (curl, unofficial) · 🟢 OSV.dev (curl, zero key) | Dev tool adoption, ecosystem data |
@@ -290,15 +635,24 @@ Each source has an access type:
 | 16 | **Biomedical** | 🟢 PubMed (curl, zero key) · 🟢 bioRxiv/medRxiv (curl, zero key) · 🟢 Europe PMC (curl, zero key) · 🟢 openFDA (curl, zero key) · 📦 BiomCP (free) | Medical research, clinical trials |
 | 17 | **Competitive Intelligence** | 📦 idea-reality-mcp (free) · 📦 RivalSearchMCP (free) · 📦 Aperture (free, self-host) · 🔑 DetectZeStack (100 free/mo) · 🔑 TheirStack (200 credits/mo) | Competitor analysis |
 | 18 | **Product Validation** | 📦 idea-reality-mcp (free) · 🟢 Product Hunt API (free GraphQL token) · 🟢 Wayback CDX (curl, zero key) · 🔑 Asodesk (free token) | Does this exist? Market fit |
+| 19 | **Blockchain & On-chain Data** | 🟢 DeFiLlama (curl, zero key) · 🟢 DexScreener (curl, zero key) · 🟢 GeckoTerminal (curl, zero key) · 🟢 CoinGecko (curl, zero key) · 🟢 Polymarket Gamma/Data/CLOB (curl, zero key) · 🔑 Etherscan V2 multichain (free key, 50+ chains) · 🔑 Dune Analytics API (free tier) · 🔑 Bitquery GraphQL (free tier) · 🟢 The Graph subgraphs (GraphQL) · 🟢 mempool.space (curl, zero key) · 🟢 Solana RPC/Solscan (curl) · 💰 Nansen/Arkham (paid, smart-money labels) | Crypto/DeFi/NFT, wallet & token analytics, prediction markets, on-chain flows, smart-money/insider tracking, DEX trades |
+| 20 | **GEO / AI Answer-Engine Visibility** | 🟢 Context7 submit (free) · 🟢 GitMCP gitmcp.io (free) · 🟢 LangChain mcpdoc (free) · 🟢 Cloudflare AI Analytics (free) · 🟢 Dark Visitors (freemium) · 🔑 Perplexity Sonar API (probe what AI says) · 🔑 SerpApi / DataForSEO / SearchAPI.io (Google AI Overview extraction, free tier) · 🟡 free-tier visibility trackers: Rankscale / Knowatoa / Trakkr / AIVO / Radarkit · 💰 Profound / Otterly / Peec / Scrunch (paid SOV trackers) · 🟢 Mintlify / Fern (auto llms.txt + MCP, free Hobby) | "Will AI engines / coding agents discover + recommend + correctly use my product/package?" GEO/AEO, llms.txt/MCP discoverability, AI citation share-of-voice. See research-engine.md **Round 11** for the evidence (llms.txt ≈ 0 for AI search but useful for coding agents; docs-MCP > llms.txt; Reddit dominates AI citations; Context7 submit = zero-effort win). |
 
 ### Pre-flight Check: "Research Engine Status"
 
-**Before presenting sources to the user, silently check what's available:**
+**Step 1 — Run the health check (MANDATORY before any research session):**
 
-For each selected source cluster, check if the tools are accessible:
-- 🟢 FREE APIs → always available (curl, no setup needed)
+```bash
+bash ~/MyGithub/ai-research-engine/health-check.sh
+```
+
+This pings every zero-key free API, CLI, and lists connected MCP servers, then writes `~/MyGithub/ai-research-engine/health-check-report.md` with ✅/⚠️/❌ per source. **Read that report. Only hand agents ✅ sources.** A ❌ endpoint that returns nothing is NOT evidence of "nothing found" — it's a dead tool, and citing its silence as a finding is a research defect. (If the report is fresh — generated today — you can reuse it instead of re-running.)
+
+**Step 2 — confirm what's available for the selected clusters:**
+
+- 🟢 FREE APIs → check the health report (some go dead/change without notice)
 - 🔧 CLI → check if installed: `which gh` etc.
-- 📦 MCP → check if the MCP server responds (try a simple call, or check `~/.claude/.mcp.json`)
+- 📦 MCP → check the report's "Connected MCP servers" list. **Forums (Reddit etc.) MUST go through MCP or the logged-in Chrome session — never raw curl (see the HARD RULE in the Forum Deep Dive Agent Template).**
 - 🔑 KEY → check if env var is set (e.g., `FRED_API_KEY`, `FINNHUB_API_KEY`)
 - 💰 PAID → check if key exists AND note remaining quota if known
 
@@ -416,21 +770,121 @@ Options:
 
 **Option (b) is important** — some users want results NOW without installing anything. The engine should gracefully degrade: use whatever free curl APIs are available in each cluster, skip MCP-only sources that aren't installed, and note in the final report which sources were skipped and what coverage was lost.
 
-**Only after user confirms sources, tell them about the execution plan:**
+**Only after user confirms sources, launch the agents.**
 
-```
-I'll use Sonnet agents to collect data (cheaper, good enough for search/extract).
-After they return, I (Opus) will cross-reference and synthesize the findings myself.
-
-Sonnet costs ~5x less than Opus for collection. Want me to:
-(a) Use Sonnet for all agents (recommended, best cost/quality balance)
-(b) Use Haiku for simple lookups (even cheaper, 25x less than Opus — but less reliable with complex tools)
-(c) Your call — pick a model
-```
+Default: **all collection agents run on `model: "opus"`** (standing rule — data quality > token cost). Don't ask which model; just use Opus. Only drop to Sonnet/Haiku if the user explicitly says to save tokens. Then Opus (main thread) synthesizes.
 
 **Then proceed to Phase 1.**
 
-### Phase 1: Collection (Sonnet/Haiku agents, background)
+### Forum Deep Dive Agent Template (MANDATORY when Cluster 6 is selected)
+
+When the user's question involves community opinions, user experiences, reviews, or "what do people think about X", **ALWAYS launch a dedicated Forum Deep Dive Agent** using this template.
+
+> 🚨 **HARD RULE — Reddit and any login-gated forum MUST use MCP or the logged-in Chrome browser session, NEVER raw `curl .json`.**
+>
+> Raw `curl` on `reddit.com/....json` is surface-level and rate-limited: you get truncated search results, no deep comment trees, and silent throttling. That makes the research shallow and the agent can't even tell it got starved. So:
+> - **Reddit → `dialog-mcp` (reddit-research, semantic search 20K+ subs + full comment trees) OR `mcp__chrome-devtools__evaluate_script` `fetch()` from the logged-in session** (authenticated cookie = no rate limit, deep threads). Fetch the FULL comment tree (`/r/<sub>/comments/<id>/.json`), not just titles.
+> - **Login-gated / cookie forums (小紅書, 知乎, 微博, LIHKG, PTT, Dcard) → their MCP, or Chrome CDP with the user's session.**
+> - **`curl` is allowed ONLY for genuinely deep zero-auth APIs:** HN Algolia (full-text all history), Lobste.rs `.json`, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to. These are NOT rate-starved and return real depth.
+> - Before relying on any source, the agent must confirm it actually got data. An empty/truncated response is NOT evidence of "nothing found" — it's a dead tool. Say so explicitly.
+
+**Agent prompt template (copy and customize {TOPIC}, {SUBREDDITS}, {FORUMS}):**
+
+```
+You are a Forum Research Agent. Search ALL of these discussion forums for: {TOPIC}
+
+You MUST use tools. Do NOT plan or ask for confirmation. Execute immediately.
+
+## Reddit — MANDATORY via MCP or logged-in browser, NOT raw curl
+
+Reddit raw curl .json is surface-level + rate-limited. Use ONE of:
+
+(A) dialog-mcp (reddit-research — semantic search + full comment trees):
+   ToolSearch: "select:mcp__dialog-mcp__discover_operations,mcp__dialog-mcp__get_operation_schema,mcp__dialog-mcp__execute_operation"
+   → discover_operations → discover_subreddits/search → fetch posts + FULL comment trees (10+ posts), verbatim quotes + scores.
+
+(B) Logged-in Chrome session (authenticated = no rate limit, deep):
+   ToolSearch: "select:mcp__chrome-devtools__new_page,mcp__chrome-devtools__evaluate_script"
+   → evaluate_script: await fetch('https://www.reddit.com/r/{SUBREDDIT}/search.json?q={TOPIC}&restrict_sr=on&sort=top&limit=25').then(r=>r.json())
+   → for each hit, fetch the FULL thread: await fetch('https://www.reddit.com/r/<sub>/comments/<id>/.json').then(r=>r.json())
+   Try subreddits: {SUBREDDITS}
+
+Capture verbatim quotes from BOTH posts AND top comments — the comment depth is the point.
+
+## Tier 1: Free curl APIs — ONLY for these deep zero-auth sources (Reddit is NOT here)
+
+# Hacker News (Algolia — full-text, deep, fine via curl)
+curl -s "https://hn.algolia.com/api/v1/search?query={TOPIC}&tags=story"
+curl -s "https://hn.algolia.com/api/v1/search?query={TOPIC}&tags=comment"
+
+# Bluesky
+curl -s "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q={TOPIC}&limit=25"
+
+# Mastodon (try multiple instances)
+curl -s "https://mastodon.social/api/v2/search?q={TOPIC}&type=statuses&limit=20"
+
+# Lemmy
+curl -s "https://lemmy.world/api/v3/search?q={TOPIC}&type_=Posts&sort=TopMonth&limit=20"
+
+# StackExchange (pick relevant sites)
+curl -s --compressed "https://api.stackexchange.com/2.3/search/excerpts?order=desc&sort=relevance&q={TOPIC}&site={SE_SITE}"
+
+# Lobste.rs
+curl -s "https://lobste.rs/search.json?q={TOPIC}&what=stories&order=relevance"
+
+# DEV.to
+curl -s "https://dev.to/api/articles?tag={TOPIC_TAG}&per_page=20"
+
+## Tier 2: Asian forums (if topic is relevant to beauty/lifestyle/culture/HK/TW/CN)
+
+# Dcard (台灣)
+curl -s "https://www.dcard.tw/service/api/v2/search/posts?query={TOPIC_ZH}&limit=20"
+
+# LIHKG (香港)
+curl -s "https://lihkg.com/api_v2/thread/search?q={TOPIC_ZH}&page=1&count=20" \
+  -H "x-li-device: $(python3 -c 'import uuid,hashlib; print(hashlib.sha1(str(uuid.uuid4()).encode()).hexdigest())')" \
+  -H "x-li-device-type: browser"
+
+# 百度貼吧
+curl -s "https://tieba.baidu.com/f/search/res?qw={TOPIC_ZH}&ie=utf-8"
+
+## Tier 3: MCP servers (if installed)
+- mcp__reddit__* for deeper Reddit search
+- mcp__xiaohongshu__* for 小紅書
+- mcp__zhihu__* for 知乎
+- mcp__discourse__* for Discourse forums
+- mcp__weibo__* for 微博
+
+## Tier 4: Chrome CDP fallback
+If any curl API fails or rate-limits, use Chrome DevTools MCP to browse with the user's logged-in session.
+
+## Output format
+For each forum, report:
+- Forum name + URL
+- Number of relevant results found
+- Top 3-5 most relevant posts/comments with:
+  - Author (username)
+  - Direct quote (paste key quotes verbatim)
+  - Vote count / engagement
+  - URL
+- CONFIDENCE: 1-5 how well this forum covered the topic
+- GAPS: what this forum didn't cover
+
+Report in the user's language. Cite every finding with source URL.
+```
+
+**Forum selection by topic type:**
+- Tech/Dev → HN, Lobste.rs, StackOverflow, Reddit r/programming, DEV.to
+- Beauty/Skincare → Reddit r/SkincareAddiction r/AsianBeauty, 小紅書, Dcard 美妝, PTT MakeUp
+- Health → StackExchange Health, Reddit r/AskDocs, 知乎
+- HK topics → LIHKG, Reddit r/HongKong
+- TW topics → PTT, Dcard
+- CN topics → 知乎, 微博, 百度貼吧, 小紅書
+- Finance → Reddit r/investing, LIHKG 財經, PTT Stock
+- Gaming → Reddit, Discord, 巴哈姆特
+- Startups → HN, Product Hunt, IndieHackers
+
+### Phase 1: Collection (Opus agents, background)
 
 #### Step 1: Launch Agents
 
@@ -451,9 +905,9 @@ After first wave returns, if specific URLs need deep-diving, launch additional a
 #### Step 3: Wait for all agents to complete
 Do not proceed until all background agents have returned.
 
-### Phase 1.5: Verification (Sonnet, BEFORE synthesis — Round 9 新增)
+### Phase 1.5: Verification (Opus, BEFORE synthesis — Round 9 新增)
 
-After ALL Phase 1 agents return, launch ONE Sonnet verification agent with ALL agent results:
+After ALL Phase 1 agents return, launch ONE Opus verification agent with ALL agent results:
 
 ```
 Verification Agent prompt:
@@ -487,7 +941,7 @@ Output a structured JSON:
 **Tell the user:** "All agents returned. I'm now reading and cross-referencing everything myself (Opus). This is the part where cheap models won't cut it — synthesis needs the best model."
 
 #### Step 4: Cross-Reference and Synthesize
-YOU (Opus) do this — NEVER delegate synthesis to a Sonnet/Haiku agent. Read all agent results yourself and:
+YOU (Opus) do this — NEVER delegate synthesis to a collection agent. Read all agent results yourself and:
 - Compare findings across sources
 - Flag contradictions
 - Identify consensus vs outlier opinions
@@ -533,16 +987,51 @@ Coverage Score: [1-5 from verification agent]
 ```
 
 #### Step 6: Save Results
-Save the report to a file the user can reference later (suggest `./research/[topic-slug]-[date].md`).
+Save to `OUTPUT_DIR/[topic-slug]-[date].md`.
+
+---
+
+## Shopping Mode Workflow
+
+> 用戶想**買產品 / 送禮 / 格價**。核心：aggregator 行先（繞過 anti-bot），唔好直接 Firecrawl/curl Amazon/Temu（一定 503/captcha）。
+
+### Step 1 — 問清需求（如未清楚）
+- 買乜 / budget / must-have / nice-to-have / 邊度（Canada？）
+- 送禮多問：**收禮人**（關係/年齡/興趣）、場合
+
+### Step 2 — 並行收 data（用 verified stack）
+```bash
+source ~/.config/research-engine/keys.env 2>/dev/null
+# ⭐ Serper Shopping = Google Shopping，跨店真價，繞過 anti-bot（primary）
+curl -s -X POST "https://google.serper.dev/shopping" -H "X-API-KEY: $SERPER_API_KEY" \
+  -H "Content-Type: application/json" -d '{"q":"<product + key spec>","gl":"ca"}' | jq '.shopping[:10]'
+```
+- **Apify MCP**（`mcp__apify__*`）攞硬 site 深度數據（review/variants/sold-history）：actor `junglee/Amazon-crawler`、`piotrv1001/temu-listings-scraper`、`sian.agency/taobao-tmall-product-scraper`、`zen-studio/1688-wholesale-scraper`、`piotrv1001/aliexpress-listings-scraper`、`e-commerce/walmart-product-detail-scraper`、`caffein.dev/ebay-sold-listings`、`automation-lab/etsy-scraper`。
+- ⭐ **Reddit（dialog-mcp）— 按產品揀 sub，唔係淨係 gift sub**：用 `discover_subreddits` 搵嗰個**產品品類**嘅真實社群，喺嗰度攞用家真實推薦/避雷。買廚具→r/cookware·r/Cooking·r/castiron·r/BuyItForLife；耳機→r/headphones·r/HeadphoneAdvice；monitor→r/Monitors；床褥→r/Mattress… 任何品類都 discover 返佢自己嘅 sub。**只有當明確係「送禮」**先額外睇 r/giftideas·r/Gifts。（raw .json 403，一定用 dialog-mcp）
+- **專業評測**：Firecrawl/Tavily Extract 抓 Wirecutter·RTINGS·NYT/Strategist gift guide。
+- **superprecio MCP**：grocery/食品先用。
+- ⚠️ 唔好叫 `mcp__amazon__*` / `mcp__agora__*`（已移除，係廢的）。
+
+### Step 3 — 比較表
+| Model | Price (CAD) | Key Specs | Pros/Cons | Review | 邊度買 |
+
+### Step 4 — 推薦：Best overall · Best value · Premium pick（每個 1-2 句 tie 返需求），連直接購買 link。
+
+> 詳細版見 `/shop` skill（同一套 stack）。Shopping mode = 將 /shop 嘅能力收喺統一入口。
 
 ---
 
 ## Product Mode Workflow
 
+### Reference Documents
+- **Research Engine (MASTER TOOL LIST)**: `RESEARCH_ENGINE`
+- **Existing products**: `PRODUCTS_INDEX`
+- **Product specs**: `PRODUCT_SPECS`
+
 ### Step 1: Understand What to Research
 
 If user gives a product name:
-- Read the product README or any spec the user provides
+- Read the product spec / README from the repo
 - Identify the core value proposition in 1 sentence
 
 If user gives an idea (e.g. "MCP server for browser recording"):
@@ -559,7 +1048,7 @@ idea-reality-mcp: scan GitHub + HN + npm + PyPI + PH
 
 > ⚠️ Free tools first. After Phase 1, ask user: "免費搵到 X 個結果，需唔需要用 paid tools 再深入？"
 
-Launch ALL agents in ONE message with `model: "sonnet"` and `run_in_background: true`.
+Launch ALL agents in ONE message with `model: "opus"` and `run_in_background: true`.
 
 #### Agent A: Direct Competitors — FREE
 ```
@@ -574,7 +1063,7 @@ Launch ALL agents in ONE message with `model: "sonnet"` and `run_in_background: 
 
 #### Agent B: User Pain Points — FREE
 ```
-→ mcp-reddit / Reddit .json (subreddit pain points)
+→ Reddit pain points → dialog-mcp (reddit-research) OR logged-in Chrome session — NEVER raw curl .json
 → StackExchange API (170+ sites — tagged questions volume + answers)
 → Discourse API (OSS community forums: Rust/React/OpenAI/Julia)
 → Bluesky AT Protocol + Mastodon API (tech discourse)
@@ -642,7 +1131,7 @@ Launch ALL agents in ONE message with `model: "sonnet"` and `run_in_background: 
 
 ### Step 3.5: Verification (same as General Mode Phase 1.5)
 
-After ALL agents return, launch ONE Sonnet verification agent to check coverage + contradictions. See [Phase 1.5: Verification](#phase-15-verification-sonnet-before-synthesis--round-9-新增) for the full prompt.
+After ALL agents return, launch ONE Opus verification agent to check coverage + contradictions. See the **Phase 1.5: Verification** section above for the full prompt.
 
 If coverage_score < 3 or major gaps found, launch follow-up agents before proceeding.
 
@@ -707,15 +1196,18 @@ Also include:
 - **Gaps & Limitations** — what the research could NOT find or verify
 
 ### Step 9: Save Results
-Save findings to a file the user can reference later (suggest `./research/[product]-[date].md`).
+Save findings to `OUTPUT_DIR/[product]-[date].md`.
 
 ---
 
 ## Rules
 
+0. **Run the health check FIRST** — `bash ~/MyGithub/ai-research-engine/health-check.sh`, read the report, only use ✅ sources. A dead endpoint's silence is never "found nothing".
 1. **Read research-engine.md FIRST** — every time, no exceptions
+1b. **🚨 FORUMS = MCP OR BROWSER SESSION, NEVER RAW CURL.** Reddit and any login-gated forum (小紅書/知乎/微博/LIHKG/PTT/Dcard) MUST be researched through their MCP (e.g. `dialog-mcp` reddit-research) or the logged-in Chrome session (`mcp__chrome-devtools__evaluate_script` fetch). Raw `curl .json` is surface-level + rate-limited = shallow research the agent can't tell is starved. `curl` is allowed only for genuinely deep zero-auth APIs (HN Algolia, Lobste.rs, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to). Fetch FULL comment trees, not just titles.
 2. **Use ALL available FREE tools** — don't just use one source. Parallel everything.
 3. **Parallel execution** — launch multiple searches simultaneously
+3b. **Sub-agents MUST execute immediately** — when launching sub-agents for data collection, their prompts MUST include "You MUST use tools. Do NOT plan or ask for confirmation. Execute immediately." Sub-agents cannot see the user, so they must never wait for confirmation. Any agent that plans without executing is wasting tokens and time. The Step 0 confirmation workflow is for the MAIN THREAD only, never for sub-agents.
 4. **🚨 FREE TOOLS ONLY BY DEFAULT** — NEVER use paid/limited tools without asking first:
    - After free phase, ASK: "Found X results from free sources. Want to use paid/limited APIs for deeper coverage? (Tavily Research, Exa, Firecrawl, Twitter, ScrapeCreators)"
    - If user says NO → go straight to synthesis with free results
