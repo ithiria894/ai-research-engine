@@ -44,6 +44,23 @@ E2E：`bash qa/agent-chrome-qa.sh`（14 assertion）。
 > 所以每個 `await fetch(...)` 都回 `{}`。Agent 見到空 → 以為做唔到 → skip。已修好 + 加咗
 > regression test 落 health-check 同 QA suite。
 
+### 2b️⃣ Reddit 第二路：Arctic Shift（zero-key archive/search）
+
+`agent-chrome.py` 係 live logged-in path。Arctic Shift 係獨立 archive path：唔使 OAuth、唔使 browser、喺呢部機 2026-08-11 實測 200，近實時（~20-30 秒級）+ full nested comment tree。
+
+```bash
+# posts/search：按 subreddit 搵最新/歷史 post
+curl -sS -m 60 'https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=LocalLLaMA&limit=25&sort=desc'
+
+# comments/search：按 subreddit + body 做 comment full-text
+curl -sS -m 60 'https://arctic-shift.photon-reddit.com/api/comments/search?subreddit=LocalLLaMA&body=quantization&limit=25&sort=desc'
+
+# comments/tree：完整 nested comment tree（用 t3_ 或 bare id）
+curl -sS -m 60 'https://arctic-shift.photon-reddit.com/api/comments/tree?link_id=t3_POST_ID&limit=9999'
+```
+
+注意：heavy full-text query 會偶發 `422 {"error":"Timeout. Maybe slow down a bit"}`，用 `-m 60`、慢啲重試。`posts/search` / `comments/search` limit 1-100 或 `auto`；`comments/tree` limit 1-25000。Archive 入面嘅 `post.num_comments` / `score` 可能係 ingest 時 frozen，唔好當 current counter；要用 tree 自己 count。
+
 ### 3️⃣ 每次 research 出報告都要有 SOURCE COVERAGE LEDGER
 
 實際打過邊個 source、攞唔攞到嘢、邊個爆咗、邊個冇試過 —— 全部要列。
@@ -54,12 +71,7 @@ E2E：`bash qa/agent-chrome-qa.sh`（14 assertion）。
 
 ## 已安裝（✅ 即刻可用）
 
-> ⚠️ **CONNECTED ≠ WORKING（2026-05-31 live-probe）**：MCP 喺 config 入面 ≠ 真係用得。今次實測：
-> - **Tavily**：`tavily_search` 返 `432 — plan usage limit exceeded`（**quota 爆咗，search 用唔到**）。
-> - **Exa**：`web_search_exa` 返 `402 — credits exceeded`（**$10 one-time credit 用晒**）。
-> - ✅ 仲 work：Firecrawl（972/1000 credit）、Context7、dialog-mcp（Reddit）。
->
-> 即係 research 前**一定要跑 `health-check.sh`** 睇個 MCP liveness table（佢用真 key 打 search endpoint 偵測 quota 死），唔好假設「config 有 = 用得」。Tavily/Exa quota 爆 → fallback `free-web-search` / `open-webSearch` / Firecrawl Search。
+> ⚠️ **CONNECTED ≠ WORKING（active rule, refreshed 2026-08-11）**：MCP 喺 config 入面 ≠ 呢個 cwd 真係用得。下面 May/June 歷史表可能寫住某 MCP work；以 `health-check-report.md` 入面「MCP servers — WHICH ONES YOU ACTUALLY GET DEPENDS ON CWD」為準。default `~` session 只有 user-global tools；有 Bash/curl path 就優先用 Bash/curl。
 
 ### Deep Research
 
@@ -98,16 +110,16 @@ E2E：`bash qa/agent-chrome-qa.sh`（14 assertion）。
 
 | Tool | 做咩用 | 成本 | MCP Server |
 |------|--------|------|------------|
-| **newsmcp** | Real-time clustered news，hundreds of sources | 免費 | `newsmcp` |
+| ~~**newsmcp**~~ | 💀 **2026-06 confirmed shutdown** — 改用 GDELT + RSS curl + Serper/Google News | — | ~~`newsmcp`~~ |
 | **mcp-hn** | Search HN + top stories + user profiles | 免費 | `mcp-hn` |
 | **Google News & Trends** | Google News RSS + Google Trends data | 免費 | `google-trends` |
-| **RSS Reader** | Subscribe + extract any RSS feed | 免費 | `rss-reader` |
+| **RSS via curl / r.jina.ai** | RSS raw XML + article readability extraction；唔使常駐 MCP | 免費 | `curl FEED_URL` / `https://r.jina.ai/URL` |
 
 ### Research Papers & Benchmarks（Round 4 新增）
 
 > 呢個 category 係搵 WebCode 類型嘅文章：company benchmark、comparison study、"we tested X vs Y" findings。
 
-**RSS Feeds（全部用 `rss-reader` MCP subscribe）：**
+**RSS Feeds（直接 `curl FEED_URL`；需要正文先用 `https://r.jina.ai/URL`）：**
 
 | Feed | 內容 | URL |
 |------|------|-----|
@@ -124,7 +136,7 @@ E2E：`bash qa/agent-chrome-qa.sh`（14 assertion）。
 
 **AI-Generated RSS Feeds（解決冇 RSS 嘅問題）：**
 - **ai-rss-feeds** (`github.com/leontloveless/ai-rss-feeds`) — 用 AI 自動生成 CSS selector，每小時 GitHub Actions 更新
-- 直接 subscribe GitHub raw XML（用 `rss-reader` MCP `fetch_feed_entries`）
+- 直接 `curl` GitHub raw XML；需要正文先用 `r.jina.ai`
 
 | Feed | Raw URL |
 |------|---------|
@@ -396,7 +408,7 @@ E2E：`bash qa/agent-chrome-qa.sh`（14 assertion）。
 | **superprecio MCP** | 價格比較 / deals / shopping list | `mcp__superprecio__*`（已裝） |
 | ~~**amazon-mcp**~~ ❌ | **廢的** — verified：21 行 no-op stub，0 tool / 0 HTTP call，乜都唔做。`/shop` skill 叫 `mcp__amazon__*` 其實攞唔到嘢 → 改用 Apify/Canopy | uninstall（drama-fm/amazon-mcp） |
 | ~~**agora-mcp**~~ ❌ | **裝錯** — npm `agora-mcp` 係 Agora **chat** bot（WIP「will not work」），唔係 shopping。真 shopping Agora（Fewsats/SearchAgora）個 API host 已死（000）→ 唔好追 | uninstall |
-| ⭐ **Reddit（dialog-mcp）— 按產品品類 discover sub** | 用 `discover_subreddits` 搵嗰個產品嘅真實社群攞用家推薦/避雷，**唔係淨係 gift sub**：廚具→r/cookware·r/Cooking·r/castiron·r/BuyItForLife；耳機→r/headphones·r/HeadphoneAdvice；monitor→r/Monitors；床褥→r/Mattress…。**只有明確送禮**先加 r/giftideas·r/Gifts | `agent-chrome.py fetch`（raw curl .json = 403，一定要行 browser session） |
+| ⭐ **Reddit — 按產品品類搵 sub** | 用產品品類 + Serper `site:reddit.com/r/...` + Arctic Shift subreddit/search 去搵真社群攞用家推薦/避雷，**唔係淨係 gift sub**：廚具→r/cookware·r/Cooking·r/castiron·r/BuyItForLife；耳機→r/headphones·r/HeadphoneAdvice；monitor→r/Monitors；床褥→r/Mattress…。**只有明確送禮**先加 r/giftideas·r/Gifts | `agent-chrome.py fetch` live posts/trees；Arctic Shift archive/cross-check；raw curl reddit.com `.json` = 403 |
 | **Gift-guide scrape** | 抓專業 gift guide / 評測：Wirecutter · RTINGS · NYT/BuzzFeed gift guides · The Strategist | Firecrawl/Tavily Extract/Exa（畀 URL 或 search「best gift for X 2026」） |
 | **Product Hunt · idea-reality** | 新奇 / 獨特產品 | idea-reality MCP（已裝） |
 | 要 free key（未攞） | **eBay Browse API**（二手/罕有 gift）· **Etsy API**（handmade/personalised gift） | 入「Key Activation Checklist」，eBay/Etsy 要 dev signup |
@@ -442,7 +454,7 @@ E2E：`bash qa/agent-chrome-qa.sh`（14 assertion）。
 
 | Source | 睇咩 discussion | Endpoint |
 |--------|----------------|----------|
-| ⭐ **arctic-shift** | **Pushshift 後繼** — full-text 搜 Reddit post/comment（含今日最新），補 dialog-mcp | `arctic-shift.photon-reddit.com/api/posts/search?subreddit=X&sort=desc` |
+| ⭐ **Arctic Shift** | **Pushshift 後繼** — zero-key Reddit post/comment full-text + full nested comment tree（含今日最新），係 browser 以外嘅第二路 | `arctic-shift.photon-reddit.com/api/posts/search?subreddit=X&sort=desc` · `/api/comments/search` · `/api/comments/tree?link_id=t3_ID&limit=9999` |
 | ⭐ **Misskey (misskey.io)** | JP-heavy fediverse trending hashtag + local timeline | `POST misskey.io/api/hashtags/trend` · `/notes/local-timeline` |
 | ⭐ **mbin (kbin.earth)** | Reddit-like fediverse link aggregator magazines | `kbin.earth/api/entries?sort=newest` |
 | ⭐ **Lemmy 多 instance** | 分開嘅 firehose：`programming.dev`（dev）· `hexbear.net`· `sh.itjust.works`· `lemmy.ml` | `{instance}/api/v3/post/list?sort=Active` |
@@ -612,8 +624,8 @@ score = (
 |------|--------|------|
 | **GitHub CLI** | 搵競品 repos、stars、activity | `gh search repos`, `gh api` |
 | **npm CLI** | Package search + download counts | `npm search`, `npm view`, `curl api.npmjs.org/downloads/...` |
-| **Reddit .json** | User pain points、sentiment | Append `.json` to any Reddit URL，100 req/min |
-| **Dev.to API** | Ecosystem 文章 | `mcp__devto__get_articles` |
+| **Reddit live + archive** | User pain points、sentiment | live: `agent-chrome.py fetch`; archive/search: Arctic Shift；raw reddit.com `.json` curl = 403 |
+| **Dev.to API** | Ecosystem 文章 | `curl "https://dev.to/api/articles?tag=TAG&per_page=30"` |
 | **Twitter API** | Mentions、sentiment | `$0.01/read`，API ready |
 | **WebSearch / WebFetch** | General search + page fetch | Built-in |
 | **HN Algolia API** | Full-text search 全部 HN history | `curl "http://hn.algolia.com/api/v1/search?query=..."` 免費 |
@@ -762,7 +774,7 @@ curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flas
 | ~~**changedetection.io**~~ | ✅ 已裝 → Docker `http://localhost:5000`，data: `~/.changedetection` | — | — | — |
 | ~~**Semantic Scholar MCP**~~ | ✅ 已裝 → `~/.claude/.mcp.json` | — | — | — |
 | ~~**arxiv-mcp-server**~~ | ✅ 已裝 → `~/.claude/.mcp.json` | — | — | — |
-| ~~**ai-rss-feeds**~~ | ✅ Feed URLs 已搵到，用 rss-reader MCP subscribe（見下面 list） | — | — | — |
+| ~~**ai-rss-feeds**~~ | ✅ Feed URLs 已搵到，直接 curl / r.jina.ai，唔使 MCP 常駐 | — | — | — |
 | ~~**Paper Agent**~~ | ❌ 唔用（1⭐，太新）。改用 **paper_claw**（28⭐，GH Actions + email） | — | `github.com/PigeonDan1/paper_claw` | — |
 
 ### 🔥 Must Install（Round 1 發現）
@@ -770,9 +782,9 @@ curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flas
 | Tool | 做咩用 | 成本 | 點裝 | 點解要裝 |
 |------|--------|------|------|---------|
 | **idea-reality-mcp** | Scan GitHub + HN + npm + PyPI + PH 搵現有競品，出 reality score 0-100 | 免費 | `github.com/mnemox-ai/idea-reality-mcp` | **專為 competitive analysis 設計** |
-| **reddit-research-mcp** | Semantic search across 20K+ subreddits，唔使 Reddit API creds | 免費 | `github.com/king-of-the-grackles/reddit-research-mcp` | **免 API 嘅 Reddit deep research** |
+| ~~**reddit-research-mcp**~~ | 💀 2026-08-11 sanity check：唔好裝/叫 agent 用。用 `agent-chrome.py` + Arctic Shift | — | — | — |
 | **free-web-search-ultimate** | 10+ engines（DuckDuckGo、Bing、Google、Brave、YouTube、Reddit、arXiv），零 API key | 免費 | `github.com/wd041216-bit/free-web-search-ultimate` | **永遠唔會用完 quota** |
-| **newsmcp** | Real-time clustered news，hundreds of sources | 免費 | `npx -y @newsmcp/server` | **零成本 news monitoring** |
+| ~~**newsmcp**~~ | 💀 2026-06 shutdown。用 GDELT + RSS curl + Serper/Google News | — | — | — |
 | **mcp-hn** | Search HN + top stories + user profiles | 免費 | `github.com/erithwik/mcp-hn` 或 `github.com/paabloLC/mcp-hacker-news` | **HN 係 tech trend 嘅 leading indicator** |
 
 ### 🟡 Should Install（免費或低成本 + 中-高 relevance）
@@ -924,17 +936,17 @@ Agent A: Direct Competitors — FREE
   → WebSearch（built-in）
 
 Agent B: User Pain Points — FREE
-  → reddit-research-mcp / dialog（semantic search 20K+ subreddits）
-  → Reddit .json（specific subreddit top posts）
+  → Reddit live: agent-chrome.py fetch（search + full comment tree）
+  → Reddit archive/cross-check: Arctic Shift posts/search + comments/tree
   → Stack Overflow API（tagged questions volume）
   → open-websearch（"[category] problems frustrations reddit"）
 
 Agent C: Market Trends + News — FREE
-  → newsmcp（real-time clustered news）
+  → GDELT curl（real-time global news；注意 shared-IP 429，要 spacing）
   → google-trends（Google News RSS + Trends data）
   → Dev.to API（trending articles）
   → mcp-hn / HN Algolia API（search HN history）
-  → rss-reader（competitor blog RSS feeds）
+  → RSS curl / r.jina.ai（competitor blog feeds + article extraction）
 
 Agent D: Technical Feasibility — FREE
   → Context7（library docs）
@@ -1365,7 +1377,8 @@ GDELT、PubMed、Europe PMC、bioRxiv、DBLP、DOAJ、Zenodo、The News API、Ne
 | GDELT | API | 零 key，零 limit |
 | Zenodo | API | 零 key |
 | Wikipedia API | API | 零 key |
-| Reddit .json | API | 100 req/min |
+| Reddit live | Browser | `agent-chrome.py fetch` through logged-in Chrome；raw curl `.json` = 403 |
+| Arctic Shift | API | zero-key Reddit archive/search/tree |
 | HN Algolia | API | 零 key |
 | npm Downloads API | API | 零 key |
 | open-webSearch | MCP | 零 key，零 limit |
@@ -1373,7 +1386,7 @@ GDELT、PubMed、Europe PMC、bioRxiv、DBLP、DOAJ、Zenodo、The News API、Ne
 | paper-search-mcp | MCP | 零 key（wraps free APIs） |
 | paper-distill-mcp | MCP | 零 key（wraps free APIs） |
 | arxiv-mcp-server | MCP | 零 key |
-| newsmcp | MCP | 零 key |
+| ~~newsmcp~~ | MCP | 💀 shut down 2026-06 |
 | Context7 | MCP | 零 key |
 | Dev.to API | MCP | 零 key |
 | last30days（without keys） | Skill | 只有 web + HN |
