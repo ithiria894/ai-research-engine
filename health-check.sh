@@ -255,6 +255,92 @@ kcheck "govinfo"       GOVINFO_API_KEY       "collection"   "https://api.govinfo
 kcheck "OpenFEC"       OPENFEC_API_KEY       "results"      "https://api.open.fec.gov/v1/candidates/?api_key=${OPENFEC_API_KEY:-}&per_page=1"
 kcheck "Finnhub"       FINNHUB_API_KEY       "c"            "https://finnhub.io/api/v1/quote?symbol=AAPL&token=${FINNHUB_API_KEY:-}"
 
+# ── Browser session (agent Chrome) — the 403-bypass path ─────────────
+# Reddit / Quora / LinkedIn / 小紅書 all 403 or login-wall plain curl. The ONLY
+# reliable path is running the request inside the logged-in agent Chrome. This
+# section exists because that path was invisible to the health check for months
+# while it was silently broken — agents "found nothing" and nobody could tell.
+browser=()
+bact(){ browser+=("$1"); }
+AC="$HOME/.local/bin/agent-chrome.py"
+CDP_PORT="${AGENT_CHROME_PORT:-9223}"
+
+echo "Probing agent Chrome browser session..."
+if ! command -v python3 >/dev/null 2>&1 || [[ ! -f "$AC" ]]; then
+  bact "❌ | agent-chrome.py | — | MISSING at $AC"
+  act "❌|agent-chrome.py 唔見咗|Reddit/login-gated 站全部研究唔到。restore 返個 script"
+else
+  ver=$(curl -s --connect-timeout 3 --max-time 8 "http://127.0.0.1:$CDP_PORT/json/version" 2>/dev/null | jq -r '.Browser // empty' 2>/dev/null)
+  if [[ -z "$ver" ]]; then
+    bact "❌ | agent Chrome (CDP :$CDP_PORT) | — | NOT RUNNING"
+    act "❌|agent Chrome 冇開 (port $CDP_PORT)|開返：DISPLAY=:0 setsid /usr/bin/google-chrome --remote-debugging-port=$CDP_PORT --user-data-dir=\$HOME/.config/agent-chrome --no-first-run --no-default-browser-check --restore-last-session=false >/tmp/agent-chrome.log 2>&1 &"
+  else
+    bact "✅ | agent Chrome (CDP :$CDP_PORT) | 200 | $ver"
+
+    # Regression guard: async JS must resolve. Without awaitPromise every
+    # `await fetch(...)` returned {} and agents concluded "browser unavailable".
+    pr=$(timeout 40 python3 "$AC" eval active 'Promise.resolve("AWAIT_OK")' 2>&1 | tail -1)
+    if [[ "$pr" == "AWAIT_OK" ]]; then
+      bact "✅ | CDP awaitPromise | — | async JS resolves (no silent {})"
+    else
+      bact "❌ | CDP awaitPromise | — | async JS returned '$pr' — every fetch will look empty"
+      act "❌|agent-chrome.py eval 唔 await promise|所有 browser fetch 會靜靜哋回 {}。加返 awaitPromise:True 落 Runtime.evaluate"
+    fi
+
+    # End-to-end: real Reddit search through the session, and the curl control.
+    tmpb=$(mktemp)
+    if timeout 90 python3 "$AC" fetch \
+        'https://www.reddit.com/r/LocalLLaMA/search.json?q=llm&restrict_sr=on&sort=top&limit=3' \
+        --out "$tmpb" >/dev/null 2>&1; then
+      n=$(jq -r '.data.children | length' "$tmpb" 2>/dev/null || echo 0)
+      if [[ "${n:-0}" -ge 1 ]]; then
+        bact "✅ | Reddit search via browser | 200 | $n posts, $(wc -c <"$tmpb") bytes"
+      else
+        bact "❌ | Reddit search via browser | 200 | empty result set (login wall / shadow-block?)"
+        act "❌|Reddit browser fetch 攞到 0 結果|睇 \`agent-chrome.py login-check https://www.reddit.com/\`；可能要重新登入"
+      fi
+    else
+      bact "❌ | Reddit search via browser | — | fetch FAILED"
+      act "❌|Reddit browser fetch 失敗|跑 \`bash qa/agent-chrome-qa.sh\` 睇邊一步斷"
+    fi
+    rm -f "$tmpb"
+
+    ccode=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
+      'https://www.reddit.com/r/LocalLLaMA/search.json?q=llm&limit=3' 2>/dev/null)
+    bact "ℹ️ | Reddit via plain curl (control) | ${ccode:-000} | 403/429 是預期 — 證明 browser 路線係必需"
+
+    # Login state per site — content-based whoami, not cookie-name guessing
+    # (session cookies are httpOnly, so document.cookie always looks logged-out).
+    for site in "https://www.reddit.com/"; do
+      lc=$(timeout 60 python3 "$AC" login-check "$site" 2>&1 | tail -1)
+      case "$lc" in
+        in*)  bact "✅ | login: $site | — | ${lc#in	}";;
+        out*) bact "❌ | login: $site | — | LOGGED OUT — ${lc#out	}"
+              act "❌|Reddit 未登入|喺 agent Chrome (port $CDP_PORT) 手動登入一次，session 會 persist";;
+        *)    bact "⚠️ | login: $site | — | $lc";;
+      esac
+    done
+  fi
+fi
+
+# ── MCP availability BY CWD SCOPE ─────────────────────────────────────
+# .mcp.json is project-scoped: a server only loads when Claude's cwd is that
+# project. An agent launched from ~ gets a DIFFERENT toolset than one launched
+# from ~/.claude. Listing "all configured servers" without saying where they
+# load from is how a skill ends up telling agents to call tools that don't exist.
+mcp_scope=()
+for cfg in "$HOME/.claude.json:user-global (every cwd)" \
+           "$HOME/.mcp.json:cwd=~ (the default)" \
+           "$HOME/.claude/.mcp.json:cwd=~/.claude ONLY" \
+           "$HOME/MyGithub/.mcp.json:cwd=~/MyGithub ONLY"; do
+  f="${cfg%%:*}"; where="${cfg#*:}"
+  if [[ -f "$f" ]]; then
+    names=$(jq -r '(.mcpServers // {}) | keys | join(", ")' "$f" 2>/dev/null)
+    [[ -z "$names" ]] && names="(none)"
+    mcp_scope+=("$where | ${f/#$HOME/\~} | $names")
+  fi
+done
+
 # ── Build repair triage from zero-key failures + MCP quota deaths ──────
 for row in "${results[@]:-}"; do
   case "$row" in
@@ -299,6 +385,25 @@ done
     echo "> 🔑 = 去申請 free key · ❌ = 壞咗要 fix/換 · ⚠️ = 要查。Fix 完 re-run \`bash health-check.sh\` 確認。"
   fi
   echo ""
+  echo "## 🌐 Browser session (agent Chrome) — the 403-bypass path"
+  echo ""
+  echo "Reddit, Quora, LinkedIn, 小紅書 and friends 403 / login-wall plain \`curl\`."
+  echo "The working path is running the request **inside** the logged-in agent Chrome:"
+  echo ""
+  echo '```bash'
+  echo "python3 ~/.local/bin/agent-chrome.py fetch 'https://www.reddit.com/r/<sub>/search.json?q=<q>&restrict_sr=on&sort=top&limit=25'"
+  echo "python3 ~/.local/bin/agent-chrome.py fetch 'https://www.reddit.com/r/<sub>/comments/<id>/.json?limit=500'   # full comment tree"
+  echo '```'
+  echo ""
+  echo "If any row below is ❌, an agent doing forum research will come back with"
+  echo "\"found nothing\" — which is a DEAD TOOL, not evidence of absence. Say so."
+  echo ""
+  echo "| Status | Check | HTTP | Note |"
+  echo "|--------|-------|------|------|"
+  printf '%s\n' "${browser[@]:-}" | sed '/^$/d; s/^/| /; s/ | /| /g; s/$/ |/'
+  echo ""
+  echo "Full E2E suite: \`bash qa/agent-chrome-qa.sh\` (14 assertions)"
+  echo ""
   echo "## 🔑 Keyed APIs (real-key probe)"
   echo ""
   echo "用 keys.env 真 key 打。✅ = key verified working；🔑 = 未有 key；❌ = key 唔 work。"
@@ -341,19 +446,19 @@ done
   echo "|--------|-----|------|------|"
   printf '%s\n' "${mcp_results[@]:-}" | sed '/^$/d; s/^/| /; s/ | /| /g; s/$/ |/'
   echo ""
-  echo "## All configured MCP servers"
+  echo "## MCP servers — WHICH ONES YOU ACTUALLY GET DEPENDS ON CWD"
   echo ""
-  echo "Detected from Claude config. A research agent can only use an MCP if it shows here."
-  echo "Presence = configured (may still be quota-dead — see liveness table above)."
+  echo "\`.mcp.json\` is **project-scoped**. A server listed under \`cwd=~/.claude ONLY\`"
+  echo "does **not** exist for a session started in \`~\`. Before telling an agent to call"
+  echo "\`mcp__foo__bar\`, check the row for the cwd it will actually run in."
   echo ""
-  echo "| MCP server |"
-  echo "|------------|"
-  for cfg in "$HOME/.claude.json" "$HOME/.config/claude/.mcp.json" "$HOME/.mcp.json"; do
-    if [[ -f "$cfg" ]]; then
-      jq -r '(.mcpServers // {}) | keys[]' "$cfg" 2>/dev/null | sort -u | sed 's/^/| /; s/$/ |/'
-      break
-    fi
-  done
+  echo "| Loads when | Config file | Servers |"
+  echo "|------------|-------------|---------|"
+  printf '%s\n' "${mcp_scope[@]:-}" | sed 's/^/| /; s/ | /| /g; s/$/ |/'
+  echo ""
+  echo "> Rule of thumb: anything not in the **user-global** row is unavailable to a"
+  echo "> default session. Prefer Bash (curl / agent-chrome.py) — it is cwd-independent"
+  echo "> and costs zero resident RAM."
 } > "$REPORT"
 
 echo ""

@@ -9,6 +9,49 @@
 
 ---
 
+## 🛑 先讀呢段 — 2026-08-11 sanity check 嘅更正（覆蓋下面所有過時 MCP 引用）
+
+呢份 doc 好多地方叫你 call `mcp__tavily__*`、`mcp__firecrawl__*`、`mcp__context7__*`、
+`dialog-mcp`。**逐個 config file 查證過（2026-08-11）：呢啲一個都冇 configure，任何 cwd 都冇。**
+照住下面啲舊指示去做，agent 會 call 一個唔存在嘅 tool，攞唔到嘢，然後靜靜哋 skip 咗個 source。
+
+### 1️⃣ `.mcp.json` 係 project-scoped — cwd 決定你有咩 MCP
+
+| cwd | config | 有咩 |
+|---|---|---|
+| **任何 cwd（user-global）** | `~/.claude.json` | **得 `deja`** |
+| `~`（日常預設） | `~/.mcp.json` | **空** |
+| `~/.claude` 先有 | `~/.claude/.mcp.json` | gmail, playwright, canlii, paper-search, arxiv, semantic-scholar, youtube-transcript, open-websearch, paper-distill, discord, scholar-mcp, gemini-api-docs, notebooklm-api, mobile-mcp, instacart, food-price |
+| `~/MyGithub` 先有 | `~/MyGithub/.mcp.json` | 空 |
+
+落指示畀 agent 前，睇 `health-check-report.md` 個「MCP servers — WHICH ONES YOU ACTUALLY GET
+DEPENDS ON CWD」表。**有 Bash 版本就用 Bash** — cwd 無關、零常駐 RAM。
+
+### 2️⃣ Reddit 唔再經 dialog-mcp。用 agent Chrome，Bash 一行
+
+`curl` 打 reddit.com/*.json 喺呢部機返 **403**（2026-08-11 實測，每次 health-check 都重驗）。
+同一條 request 喺已登入嘅 agent Chrome 入面打就 200 + 完整 comment tree。
+
+```bash
+agent-chrome.py login-check https://www.reddit.com/     # exit 0 = 已登入（問網站自己 whoami）
+agent-chrome.py fetch 'https://www.reddit.com/r/SUB/search.json?q=Q&restrict_sr=on&sort=top&limit=25'
+agent-chrome.py fetch 'https://www.reddit.com/r/SUB/comments/ID/.json?limit=500'    # 完整 comment tree
+```
+同樣手法適用於所有登入牆網站（小紅書 / 知乎 / Quora / LinkedIn / LIHKG）。
+E2E：`bash qa/agent-chrome-qa.sh`（14 assertion）。
+
+> **點解之前一直靜靜哋壞咗**：`agent-chrome.py` 個 `Runtime.evaluate` 冇 `awaitPromise`，
+> 所以每個 `await fetch(...)` 都回 `{}`。Agent 見到空 → 以為做唔到 → skip。已修好 + 加咗
+> regression test 落 health-check 同 QA suite。
+
+### 3️⃣ 每次 research 出報告都要有 SOURCE COVERAGE LEDGER
+
+實際打過邊個 source、攞唔攞到嘢、邊個爆咗、邊個冇試過 —— 全部要列。
+❌ FAILED（工具壞）同 ⬜ EMPTY（真係冇人討論）**唔可以撈埋一齊**，佢哋意思相反。
+見 `~/.claude/rules/source-coverage-ledger.md`。
+
+---
+
 ## 已安裝（✅ 即刻可用）
 
 > ⚠️ **CONNECTED ≠ WORKING（2026-05-31 live-probe）**：MCP 喺 config 入面 ≠ 真係用得。今次實測：
@@ -47,7 +90,7 @@
 | Tool | 做咩用 | 成本 | MCP Server |
 |------|--------|------|------------|
 | **idea-reality-mcp** | Scan GitHub + HN + npm + PyPI + PH，出 reality score 0-100 | 免費 | `idea-reality` |
-| **reddit-research-mcp (Dialog)** | Semantic search 20K+ subreddits，免 Reddit API creds | 免費 | `dialog-mcp`（HTTP） |
+| ~~**reddit-research-mcp (Dialog)**~~ | 💀 **2026-08-11：`dialog-mcp` 根本冇 configure 過（任何 scope 都搵唔到）。改用 `agent-chrome.py fetch` — 見頂部更正 §2** | — | — |
 | ~~**free-web-search-ultimate**~~ ❌ | **死咗（npm 404，見「💀 死咗 MCP」queue）** — 改用 `open-websearch` | — | ~~`free-web-search`~~ → `open-websearch` |
 | **open-websearch** ✅ | 8 引擎（Bing/Baidu/DDG/Brave/Exa/GitHub…）零 key，1335⭐ | 免費 | `open-websearch`（已裝，free-web-search 嘅替代） |
 
@@ -353,12 +396,12 @@
 | **superprecio MCP** | 價格比較 / deals / shopping list | `mcp__superprecio__*`（已裝） |
 | ~~**amazon-mcp**~~ ❌ | **廢的** — verified：21 行 no-op stub，0 tool / 0 HTTP call，乜都唔做。`/shop` skill 叫 `mcp__amazon__*` 其實攞唔到嘢 → 改用 Apify/Canopy | uninstall（drama-fm/amazon-mcp） |
 | ~~**agora-mcp**~~ ❌ | **裝錯** — npm `agora-mcp` 係 Agora **chat** bot（WIP「will not work」），唔係 shopping。真 shopping Agora（Fewsats/SearchAgora）個 API host 已死（000）→ 唔好追 | uninstall |
-| ⭐ **Reddit（dialog-mcp）— 按產品品類 discover sub** | 用 `discover_subreddits` 搵嗰個產品嘅真實社群攞用家推薦/避雷，**唔係淨係 gift sub**：廚具→r/cookware·r/Cooking·r/castiron·r/BuyItForLife；耳機→r/headphones·r/HeadphoneAdvice；monitor→r/Monitors；床褥→r/Mattress…。**只有明確送禮**先加 r/giftideas·r/Gifts | dialog-mcp（raw .json 403，一定用 MCP） |
+| ⭐ **Reddit（dialog-mcp）— 按產品品類 discover sub** | 用 `discover_subreddits` 搵嗰個產品嘅真實社群攞用家推薦/避雷，**唔係淨係 gift sub**：廚具→r/cookware·r/Cooking·r/castiron·r/BuyItForLife；耳機→r/headphones·r/HeadphoneAdvice；monitor→r/Monitors；床褥→r/Mattress…。**只有明確送禮**先加 r/giftideas·r/Gifts | `agent-chrome.py fetch`（raw curl .json = 403，一定要行 browser session） |
 | **Gift-guide scrape** | 抓專業 gift guide / 評測：Wirecutter · RTINGS · NYT/BuzzFeed gift guides · The Strategist | Firecrawl/Tavily Extract/Exa（畀 URL 或 search「best gift for X 2026」） |
 | **Product Hunt · idea-reality** | 新奇 / 獨特產品 | idea-reality MCP（已裝） |
 | 要 free key（未攞） | **eBay Browse API**（二手/罕有 gift）· **Etsy API**（handmade/personalised gift） | 入「Key Activation Checklist」，eBay/Etsy 要 dev signup |
 
-> **送禮 workflow**：① 問清收禮人（關係/興趣/年齡/budget）→ ② Reddit（dialog-mcp discover_subreddits）按產品品類搵真人推薦（送禮先加 gift sub） → ③ Serper Shopping + Amazon/agora 搵實物+價 → ④ Firecrawl 抓 gift guide 對證 → ⑤ 出 3-5 個推薦連價+買邊度。直接用 `/shop "送 [描述] 嘅禮物，budget $X"` 一條龍。
+> **送禮 workflow**：① 問清收禮人（關係/興趣/年齡/budget）→ ② Reddit（`agent-chrome.py fetch` 打 `/r/SUB/search.json` + 完整 comment tree）按產品品類搵真人推薦（送禮先加 gift sub） → ③ Serper Shopping + Amazon/agora 搵實物+價 → ④ Firecrawl 抓 gift guide 對證 → ⑤ 出 3-5 個推薦連價+買邊度。直接用 `/shop "送 [描述] 嘅禮物，budget $X"` 一條龍。
 
 **新 cluster（Round 14 — 2026-05-31）— 🛡️ AI Security / AI Safety tracking（全部 curl verified）：**
 
@@ -393,7 +436,7 @@
 | **Lobste.rs** | `lobste.rs/t/security.json` · `/t/ai.json` · `/t/ai,ml,security.json`（multi-tag） |
 | **arXiv** | `/api/query?...&sortBy=submittedDate`（唔好用 rss/） |
 | **GitHub Trending** | 冇官方 API → scrape `github.com/trending?since=daily` 或 `api.github.com/search/repositories?q=...+created:>DATE&sort=stars` |
-| **Reddit** | dialog-mcp（r/netsec·r/MachineLearning·r/LocalLLaMA·r/ChatGPTJailbreak） |
+| **Reddit** | `agent-chrome.py fetch`（r/netsec·r/MachineLearning·r/LocalLLaMA·r/ChatGPTJailbreak） |
 
 **新 cluster（Round 14）— 💬 Social/Forum 擴充（睇人最近傾乜，全部 curl verified zero-key）：**
 
@@ -579,6 +622,131 @@ score = (
 | **Wikipedia API** | Entity verification + pageviews | `curl "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=..."` 免費 |
 | **Product Hunt API** | Competitor launches | GraphQL, free developer token |
 | **Open Collective API** | OSS project funding data | GraphQL, 10 req/min free |
+
+---
+
+## MCP→curl 轉換（2026-06-11 gateway 瘦身：thin wrapper 唔使常駐）
+
+> 背景：MCP server 上咗 1mcp gateway 共享（port 3050）之後，逐個 thin API wrapper「降級」做一次性 curl —— 零常駐 process、零 lifecycle、跨 agent（Claude Code / Codex）通用。下面每條 curl 都係**逐行讀完該 MCP server source 抽出嚟 + 實測過**先寫入。轉咗嘅 server 已從 gateway config 剔除。
+
+### ✅ mcp-hn → HN Algolia API（source: erithwik/mcp-hn，100% passthrough，零附加邏輯）
+
+| 原 MCP tool | curl 等價 |
+|---|---|
+| `get_stories(top)` | `curl "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=10"` |
+| `get_stories(new)` | `curl "https://hn.algolia.com/api/v1/search_by_date?tags=story&hitsPerPage=10"` |
+| `get_stories(ask_hn/show_hn)` | `curl "https://hn.algolia.com/api/v1/search?tags=ask_hn&hitsPerPage=10"`（或 `show_hn`） |
+| `search_stories(q)` | `curl "https://hn.algolia.com/api/v1/search?query=Q&tags=story&hitsPerPage=10"`（relevance）；`search_by_date` 版＝按時間 |
+| `get_story_info(id)` | `curl "https://hn.algolia.com/api/v1/items/{id}"` — 連 nested comments 成棵樹返晒 |
+| `get_user_info(name)` | `curl "https://hn.algolia.com/api/v1/users/{name}"` + `search?tags=author_{name},story` |
+
+實測 quirk：`items/{id}` 食 story id **同** comment id 都得（comment 會有 `parent_id`/`story_id` 指返 story）。
+
+### ✅ wayback → archive.org APIs（source: Mearman/mcp-wayback-machine，100% passthrough）
+
+| 原 MCP tool | curl 等價 |
+|---|---|
+| `check_archive_status` | `curl "https://web.archive.org/__wb/sparkline?url=URL&collection=web&output=json"`（逐年 capture 統計）+ `curl "https://archive.org/wayback/available?url=URL"` |
+| `search_archives` | `curl "https://web.archive.org/cdx/search/cdx?url=URL&output=json&limit=10"`，可加 `&from=YYYYMMDD&to=&matchType=domain&collapse=timestamp:8&filter=statuscode:200` |
+| `retrieve` | available API 搵最近 snapshot → `https://web.archive.org/web/{ts}/{url}`；raw content 加 `id_` modifier：`/web/{ts}id_/{url}` |
+| `screenshots` | CDX 搵 capture → `https://web.archive.org/web/{ts}im_/{url}` |
+| `save`（存檔） | `curl -X POST "https://web.archive.org/save" -d "url=URL"` |
+
+實測 quirk：**`available` API 一定要俾完整 URL**（`https://www.x.com/`）— bare domain（`anthropic.com`）會返空 `archived_snapshots`；CDX 就 bare domain 都食。
+
+### 💀 newsmcp → 死咗，冇得轉（2026-06-11 實測）
+
+newsmcp.io 個服務**永久關閉**（全部 endpoint 返 `{"detail": "NewsMCP has been shut down..."}`，維護者話成本問題）。MCP 同 curl 都救唔返。新聞需求改用：GDELT（零 key）、rss-reader curl（下面）、google-news via Serper。
+
+### ✅ rss-reader → curl + r.jina.ai（source: rss-reader-mcp，PARTIAL）
+
+| 原 MCP tool | 等價 |
+|---|---|
+| `fetch_feed_entries` | `curl -s "FEED_URL" -H "Accept: application/xml"` — 原始 RSS/Atom XML，LLM 直接讀得明（原 server 只係用 rss-parser 轉 JSON） |
+| `fetch_article_content` | **唔係純 passthrough**（JSDOM+Turndown+readability heuristic）。替代：`curl -s "https://r.jina.ai/ARTICLE_URL"`（免費 readability API，直出 markdown）或 Firecrawl scrape（已有） |
+
+### ✅ superprecio → superprecio.ar API（零 auth，已實測，15 個 tool ＝ 5 條 endpoint）
+
+```bash
+# 搜產品（compare_prices = 同一 endpoint order=OrderByPriceASC；best_deals = OrderByTopSaleDESC）
+curl -s -X POST 'https://superprecio.ar/api/products' -H 'Content-Type: application/json' \
+  -d '{"search":"leche","maxResults":9,"order":"OrderByPriceASC"}'
+# EAN barcode 搜索
+curl -s -X POST 'https://superprecio.ar/api/productsByCode' -H 'Content-Type: application/json' -d '{"search":"7794903232417"}'
+# 附近超市
+curl -s 'https://superprecio.ar/api/locations/nearby?lat=-34.6037&lng=-58.3816&radius=5'
+```
+原 server 嘅 compare/deals「邏輯」只係 sort + 百分比算術，LLM 自己做得。
+
+### ⚠️ twitter → api.twitterapi.io（CLEAN passthrough，但**從來冇 work 過**）
+
+2026-06-11 發現：`twitterapi-mcp` 讀 `TWITTERAPI_API_KEY`（twitterapi.io 第三方服務嘅 key），但 config 一直俾緊 `TWITTER_API_KEY`（官方 OAuth1 key）— **env var 名不匹配，呢個 MCP 由裝機嗰日起就係壞嘅**。實測現有 key 對 twitterapi.io 係 invalid。
+
+要救返：去 twitterapi.io 註冊攞 key，然後直接 curl（唔使 MCP）：
+```bash
+curl -s 'https://api.twitterapi.io/twitter/tweet/advanced_search?query=Q&count=10&result_type=recent' -H "x-api-key: $TWITTERAPI_API_KEY"
+curl -s 'https://api.twitterapi.io/twitter/user/last_tweets?userName=anthropic&count=10' -H "x-api-key: $TWITTERAPI_API_KEY"
+curl -s 'https://api.twitterapi.io/twitter/user/info?userName=NAME' -H "x-api-key: $TWITTERAPI_API_KEY"
+# 仲有 /tweets?tweet_id= /tweet/replies?id= /user/followers /user/followings /user/search
+# 寫操作：POST /user_login_v2 {userName,password} → cookie → POST /create_tweet_v2 {text,reply_to?}
+```
+Twitter 搜索喺 key 未搞掂前用 Bluesky/Mastodon/HN 替代。
+
+### ✅ devto → dev.to REST API（source: @furkankoykiran/devto-mcp，16 tool 全部 1:1，已實測）
+
+```bash
+source ~/.config/research-engine/keys.env   # $DEVTO_API_KEY
+H=(-H "api-key: $DEVTO_API_KEY" -H "accept: application/vnd.forem.api-v1+json")
+curl -s "https://dev.to/api/users/me" "${H[@]}"                        # 自己 profile
+curl -s "https://dev.to/api/articles/me/all?per_page=30" "${H[@]}"     # 自己文章連 drafts
+curl -s "https://dev.to/api/articles?tag=ai&per_page=30" "${H[@]}"     # 公開文章
+curl -s -X POST "https://dev.to/api/articles" -H "api-key: $DEVTO_API_KEY" -H "content-type: application/json" \
+  -d '{"article":{"title":"T","body_markdown":"...","published":false,"tags":["ai"]}}'   # 出文
+# PUT /articles/{id} 更新；/comments?a_id=；/tags；/followers/users；/readinglist；/organizations/{name}
+```
+⚠️ 經 curl 出文嘅 sanitize check 已補：settings.json PreToolUse Bash hook，`if: Bash(*dev.to/api/articles*)`。
+
+### 💀 hashnode → 雙重死亡，直接剷（2026-06-11 實測）
+
+①env var 名錯（config 俾 `HASHNODE_API_TOKEN`，code 讀 `HASHNODE_PERSONAL_ACCESS_TOKEN`）— 由裝機起 auth 從來係空；②Hashnode 已 retire 免費 GraphQL API（gql.hashnode.com 301 去公告頁，而家要 Pro plan）。唔修，唔替代。
+
+### ✅ kaggle → 官方 kaggle CLI（kaggle-mcp 全包得一個 tool）
+
+```bash
+kaggle competitions download -c <id> -p <dir> && unzip <dir>/*.zip -d <dir>   # = 成個 kaggle-mcp
+kaggle competitions list -s <query> / kaggle datasets list -s <query>          # CLI 仲多嘢過 MCP
+```
+CLI 喺 `~/.local/bin/kaggle`，creds `~/.kaggle/kaggle.json`，已實測。
+
+### ✅ jobspy → 一次性 uv run（成條 Node→Docker→Python 鏈 = 一個 function）
+
+```bash
+uv run --with 'python-jobspy>=1.1.80' python3 -c "
+from jobspy import scrape_jobs
+jobs = scrape_jobs(site_name=['indeed'], search_term='software engineer', location='Vancouver, BC',
+                   results_wanted=5, hours_old=72, verbose=0, description_format='markdown', country_indeed='Canada')
+print(jobs.to_json(orient='records', indent=2))"
+```
+已實測（攞到真 Indeed listings）。site_name 可加 'linkedin','glassdoor','zip_recruiter'。
+
+### ✅ mcp-image → Gemini API curl（Claude 自己做 prompt enhancement）
+
+原 server 嘅「增值」= 先叫 gemini-2.5-flash 執靚 prompt — 但 Claude 喺 session 入面自己就係 LLM，寫 prompt 直接寫到位。淨返一條 curl：
+```bash
+source ~/.config/research-engine/keys.env   # $GEMINI_API_KEY
+curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=$GEMINI_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"contents":[{"parts":[{"text":"DETAILED Subject-Context-Style PROMPT"}]}],"generationConfig":{"responseModalities":["IMAGE"]}}' \
+| python3 -c "import json,sys,base64; d=json.load(sys.stdin); [open(f'/tmp/img.png','wb').write(base64.b64decode(p['inlineData']['data'])) for p in d['candidates'][0]['content']['parts'] if 'inlineData' in p]; print('/tmp/img.png')"
+# 高質版：model 換 gemini-3-pro-image-preview；圖生圖：parts 加 {"inlineData":{"mimeType":"image/png","data":"<base64>"}}
+```
+
+### ✅ context7 + firecrawl → 官方 remote MCP（零本地 process，已實測）
+
+- **context7**：`claude mcp add --transport http context7 https://mcp.context7.com/mcp`（唔使 key；free key 喺 context7.com/dashboard 加額度）。REST 版：`curl "https://context7.com/api/v2/libs/search?query=Q"` + `curl "https://context7.com/api/v2/context?libraryId=/org/repo&query=Q&type=txt&tokens=500"`
+- **firecrawl**：hosted MCP `https://mcp.firecrawl.dev/{API_KEY}/v2/mcp` — **比本地版多 12 個 tool**（19 vs 7：extract、agent、monitors…）。REST 版：`curl -X POST https://api.firecrawl.dev/v2/scrape -H "Authorization: Bearer $FIRECRAWL_API_KEY" -d '{"url":"...","formats":["markdown"]}'`，仲有 /v2/search /v2/crawl /v2/map
+
+> **轉換進度（2026-06-11 完成）**：第一批 mcp-hn ✅、wayback ✅、superprecio ✅、rss-reader ✅、newsmcp 💀、twitter ⚠️ 等 key；第二批 devto ✅、kaggle ✅ CLI、jobspy ✅ one-shot、mcp-image ✅ curl、hashnode 💀、context7/firecrawl ✅ 轉官方 remote MCP。**1mcp gateway 最終剩 1 個房客：google-workspace**（唯一有真 OAuth 邏輯）。Keys 集中喺 `~/.config/research-engine/keys.env`。
 
 ---
 
@@ -823,7 +991,9 @@ Compile all findings into structured report:
 
 ## 💀 死咗 MCP — 待 fix queue
 
-> 呢度啲 MCP 喺 config 入面但**而家起唔到**（npm package 404 / 被取代）。**唔 remove**，parked 喺度做 to-fix 待辦，慢慢修。⚠️ 未修前每 session 會 show connection error — 係刻意嘅 reminder。修好一個就搬去返「已安裝」+ 喺度劃走。
+> 呢度啲 MCP 喺 config 入面但**而家起唔到**（npm package 404 / 被取代）。parked 喺度做 to-fix 待辦，慢慢修。修好一個就搬去返「已安裝」+ 喺度劃走。
+>
+> ⚠️ 2026-06-11 更新：gateway 遷移時已將死package（scrapegraph、free-web-search、idea-reality、google-trends、duckdb）**從 config 剔除**（佢哋會搞死 1mcp sync loading），所以唔會再見到 connection error reminder — 呢個 table 而家係唯一記錄，唔好刪。
 
 | MCP | 點解死 | 真正 fix path | 替代品（暫用） |
 |-----|--------|--------------|---------------|
