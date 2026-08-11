@@ -71,9 +71,11 @@ check "Bluesky searchPosts"     "https://api.bsky.app/xrpc/app.bsky.feed.searchP
 check "Mastodon trends"         "https://mastodon.social/api/v1/trends/statuses"
 check "Lemmy search"            "https://lemmy.world/api/v3/search?q=ai&type_=Posts&limit=5"
 check "DEV.to articles"         "https://dev.to/api/articles?tag=ai&per_page=5"
-# Reddit .json is IP-blocked from server/datacenter IPs (403) — NOT tested here.
-#   Reddit research MUST go through dialog-mcp (reddit-research) or the logged-in
-#   Chrome session. See the deep-research skill's Forum Deep Dive HARD RULE.
+# Reddit .json is IP-blocked from this box (403) — NOT tested here.
+#   Reddit research MUST go through agent-chrome.py (logged-in browser) or
+#   Arctic Shift. See the deep-research skill's Forum Deep Dive HARD RULE.
+check "Arctic Shift posts search" "https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=programming&limit=1&sort=desc"
+check "Arctic Shift comments tree" "https://arctic-shift.photon-reddit.com/api/comments/tree?link_id=t3_x8i09x&limit=3"
 check "StackExchange search"    "https://api.stackexchange.com/2.3/search?intitle=ai&site=stackoverflow"
 check "GDELT doc"               "https://api.gdeltproject.org/api/v2/doc/doc?query=ai&mode=ArtList&format=json&maxrecords=5"
 check "OpenAlex works"          "https://api.openalex.org/works?search=ai&per-page=3"
@@ -255,6 +257,25 @@ kcheck "govinfo"       GOVINFO_API_KEY       "collection"   "https://api.govinfo
 kcheck "OpenFEC"       OPENFEC_API_KEY       "results"      "https://api.open.fec.gov/v1/candidates/?api_key=${OPENFEC_API_KEY:-}&per_page=1"
 kcheck "Finnhub"       FINNHUB_API_KEY       "c"            "https://finnhub.io/api/v1/quote?symbol=AAPL&token=${FINNHUB_API_KEY:-}"
 
+# ── Declared-but-EMPTY keys ───────────────────────────────────────────
+# keys.env can contain `FOO_API_KEY=` with nothing after the `=`. Every downstream
+# check then sees the var as "set", builds a request with an empty credential, and
+# gets a 401 that reads like "the key expired" instead of "there was never a key".
+# Same silent-failure class as the browser bug: the tool looks present and isn't.
+emptykeys=()
+if [[ -f "$KEYS_FILE" ]]; then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*($|#.*$|\"\"[[:space:]]*(#.*)?$|\'\'[[:space:]]*(#.*)?$) ]]; then
+      emptykeys+=("${BASH_REMATCH[2]}")
+    fi
+  done < "$KEYS_FILE"
+  if [[ ${#emptykeys[@]} -gt 0 ]]; then
+    act "🔑|keys.env 有 ${#emptykeys[@]} 個 key 聲明咗但係空：${emptykeys[*]}|去申請填返，或者由 keys.env 刪走 — 空 key 會令 request 帶住空 credential 出去，收到 401 睇落似「key 過期」，其實根本冇 key"
+  fi
+fi
+
 # ── Browser session (agent Chrome) — the 403-bypass path ─────────────
 # Reddit / Quora / LinkedIn / 小紅書 all 403 or login-wall plain curl. The ONLY
 # reliable path is running the request inside the logged-in agent Chrome. This
@@ -391,7 +412,7 @@ done
   echo "The working path is running the request **inside** the logged-in agent Chrome:"
   echo ""
   echo '```bash'
-  echo "python3 ~/.local/bin/agent-chrome.py fetch 'https://www.reddit.com/r/<sub>/search.json?q=<q>&restrict_sr=on&sort=top&limit=25'"
+  echo "python3 ~/.local/bin/agent-chrome.py fetch 'https://www.reddit.com/r/<sub>/search.json?q=<q>&restrict_sr=on&sort=relevance&limit=25'"
   echo "python3 ~/.local/bin/agent-chrome.py fetch 'https://www.reddit.com/r/<sub>/comments/<id>/.json?limit=500'   # full comment tree"
   echo '```'
   echo ""
@@ -406,6 +427,14 @@ done
   echo ""
   echo "## 🔑 Keyed APIs (real-key probe)"
   echo ""
+  if [[ ${#emptykeys[@]} -gt 0 ]]; then
+    echo "> ⚠️ **keys.env 有 ${#emptykeys[@]} 個 key 聲明咗但係空**（\`FOO=\` 後面冇嘢）："
+    echo "> \`${emptykeys[*]}\`"
+    echo ">"
+    echo "> 空 key 唔會報錯 — 佢會照樣帶住空 credential 出 request，收到 401 睇落似「key 過期」，"
+    echo "> 其實係根本冇 key。填返或者刪走。"
+    echo ""
+  fi
   echo "用 keys.env 真 key 打。✅ = key verified working；🔑 = 未有 key；❌ = key 唔 work。"
   echo ""
   echo "| Status | API | HTTP | Note |"

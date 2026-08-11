@@ -2,7 +2,7 @@
 name: deep-research
 description: Unified entry point for ANY search — deep research, buying a product / finding a gift (Shopping mode), product competitive analysis, AI-security tracking, academic papers, news, social/forum discussion, crypto, gov/legal data. Auto-detects mode + routes the query to the right research-engine cluster. Use for any "find me / research / compare / where to buy / what to gift / what are people saying about X" task.
 argument-hint: "<research question, topic, or product name>"
-allowed-tools: [Bash, Read, Write, WebSearch, WebFetch, Agent, mcp__tavily__tavily_search, mcp__tavily__tavily_extract, mcp__tavily__tavily_research, mcp__tavily__tavily_crawl, mcp__tavily__tavily_map, mcp__exa__web_search_exa, mcp__exa__get_code_context_exa, mcp__exa__crawling_exa, mcp__firecrawl__firecrawl_search, mcp__firecrawl__firecrawl_scrape, mcp__firecrawl__firecrawl_crawl, mcp__firecrawl__firecrawl_map, mcp__newsmcp__get_news, mcp__newsmcp__get_topics, mcp__rss-reader__fetch_feed_entries, mcp__rss-reader__fetch_article_content, mcp__devto__get_articles, mcp__twitter__search_tweets, mcp__twitter__search_users, mcp__context7__query-docs, mcp__context7__resolve-library-id, mcp__paper-search__*, mcp__arxiv__*, mcp__semantic-scholar__*, mcp__scholar-mcp__*, mcp__youtube-transcript__*, mcp__open-websearch__*, mcp__paper-distill__*, mcp__superprecio__*, mcp__apify__*, mcp__dialog-mcp__*, mcp__chrome-devtools__*, mcp__gmail__*, mcp__teams__*, mcp__reddit__*, mcp__discourse__*, mcp__hackernews__*, mcp__stackoverflow__*, mcp__xiaohongshu__*, mcp__trend-pulse__*, mcp__activitypub__*, mcp__weibo__*, mcp__ptt__*, mcp__zhihu__*]
+allowed-tools: [Bash, Read, Write, WebSearch, WebFetch, Agent, mcp__tavily__tavily_search, mcp__tavily__tavily_extract, mcp__tavily__tavily_research, mcp__tavily__tavily_crawl, mcp__tavily__tavily_map, mcp__exa__web_search_exa, mcp__exa__get_code_context_exa, mcp__exa__crawling_exa, mcp__firecrawl__firecrawl_search, mcp__firecrawl__firecrawl_scrape, mcp__firecrawl__firecrawl_crawl, mcp__firecrawl__firecrawl_map, mcp__context7__query-docs, mcp__context7__resolve-library-id, mcp__paper-search__*, mcp__arxiv__*, mcp__semantic-scholar__*, mcp__scholar-mcp__*, mcp__youtube-transcript__*, mcp__open-websearch__*, mcp__paper-distill__*, mcp__apify__*, mcp__dialog-mcp__*, mcp__chrome-devtools__*, mcp__gmail__*, mcp__teams__*, mcp__reddit__*, mcp__discourse__*, mcp__hackernews__*, mcp__stackoverflow__*, mcp__xiaohongshu__*, mcp__trend-pulse__*, mcp__activitypub__*, mcp__weibo__*, mcp__ptt__*, mcp__zhihu__*]
 ---
 
 # Research — Unified Deep Research + Product Analysis
@@ -56,10 +56,10 @@ If the user's question is about **an existing tool, product, or platform they al
 
 | Query 關於… | Cluster → 用邊啲 source |
 |---|---|
-| 買嘢/送禮/格價 | 🛍️ Shopping：Serper Shopping · Apify · superprecio · **Reddit（dialog-mcp `discover_subreddits` 按產品品類搵 sub**，e.g. 廚具→r/cookware，唔係淨係 gift sub） |
+| 買嘢/送禮/格價 | 🛍️ Shopping：Serper Shopping · Apify · superprecio curl（superprecio.ar API，見 research-engine「MCP→curl」章）· **Reddit via `agent-chrome.py` + Arctic Shift/Serper discovery**（按產品品類搵真 sub，e.g. 廚具→r/cookware，唔係淨係 gift sub） |
 | 學術/論文/研究 | 📚 Academic：arXiv·OpenAlex·S2·OpenReview + paper-search/arxiv MCP |
-| 新聞/時事 | 📰 News：GDELT·newsmcp·google-trends·rss-reader |
-| 社群最近傾乜 | 💬 Social：dialog-mcp(Reddit)·HN·Bluesky·Mastodon·Lemmy·arctic-shift·last30days |
+| 新聞/時事 | 📰 News：GDELT（curl 零 key）·google-trends·RSS curl（`curl FEED_URL` 直讀 XML）。⚠️ newsmcp 服務 2026-06 永久關閉 |
+| 社群最近傾乜 | 💬 Social：Reddit (`agent-chrome.py` primary · Arctic Shift zero-key archive · RSS slow fallback)·HN·Bluesky·Mastodon·Lemmy·last30days |
 | dev/package | 📦 Dev：npm·PyPI·HuggingFace·libraries.io·GitHub GraphQL |
 | 政府/經濟/法律 | 🏛️⚖️ Gov/Legal：FRED✅·Census✅·OpenStates✅·CourtListener·Congress |
 | 公司/金融/制裁 | 🏢 Company：SEC·FMP✅·OpenSanctions✅·Finnhub |
@@ -201,15 +201,15 @@ WebSearch — built-in web search
 mcp__tavily__tavily_extract — extract clean content from URLs
 mcp__exa__crawling_exa — crawl and extract from URLs
 mcp__firecrawl__firecrawl_scrape — scrape single page
-mcp__rss-reader__fetch_article_content — extract article text
+curl -s "https://r.jina.ai/ARTICLE_URL" — extract article text as markdown (free readability API; replaced rss-reader MCP)
 ```
 
 ### Platform-Specific
 ```
-mcp__devto__get_articles — Dev.to articles by tag/keyword
-mcp__twitter__search_tweets — Twitter/X discussions
-mcp__newsmcp__get_news — real-time news clusters
-mcp__rss-reader__fetch_feed_entries — RSS feeds (Simon Willison, HN, etc.)
+curl -s "https://dev.to/api/articles?tag=TAG&per_page=30" — Dev.to articles (zero auth for public)
+(Twitter/X: twitterapi.io curl, pending valid TWITTERAPI_API_KEY — see research-engine MCP→curl section)
+GDELT curl — real-time news (newsmcp service is dead, 2026-06)
+curl -s "FEED_URL" — RSS feeds raw XML (Simon Willison, HN, etc.); LLM reads XML directly
 gh search issues/repos — GitHub ecosystem data
 ```
 
@@ -251,9 +251,11 @@ curl -s --compressed "https://api.stackexchange.com/2.3/search/excerpts?order=de
 # DEV.to — public articles (zero auth)
 curl "https://dev.to/api/articles?tag=TOPIC&per_page=30"
 
-# Reddit — ⛔ DO NOT use raw curl .json (returns 403 from most environments + surface-only).
-#   Use dialog-mcp (reddit-research) OR the logged-in Chrome session instead.
-#   See the HARD RULE in the Forum Deep Dive Agent Template below.
+# Reddit — ⛔ raw curl .json returns 403 here (verified 2026-08-11). Use the logged-in
+#   browser instead. This is Bash, works from any cwd, needs no MCP:
+agent-chrome.py fetch 'https://www.reddit.com/r/SUB/search.json?q=TOPIC&restrict_sr=on&sort=top&limit=25'
+agent-chrome.py fetch 'https://www.reddit.com/r/SUB/comments/POST_ID/.json?limit=500'   # full comment tree
+#   (`agent-chrome.py` = ~/.local/bin/agent-chrome.py, on PATH. See the HARD RULE below.)
 ```
 
 #### Tier 2: Asian Communities (🟡 cookie/逆向工程, higher signal for lifestyle/beauty/culture)
@@ -618,11 +620,11 @@ Each source has an access type:
 | # | Cluster | Sources + access type | When to pick |
 |---|---------|----------------------|-------------|
 | 1 | **Web Search** | 📦 Tavily Search (1000 credits/mo free) · 📦 Exa Search ($10 free) · 📦 Firecrawl Search (500 credits free) · 📦 open-websearch (free, zero key) · 🟢 WebSearch (built-in) | Almost always |
-| 2 | **News & Events** | 📦 newsmcp (free) · 🟢 GDELT (curl, zero key) · 📦 RSS reader (free) · 📦 NYTimes MCP (free key) | Current events, recent developments |
+| 2 | **News & Events** | 🟢 GDELT (curl, zero key) · 🟢 RSS via curl (raw XML) · 📦 NYTimes MCP (free key) · 💀 newsmcp dead | Current events, recent developments |
 | 3 | **Academic Papers** | 📦 paper-search (free) · 📦 arxiv-mcp (free) · 📦 semantic-scholar (free) · 📦 paper-distill (free) · 🟢 OpenAlex/DBLP/Crossref/DOAJ/Zenodo/arXiv API (all curl, zero key) · 🔑 CORE (free key) | Research, scientific topics |
 | 4 | **Citation & Impact** | 🟢 OpenCitations (curl, zero key) · 🟢 NIH iCite (curl, zero key) · 🟢 ORCID (curl, zero key) · 🟢 ROR (curl, zero key) · 🟢 OpenAIRE (curl, zero key) · 🟢 medRxiv (curl, zero key) · 🔑 Altmetric (free research key) | Research impact, key researchers |
 | 5 | **Patent & IP** | 🔑 USPTO PatentsView (free key) · 🔑 EPO OPS (free registration) · 🔑 Lens.org (free for research) · 🔑 Google Patents BigQuery (1TB/mo free) | Prior art, IP landscape |
-| 6 | **Discussion Forums** | **Reddit → 📦 dialog-mcp (reddit-research) OR 🖥️ logged-in Chrome session — NEVER raw curl (403 + surface-only).** Other login-gated (小紅書/知乎/微博/LIHKG/PTT/Dcard) → their MCP or Chrome CDP. curl OK only for deep zero-auth: 🟢 HN Algolia · 🟢 Lobste.rs · 🟢 Bluesky · 🟢 Mastodon · 🟢 Lemmy · 🟢 StackExchange · 🟢 DEV.to. MCPs: 📦 Discourse (official) · 📦 trend-pulse (37 sources) · 📦 Twitter (💰) | Community discussions, user experiences, sentiment — **USE FORUM DEEP DIVE AGENT TEMPLATE (has the HARD RULE)** |
+| 6 | **Discussion Forums** | **Reddit → `agent-chrome.py` primary for live logged-in search + full trees; Arctic Shift for zero-key archive/search; Reddit RSS only as 1 req/min fallback. NEVER raw curl reddit.com `.json` (403).** Other login-gated (小紅書/知乎/微博/LIHKG/PTT/Dcard) → `agent-chrome.py fetch` first, MCP only if the health report proves it is loaded in this cwd. curl OK only for deep zero-auth: 🟢 HN Algolia · 🟢 Lobste.rs · 🟢 Bluesky · 🟢 Mastodon · 🟢 Lemmy · 🟢 StackExchange · 🟢 DEV.to. MCPs: 📦 Discourse (official) · 📦 trend-pulse (37 sources) · 📦 Twitter (💰) | Community discussions, user experiences, sentiment — **USE FORUM DEEP DIVE AGENT TEMPLATE (has the HARD RULE)** |
 | 7 | **Trends & Predictions** | 📦 trendsmcp (100 free/mo) · 📦 google-trends-mcp (free) · 🟢 Polymarket Gamma API (curl, zero key) · 💰 ScrapeCreators TikTok/IG (100 free credits) | Trending topics, predictions |
 | 8 | **Video & Podcasts** | 📦 youtube-transcript (free) · 🔑 PodcastIndex (free key) · 🟢 iTunes API (curl, zero key) · 💰 Listen Notes (freemium) | Conference talks, expert opinions |
 | 9 | **Package Registries** | 🟢 npm/PyPI/crates.io/Packagist/RubyGems/Homebrew/Docker Hub/HuggingFace (all curl, zero key) · 🔑 libraries.io (free key) · 🟢 VS Code Marketplace (curl, unofficial) · 🟢 OSV.dev (curl, zero key) | Dev tool adoption, ecosystem data |
@@ -648,12 +650,25 @@ bash ~/MyGithub/ai-research-engine/health-check.sh
 
 This pings every zero-key free API, CLI, and lists connected MCP servers, then writes `~/MyGithub/ai-research-engine/health-check-report.md` with ✅/⚠️/❌ per source. **Read that report. Only hand agents ✅ sources.** A ❌ endpoint that returns nothing is NOT evidence of "nothing found" — it's a dead tool, and citing its silence as a finding is a research defect. (If the report is fresh — generated today — you can reuse it instead of re-running.)
 
+**Step 1b — if any forum/social cluster is selected, probe the browser session NOW (before launching agents):**
+
+```bash
+agent-chrome.py status                                  # Chrome up? which sites have cookies?
+agent-chrome.py login-check https://www.reddit.com/     # exit 0 = logged in
+```
+
+Do this yourself, in the main thread, *before* the agents launch. Ten seconds here
+prevents ten agents from each independently discovering the browser is down and
+quietly returning "found nothing". If Chrome is down → start it. If a needed site is
+logged out → tell the user now, while it is still cheap to fix.
+
 **Step 2 — confirm what's available for the selected clusters:**
 
 - 🟢 FREE APIs → check the health report (some go dead/change without notice)
 - 🔧 CLI → check if installed: `which gh` etc.
-- 📦 MCP → check the report's "Connected MCP servers" list. **Forums (Reddit etc.) MUST go through MCP or the logged-in Chrome session — never raw curl (see the HARD RULE in the Forum Deep Dive Agent Template).**
-- 🔑 KEY → check if env var is set (e.g., `FRED_API_KEY`, `FINNHUB_API_KEY`)
+- 🌐 BROWSER → **Reddit and every login-gated forum go through `agent-chrome.py fetch` (Bash). Never raw curl. See the HARD RULE in the Forum Deep Dive Agent Template.**
+- 📦 MCP → ⚠️ read the health report's **"MCP servers — WHICH ONES YOU ACTUALLY GET DEPENDS ON CWD"** table before instructing any agent to call `mcp__*`. `.mcp.json` is project-scoped: a session started in `~` sees only the user-global servers, NOT the 16 in `~/.claude/.mcp.json`. Telling an agent to call a tool that does not exist in its session is the single most common cause of a silently-skipped source. **When a Bash equivalent exists, prefer Bash** — it is cwd-independent and costs zero resident RAM.
+- 🔑 KEY → check if env var is set (`source ~/.config/research-engine/keys.env` first)
 - 💰 PAID → check if key exists AND note remaining quota if known
 
 **Then in your Step 0 presentation, flag any issues:**
@@ -675,7 +690,7 @@ I'll search these sources (10 agents in parallel):
 ✅ Web Search — Tavily (923/1000 credits remaining this month)
 
 **Is this space growing?**
-✅ News & Events — GDELT + newsmcp
+✅ News & Events — GDELT + RSS curl / r.jina.ai
 ⚠️ Trends — trendsmcp not installed (Google Trends data)
    → Install: npx -y trendsmcp (needs TRENDS_API_KEY, 100 free/mo)
    → Or skip, I'll use WebSearch for trend data instead
@@ -780,13 +795,40 @@ Default: **all collection agents run on `model: "opus"`** (standing rule — dat
 
 When the user's question involves community opinions, user experiences, reviews, or "what do people think about X", **ALWAYS launch a dedicated Forum Deep Dive Agent** using this template.
 
-> 🚨 **HARD RULE — Reddit and any login-gated forum MUST use MCP or the logged-in Chrome browser session, NEVER raw `curl .json`.**
+> 🚨 **HARD RULE — Reddit and any login-gated forum go through the logged-in agent Chrome, via Bash. Never raw `curl .json`. Never skip it.**
 >
-> Raw `curl` on `reddit.com/....json` is surface-level and rate-limited: you get truncated search results, no deep comment trees, and silent throttling. That makes the research shallow and the agent can't even tell it got starved. So:
-> - **Reddit → `dialog-mcp` (reddit-research, semantic search 20K+ subs + full comment trees) OR `mcp__chrome-devtools__evaluate_script` `fetch()` from the logged-in session** (authenticated cookie = no rate limit, deep threads). Fetch the FULL comment tree (`/r/<sub>/comments/<id>/.json`), not just titles.
-> - **Login-gated / cookie forums (小紅書, 知乎, 微博, LIHKG, PTT, Dcard) → their MCP, or Chrome CDP with the user's session.**
-> - **`curl` is allowed ONLY for genuinely deep zero-auth APIs:** HN Algolia (full-text all history), Lobste.rs `.json`, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to. These are NOT rate-starved and return real depth.
-> - Before relying on any source, the agent must confirm it actually got data. An empty/truncated response is NOT evidence of "nothing found" — it's a dead tool. Say so explicitly.
+> Raw `curl` on `reddit.com/....json` returns **HTTP 403** from this machine (verified 2026-08-11, and re-verified by every `health-check.sh` run). Running the identical request *inside* a real logged-in Chrome tab returns 200 with the full comment tree, because it carries the profile's cookies and TLS fingerprint.
+>
+> **The command is one line of Bash. It needs no MCP server and works from any cwd:**
+>
+> ```bash
+> agent-chrome.py fetch 'https://www.reddit.com/r/LocalLLaMA/search.json?q=TOPIC&restrict_sr=on&sort=top&limit=25'
+> agent-chrome.py fetch 'https://www.reddit.com/r/LocalLLaMA/comments/POST_ID/.json?limit=500'   # full tree
+> ```
+>
+> **⛔ Do NOT reach for `mcp__chrome-devtools__*` or `mcp__dialog-mcp__*` first.** Those are project-scoped MCP servers: `chrome-devtools` only loads when Claude's cwd is `~/.claude`, and `dialog-mcp` is not configured at all. A default session started in `~` has neither. That mismatch is exactly why forum research kept coming back empty — the agent tried a tool that did not exist, got nothing, and moved on.
+>
+> - **Login-gated forums (小紅書, 知乎, 微博, LIHKG, PTT, Dcard, Quora, LinkedIn) → same `agent-chrome.py fetch` pattern**, pointed at that site's own JSON endpoint. Check the session first with `agent-chrome.py login-check <url>`.
+> - **`curl` is allowed ONLY for genuinely deep zero-auth APIs:** HN Algolia (full-text all history), Lobste.rs `.json`, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to. These are not rate-starved and return real depth.
+> - **An empty response is a DEAD TOOL, not a finding.** Before relying on any source, confirm you actually got data. If a tool failed, say "tool X failed with <error>" — never report its silence as "nothing found on this topic".
+
+**Browser session — the 3 commands you need**
+
+```bash
+agent-chrome.py status                       # is Chrome up? which sites have cookies?
+agent-chrome.py login-check https://www.reddit.com/    # exit 0 = logged in (asks the site's own whoami)
+agent-chrome.py fetch <url> [--out FILE]     # the request, through the logged-in session
+```
+
+Every failure exits non-zero with the reason on stderr, so a silent empty result is impossible. If `status` says Chrome is not running, start it and continue — **do not drop the source**:
+
+```bash
+DISPLAY=:0 setsid /usr/bin/google-chrome --remote-debugging-port=9223 \
+  --user-data-dir="$HOME/.config/agent-chrome" --no-first-run \
+  --no-default-browser-check --restore-last-session=false >/tmp/agent-chrome.log 2>&1 &
+```
+
+If `login-check` says `out` for a site the research needs, **stop and tell the user to log in** in that Chrome window (the session persists afterwards). Do not silently downgrade to logged-out scraping and present the thin result as the answer.
 
 **Agent prompt template (copy and customize {TOPIC}, {SUBREDDITS}, {FORUMS}):**
 
@@ -795,21 +837,76 @@ You are a Forum Research Agent. Search ALL of these discussion forums for: {TOPI
 
 You MUST use tools. Do NOT plan or ask for confirmation. Execute immediately.
 
-## Reddit — MANDATORY via MCP or logged-in browser, NOT raw curl
+## Reddit — MANDATORY, via the logged-in browser, in Bash. Not curl. Not optional.
 
-Reddit raw curl .json is surface-level + rate-limited. Use ONE of:
+Raw `curl` on reddit.com/*.json returns 403 here. `agent-chrome.py` runs the same
+request inside the logged-in Chrome profile and gets 200 + full comment trees.
+It is plain Bash — no MCP server, no ToolSearch, works from any cwd.
 
-(A) dialog-mcp (reddit-research — semantic search + full comment trees):
-   ToolSearch: "select:mcp__dialog-mcp__discover_operations,mcp__dialog-mcp__get_operation_schema,mcp__dialog-mcp__execute_operation"
-   → discover_operations → discover_subreddits/search → fetch posts + FULL comment trees (10+ posts), verbatim quotes + scores.
+STEP 1 — confirm the session before you search (10 seconds, do not skip):
+   agent-chrome.py login-check https://www.reddit.com/
+   → prints "in <user>" and exits 0  = go ahead
+   → prints "out ..." and exits 1    = STOP. Report to the orchestrator that Reddit
+                                       needs a manual login. Do NOT substitute
+                                       logged-out scraping and call it a result.
+   → "cannot reach Chrome"           = start it, then retry:
+       DISPLAY=:0 setsid /usr/bin/google-chrome --remote-debugging-port=9223 \
+         --user-data-dir="$HOME/.config/agent-chrome" --no-first-run \
+         --no-default-browser-check --restore-last-session=false \
+         >/tmp/agent-chrome.log 2>&1 &
 
-(B) Logged-in Chrome session (authenticated = no rate limit, deep):
-   ToolSearch: "select:mcp__chrome-devtools__new_page,mcp__chrome-devtools__evaluate_script"
-   → evaluate_script: await fetch('https://www.reddit.com/r/{SUBREDDIT}/search.json?q={TOPIC}&restrict_sr=on&sort=top&limit=25').then(r=>r.json())
-   → for each hit, fetch the FULL thread: await fetch('https://www.reddit.com/r/<sub>/comments/<id>/.json').then(r=>r.json())
-   Try subreddits: {SUBREDDITS}
+STEP 2 — search each subreddit ({SUBREDDITS}), save to a file:
+   agent-chrome.py fetch \
+     'https://www.reddit.com/r/{SUBREDDIT}/search.json?q={TOPIC}&restrict_sr=on&sort=top&t=year&limit=25' \
+     --out /tmp/r_{SUBREDDIT}.json
+   jq -r '.data.children[].data | "\(.score)\t\(.num_comments)\t\(.id)\t\(.title)"' /tmp/r_{SUBREDDIT}.json
 
-Capture verbatim quotes from BOTH posts AND top comments — the comment depth is the point.
+   Site-wide instead of one sub (drop restrict_sr):
+   agent-chrome.py fetch 'https://www.reddit.com/search.json?q={TOPIC}&sort=top&t=year&limit=50'
+
+   ⚠️ GOTCHA — `sort=top` ignores your query in big general subs. Measured on
+   r/buildapc, q="local LLM", t=year, limit=10 (2026-08-11):
+       sort=top       →  2/10 titles on-topic (returns the sub's popular posts)
+       sort=relevance → 10/10 titles on-topic
+   In a NICHE sub (r/LocalLLaMA) `sort=top` is fine — everything there is on-topic.
+   In a GENERAL sub (r/buildapc, r/gaming, r/AskReddit) always use `sort=relevance`,
+   then re-sort by score yourself. If a search comes back full of unrelated popular
+   posts, that is this bug — not "the topic isn't discussed there". Re-run before
+   writing a ⬜ EMPTY row.
+
+STEP 3 — pull the FULL comment tree for the top 5-10 posts. THIS IS THE POINT.
+   Titles alone are worthless; the answer is in the comments.
+   agent-chrome.py fetch 'https://www.reddit.com/r/{SUBREDDIT}/comments/{POST_ID}/.json?limit=500' \
+     --out /tmp/tree_{POST_ID}.json
+   jq -r '.[1].data.children[].data | "[\(.score)] u/\(.author): \(.body)"' /tmp/tree_{POST_ID}.json | head -60
+
+   Deeper replies live in .replies.data.children recursively — walk them for the
+   threads that matter. A "load more comments" stub has kind=="more".
+
+STEP 3b — independent Reddit fallback / cross-check: Arctic Shift (zero key).
+   Use this when browser search is unavailable, when you need archive search, or
+   as a second source to cross-check live Reddit. It returns real post/comment
+   bodies from this machine without OAuth.
+
+   # Posts by subreddit, near-live:
+   curl -sS -m 60 'https://arctic-shift.photon-reddit.com/api/posts/search?subreddit={SUBREDDIT}&limit=25&sort=desc'
+
+   # Scoped comment full-text:
+   curl -sS -m 60 'https://arctic-shift.photon-reddit.com/api/comments/search?subreddit={SUBREDDIT}&body={TOPIC}&limit=25&sort=desc'
+
+   # Full nested tree by post id:
+   curl -sS -m 60 'https://arctic-shift.photon-reddit.com/api/comments/tree?link_id=t3_{POST_ID}&limit=9999'
+
+   Operational notes verified 2026-08-11: use -m 60; heavy full-text queries can
+   return 422 "Timeout. Maybe slow down a bit", so slow down and retry. Search
+   limits are 1-100 or "auto"; tree limit is 1-25000. Do not trust stored
+   post.num_comments/score as current counters — count comments from the tree.
+
+STEP 4 — report verbatim quotes from BOTH posts AND top comments, with scores and
+   permalinks. Paraphrase is a failed result.
+
+If any step errors, the command exits non-zero and prints why. Report that error
+verbatim. Never write "no discussion found" when what happened was a tool failure.
 
 ## Tier 1: Free curl APIs — ONLY for these deep zero-auth sources (Reddit is NOT here)
 
@@ -859,7 +956,32 @@ curl -s "https://tieba.baidu.com/f/search/res?qw={TOPIC_ZH}&ie=utf-8"
 If any curl API fails or rate-limits, use Chrome DevTools MCP to browse with the user's logged-in session.
 
 ## Output format
-For each forum, report:
+
+### PART A — SOURCE COVERAGE LEDGER (mandatory, put it FIRST)
+
+Before any findings, list EVERY source you attempted, one row each. This is not
+optional and it is not a summary — a source you tried and got nothing from must
+appear here, or the orchestrator cannot tell "nobody discussed it" apart from
+"my tool was broken".
+
+| Source | Exact command / endpoint | Status | Items | Evidence |
+|---|---|---|---|---|
+| Reddit r/LocalLLaMA | agent-chrome.py fetch .../search.json?q=... | ✅ GOT DATA | 23 posts, 6 trees | HTTP 200, 446KB |
+| Hacker News Algolia | curl hn.algolia.com/api/v1/search?query=... | ⬜ EMPTY | 0 | HTTP 200 but hits:[] |
+| Lemmy lemmy.world | curl .../api/v3/search?q=... | ❌ FAILED | — | HTTP 503 |
+| 小紅書 | (not attempted) | ⏭️ SKIPPED | — | no session; topic is EN-only |
+
+Status vocabulary — use exactly these, they mean different things:
+- ✅ **GOT DATA** — the call succeeded AND returned on-topic items. Say how many.
+- ⬜ **EMPTY** — the call succeeded (HTTP 200) but the result set was genuinely
+  empty. This IS a finding: the topic is not discussed there.
+- ❌ **FAILED** — the tool broke (non-200, timeout, auth wall, exception). This is
+  NOT a finding. Paste the actual error. Never let this masquerade as ⬜.
+- ⏭️ **SKIPPED** — never attempted. Say why in one clause.
+
+### PART B — findings
+
+For each source that returned data:
 - Forum name + URL
 - Number of relevant results found
 - Top 3-5 most relevant posts/comments with:
@@ -895,6 +1017,7 @@ Each agent's prompt MUST include:
 - "Report raw findings with URLs. Do NOT synthesize or draw conclusions."
 - "Use tables and structured formats. Paste key quotes directly."
 - "Cite every finding with a source URL."
+- 🚨 **"START your report with a SOURCE COVERAGE LEDGER: one row per source you attempted, with the exact command, and status ✅ GOT DATA (with counts) / ⬜ EMPTY (200 but no results) / ❌ FAILED (paste the real error) / ⏭️ SKIPPED (say why). Never report a ❌ as a ⬜ — a broken tool is not evidence that nothing exists. If you could not run something, say so plainly rather than omitting the row."** — without this, the orchestrator cannot tell coverage from silence, and the final report will overstate how much of the web was actually searched.
 - "At the END of your report, add a CONFIDENCE section: rate your confidence 1-5 that you found comprehensive data, and list any GAPS — topics you searched for but found little/nothing on."
 
 Agents return RAW DATA — lists of papers, URLs, quotes, numbers. Not analysis. Plus a confidence rating + gap list for the verification step.
@@ -950,10 +1073,58 @@ YOU (Opus) do this — NEVER delegate synthesis to a collection agent. Read all 
 
 #### Step 5: Report
 
+> 🚨 **MANDATORY — every research report opens with the SOURCE COVERAGE LEDGER.**
+> Nicole's standing requirement (2026-08-11): *"每次research完出嚟都要講我哋實際真係
+> research咗邊個網站，或者乜嘢source係確認攞得到嘢返嚟嘅… 如果唔係下次我哋research完，
+> 以為搵晒所有網上搵得到嘅source，我點知原來skip咗大部分嘅。"*
+>
+> Aggregate every agent's PART A ledger into one table and put it at the TOP,
+> before findings. A report without it is incomplete — do not ship it.
+>
+> Three rules that make the ledger honest:
+> 1. **Never collapse ❌ FAILED into ⬜ EMPTY.** A broken tool and a quiet topic look
+>    identical in the findings and are opposites in meaning.
+> 2. **List what you never tried, and why.** The dangerous line in any research report
+>    is the one that isn't there. ⏭️ SKIPPED rows are the whole point of the ledger.
+> 3. **Counts, not adjectives.** "23 posts / 6 comment trees / 446KB" — not "good coverage".
+
 ```markdown
 # Research: [Topic]
 Date: [today]
-Sources: [count] sources across [count] tools
+
+## 📋 Source Coverage — what was ACTUALLY searched
+
+**✅ Returned data (N sources)**
+
+| Source | What was queried | Items | Evidence |
+|---|---|---|---|
+| Reddit r/X, r/Y | search.json + 6 full comment trees | 23 posts, 412 comments | HTTP 200, 446KB |
+| Hacker News | Algolia full-text, stories + comments | 31 hits | HTTP 200 |
+
+**⬜ Searched, genuinely nothing there (N)** — this is a real finding
+
+| Source | What was queried | Evidence |
+|---|---|---|
+| Lemmy | api/v3/search?q=... | HTTP 200, posts:[] |
+
+**❌ Tool failed — NOT evidence of absence (N)**
+
+| Source | What broke | Impact on this report |
+|---|---|---|
+| 小紅書 | no logged-in session | CN consumer sentiment is UNCOVERED |
+
+**⏭️ Not attempted (N)** — and why
+
+| Source | Why not |
+|---|---|
+| Naver / DC Inside | topic has no Korean-market angle |
+| X/Twitter | no API key; would need paid gateway |
+
+**Coverage honesty statement:** one sentence naming the biggest blind spot in this
+report, in plain language. Example: "Everything below is English-language web and
+forum data — no Chinese, Korean or Japanese source was reachable, so this is not a
+global picture."
+
 Coverage Score: [1-5 from verification agent]
 
 ## Key Findings
@@ -1007,7 +1178,7 @@ curl -s -X POST "https://google.serper.dev/shopping" -H "X-API-KEY: $SERPER_API_
   -H "Content-Type: application/json" -d '{"q":"<product + key spec>","gl":"ca"}' | jq '.shopping[:10]'
 ```
 - **Apify MCP**（`mcp__apify__*`）攞硬 site 深度數據（review/variants/sold-history）：actor `junglee/Amazon-crawler`、`piotrv1001/temu-listings-scraper`、`sian.agency/taobao-tmall-product-scraper`、`zen-studio/1688-wholesale-scraper`、`piotrv1001/aliexpress-listings-scraper`、`e-commerce/walmart-product-detail-scraper`、`caffein.dev/ebay-sold-listings`、`automation-lab/etsy-scraper`。
-- ⭐ **Reddit（dialog-mcp）— 按產品揀 sub，唔係淨係 gift sub**：用 `discover_subreddits` 搵嗰個**產品品類**嘅真實社群，喺嗰度攞用家真實推薦/避雷。買廚具→r/cookware·r/Cooking·r/castiron·r/BuyItForLife；耳機→r/headphones·r/HeadphoneAdvice；monitor→r/Monitors；床褥→r/Mattress… 任何品類都 discover 返佢自己嘅 sub。**只有當明確係「送禮」**先額外睇 r/giftideas·r/Gifts。（raw .json 403，一定用 dialog-mcp）
+- ⭐ **Reddit — 按產品揀 sub，唔係淨係 gift sub**：先用產品品類/Serper/Arctic Shift 搵真實社群，喺嗰度攞用家真實推薦/避雷。買廚具→r/cookware·r/Cooking·r/castiron·r/BuyItForLife；耳機→r/headphones·r/HeadphoneAdvice；monitor→r/Monitors；床褥→r/Mattress… 任何品類都 discover 返佢自己嘅 sub。**只有當明確係「送禮」**先額外睇 r/giftideas·r/Gifts。Posts/comment trees 用 `agent-chrome.py fetch`；Arctic Shift 做 archive/cross-check；raw `.json` curl 403。
 - **專業評測**：Firecrawl/Tavily Extract 抓 Wirecutter·RTINGS·NYT/Strategist gift guide。
 - **superprecio MCP**：grocery/食品先用。
 - ⚠️ 唔好叫 `mcp__amazon__*` / `mcp__agora__*`（已移除，係廢的）。
@@ -1063,7 +1234,7 @@ Launch ALL agents in ONE message with `model: "opus"` and `run_in_background: tr
 
 #### Agent B: User Pain Points — FREE
 ```
-→ Reddit pain points → dialog-mcp (reddit-research) OR logged-in Chrome session — NEVER raw curl .json
+→ Reddit pain points → `agent-chrome.py fetch` live logged-in search + full trees; Arctic Shift archive/cross-check — NEVER raw curl reddit.com .json
 → StackExchange API (170+ sites — tagged questions volume + answers)
 → Discourse API (OSS community forums: Rust/React/OpenAI/Julia)
 → Bluesky AT Protocol + Mastodon API (tech discourse)
@@ -1075,11 +1246,10 @@ Launch ALL agents in ONE message with `model: "opus"` and `run_in_background: tr
 
 #### Agent C: Market Trends + News — FREE
 ```
-→ newsmcp (real-time clustered news)
 → GDELT curl (global news events)
 → Dev.to API (trending articles)
 → HN Algolia API (search HN history)
-→ rss-reader (competitor blog RSS feeds)
+→ RSS curl / r.jina.ai (competitor blog feeds + article extraction)
 → trendsmcp / Google Trends (search interest over time)
 → Polymarket Gamma API (prediction market odds if applicable)
 ```
@@ -1204,7 +1374,7 @@ Save findings to `OUTPUT_DIR/[product]-[date].md`.
 
 0. **Run the health check FIRST** — `bash ~/MyGithub/ai-research-engine/health-check.sh`, read the report, only use ✅ sources. A dead endpoint's silence is never "found nothing".
 1. **Read research-engine.md FIRST** — every time, no exceptions
-1b. **🚨 FORUMS = MCP OR BROWSER SESSION, NEVER RAW CURL.** Reddit and any login-gated forum (小紅書/知乎/微博/LIHKG/PTT/Dcard) MUST be researched through their MCP (e.g. `dialog-mcp` reddit-research) or the logged-in Chrome session (`mcp__chrome-devtools__evaluate_script` fetch). Raw `curl .json` is surface-level + rate-limited = shallow research the agent can't tell is starved. `curl` is allowed only for genuinely deep zero-auth APIs (HN Algolia, Lobste.rs, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to). Fetch FULL comment trees, not just titles.
+1b. **🚨 FORUMS = `agent-chrome.py` OR VERIFIED ZERO-AUTH API, NEVER RAW REDDIT CURL.** Reddit live research MUST use `agent-chrome.py fetch` through the logged-in browser session for search + FULL comment trees. Arctic Shift is the zero-key Reddit archive/search fallback and cross-check. MCPs are allowed only when the health report proves they are loaded in the current cwd. Raw `curl reddit.com/*.json` is 403/surface-starved here and must not be reported as absence. `curl` is allowed for genuinely deep zero-auth APIs (Arctic Shift, HN Algolia, Lobste.rs, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to). Fetch FULL comment trees, not just titles.
 2. **Use ALL available FREE tools** — don't just use one source. Parallel everything.
 3. **Parallel execution** — launch multiple searches simultaneously
 3b. **Sub-agents MUST execute immediately** — when launching sub-agents for data collection, their prompts MUST include "You MUST use tools. Do NOT plan or ask for confirmation. Execute immediately." Sub-agents cannot see the user, so they must never wait for confirmation. Any agent that plans without executing is wasting tokens and time. The Step 0 confirmation workflow is for the MAIN THREAD only, never for sub-agents.
