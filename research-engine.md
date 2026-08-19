@@ -1161,6 +1161,14 @@ If Twitter spend > $5/mo     → ⚠️ review if reads are worth it
 
 ## Sharpening Log
 
+### Round 16（2026-08-19）— Public-institution staff background verification
+
+- 新增實務次序：①具名人士自己嘅現職 email signature／statement；②機構官方 role page、org chart、escalation guide；③官方 SOFI／public-accounts remuneration schedule；④公開 professional profile；⑤general search。
+- **Identity guard**：SOFI 只列 `Surname, Initial` 時，只可以寫「consistent with / corroborative」；唔可以單憑同姓同 initial 斷定係同一人、職銜、年資、學歷或專業資格。
+- **Role guard**：用機構對同一職銜嘅公開說明，只可以解釋一般職能同 escalation 位置；唔可以當成該具名人士嘅個人履歷。
+- **Tone analysis guard**：將 exact words、已承諾行動、未承諾事項同內心動機分開。`reviewing`／`allow me some time` 支持「position 未落」；唔支持推斷驚、敵意、支持或翻案承諾。
+- 呢個流程由 WorkSafeBC Malik Gleason 管理回應研究驗證：general web/LinkedIn 無可靠個人 biography，但官方 email、Client Services Manager 公開職能、provider escalation guide 同 2024–2025 SOFI 足以安全界定職位同證據上限。
+
 ### Round 14（2026-05-31）— Health-check repair triage + API key 申請 + AI-Security cluster + Social 擴充
 
 - **health-check.sh 升級「detect + repair」**：source keys.env 用真 key 探 10 個 keyed API（9 verified ✅）；加「⚠️ ACTION NEEDED」triage——每個 fail（zero-key dead / MCP quota 死 / key 壞 / 無 key）都印埋**點修**。PASS 52→67。
