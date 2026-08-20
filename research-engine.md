@@ -1456,3 +1456,29 @@ GDELT、PubMed、Europe PMC、bioRxiv、DBLP、DOAJ、Zenodo、The News API、Ne
 - Show HN has **0.4 penalty** — needs 2x upvotes to rank equal
 
 **行動：** 已加 llms.txt 去 CCO repo。下一步：run AEO audits、submit 去所有 MCP directories、add FAQPage schema。
+
+---
+
+### Round 18（2026-08-19）— BC legal primary-source acquisition hardening
+
+WorkSafeBC s.135 research exposed a source-integrity problem that applies to all Canadian legal research: a case number, a search hit and a summary are not the source document.
+
+**New primary-source workflow:**
+
+1. **Archive the complete originating-body document.** Preserve an official-issued PDF when the issuing body supplies one. When the body publishes official HTML, preserve the raw HTML and extracted text; any PDF made locally must say `local-render` in the filename and manifest.
+2. **Do not assume one appeal number means one document.** WCAT Decision Search returned three public PDFs for `A2400395` and two for `A2500471`. Archive every exact-number result with a date-qualified filename, then mark the relied-on merits decision separately.
+3. **Verify content, not only HTTP 200.** Check `%PDF`, page count, extracted word count and a minimum completeness floor. Record final URL, byte count, SHA-256 and retrieval timestamp.
+4. **Treat portal outages as outages.** WorkSafeBC Review Division returned repeated HTTP 503. That is not evidence that a decision is unavailable. Use bounded retry, preserve a truthful error record and fall back only to a previously verified exact harvest from the same official portal.
+5. **Keep official and local formats distinct.** Review Division provides session-bound/base64 decision HTML rather than a public originating-body PDF. BC Courts normally publishes official judgment HTML. A locally rendered reading PDF is useful, but is never labelled an official-issued PDF.
+6. **Keep a machine-readable ledger.** Generate JSON/CSV manifests and `SHA256SUMS`; make partial runs write a truthful manifest in `finally`; provide a source-group selector so a failed endpoint can be retried without redownloading everything.
+7. **Full text before synthesis.** A summary, headnote, annual-report note or another case's citation is a discovery lead. It does not support a direct quotation until the underlying full decision is opened and checked.
+
+**Reusable BC endpoints:**
+
+- WCAT Decision Search: `https://www.wcat.bc.ca/home/search-past-decisions/?appeal_number=<ID>`
+- WCAT official PDFs: `https://www.wcat.bc.ca/decisions/pdf/YYYY/MM/<ID>.pdf` (suffixes such as `_1` exist)
+- WorkSafeBC Review Division: `https://rdpubsearch.online.worksafebc.com/`
+- BC Courts official judgments: `https://www.bccourts.ca/jdb-txt/...`
+- SCC official newer-decision PDFs: `https://www.scc-csc.ca/cso-dce/<citation>_eng.pdf`
+
+**Tooling produced:** `Evidence/Case-Law-Library/04-Claim-s135-mental-disorder/tools/acquire_official_full_text.py` now implements this workflow with resumable source selection, validation, provenance and hashes.
