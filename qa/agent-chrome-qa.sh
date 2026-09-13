@@ -33,7 +33,7 @@ $AC list    >/dev/null 2>&1 && ok "list"               || bad "list" "non-zero e
 head_ "T2 — THE REGRESSION: async JS must not silently return {}"
 # This is the exact defect: Runtime.evaluate without awaitPromise resolved to {}
 # for every `await fetch(...)`, so agents concluded "browser route unavailable".
-out=$($AC eval reddit 'Promise.resolve("PROMISE_RESOLVED")' 2>&1)
+out=$($AC eval active 'Promise.resolve("PROMISE_RESOLVED")' 2>&1)
 if [[ "$out" == "PROMISE_RESOLVED" ]]; then
   ok "awaited promise returns its value (got: $out)"
 else
@@ -90,7 +90,7 @@ else
   ok "HTTP error exits non-zero ($(head -c 90 "$TMP/404.err" | tr '\n' ' '))"
 fi
 
-if $AC eval reddit 'throw new Error("QA_BOOM")' >/dev/null 2>"$TMP/js.err"; then
+if $AC eval active 'throw new Error("QA_BOOM")' >/dev/null 2>"$TMP/js.err"; then
   bad "JS exception handling" "exited 0 despite a thrown error"
 else
   grep -q "QA_BOOM" "$TMP/js.err" && ok "JS exception surfaced + exit != 0" \
@@ -99,16 +99,22 @@ fi
 
 head_ "T7 — cross-origin fetch fails loudly (must not look like 'no results')"
 # reddit tab fetching example.com: CORS should block it and we must SAY so.
+opened_reddit=0
+if ! $AC list | grep -qi reddit; then
+  $AC open 'https://www.reddit.com/' >/dev/null 2>&1
+  opened_reddit=1
+fi
 if $AC eval reddit '(async()=>{try{const r=await fetch("https://example.com/");return "UNEXPECTED_OK_"+r.status}catch(e){return "CORS_BLOCKED"}})()' 2>&1 | grep -qE 'CORS_BLOCKED|UNEXPECTED_OK'; then
   ok "cross-origin behaviour is observable (not a silent {})"
 else
   bad "cross-origin" "no observable result"
 fi
+[[ "$opened_reddit" == 1 ]] && $AC close reddit >/dev/null 2>&1
 
 head_ "T8 — js from file and stdin (avoids shell-quoting hell for agents)"
 echo 'JSON.stringify({from:"file"})' > "$TMP/x.js"
-[[ "$($AC eval reddit "@$TMP/x.js" 2>&1)" == '{"from":"file"}' ]] && ok "eval @file" || bad "eval @file" "unexpected output"
-[[ "$(echo 'JSON.stringify({from:"stdin"})' | $AC eval reddit - 2>&1)" == '{"from":"stdin"}' ]] && ok "eval - (stdin)" || bad "eval - (stdin)" "unexpected output"
+[[ "$($AC eval active "@$TMP/x.js" 2>&1)" == '{"from":"file"}' ]] && ok "eval @file" || bad "eval @file" "unexpected output"
+[[ "$(echo 'JSON.stringify({from:"stdin"})' | $AC eval active - 2>&1)" == '{"from":"stdin"}' ]] && ok "eval - (stdin)" || bad "eval - (stdin)" "unexpected output"
 
 head_ "T9 — login-check reports honestly"
 lc=$($AC login-check 'https://www.reddit.com/' 2>&1); rc=$?
