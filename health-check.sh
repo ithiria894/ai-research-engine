@@ -32,8 +32,13 @@ act(){ actions+=("$1"); }
 
 check() {
   local name="$1" url="$2"; shift 2
+  local jq_filter=""
+  if [[ "${1:-}" == "--jq" ]]; then
+    jq_filter="$2"
+    shift 2
+  fi
   local extra=("$@")
-  local code size tmp
+  local code size tmp json_ok=1
   # ONE curl per endpoint (body to tmp, code via -w). Doing two separate curls
   # would double-hit rate-limited APIs (e.g. GDELT 1req/5s) and falsely fail them.
   tmp=$(mktemp)
@@ -44,10 +49,16 @@ check() {
     --retry 3 --retry-delay 2 --retry-all-errors --retry-connrefused \
     -A "ResearchEngineHealthCheck/1.0" "${extra[@]}" -o "$tmp" -w "%{http_code}" "$url" 2>/dev/null)
   size=$(wc -c < "$tmp" 2>/dev/null || echo 0)
+  if [[ -n "$jq_filter" ]] && ! jq -e "$jq_filter" "$tmp" >/dev/null 2>&1; then
+    json_ok=0
+  fi
   rm -f "$tmp"
-  if [[ "$code" =~ ^2 ]] && [[ "$size" -gt 2 ]]; then
+  if [[ "$code" =~ ^2 ]] && [[ "$size" -gt 2 ]] && [[ "$json_ok" -eq 1 ]]; then
     results+=("✅ | $name | $code | OK")
     ((PASS++))
+  elif [[ "$code" =~ ^2 ]] && [[ "$size" -gt 2 ]] && [[ "$json_ok" -eq 0 ]]; then
+    results+=("⚠️ | $name | $code | response failed JSON success check")
+    ((WARN++))
   elif [[ "$code" =~ ^2 ]]; then
     results+=("⚠️ | $name | $code | 2xx but EMPTY body")
     ((WARN++))
@@ -71,6 +82,10 @@ check "Bluesky searchPosts"     "https://api.bsky.app/xrpc/app.bsky.feed.searchP
 check "Mastodon trends"         "https://mastodon.social/api/v1/trends/statuses"
 check "Lemmy search"            "https://lemmy.world/api/v3/search?q=ai&type_=Posts&limit=5"
 check "DEV.to articles"         "https://dev.to/api/articles?tag=ai&per_page=5"
+check "Bilibili public search"  "https://api.bilibili.com/x/web-interface/search/all/v2?keyword=AI&page=1" --jq '.code == 0 and ([.data.result[]?.data?[]?] | length > 0)' -H "Referer: https://www.bilibili.com/"
+check "V2EX hot topics"         "https://www.v2ex.com/api/topics/hot.json" --jq 'type == "array" and length > 0 and .[0].id != null'
+check "V2EX node topics"        "https://www.v2ex.com/api/topics/show.json?node_name=python&page=1" --jq 'type == "array" and length > 0 and .[0].id != null'
+check "LinkedIn public via Jina" "https://r.jina.ai/https://www.linkedin.com/in/satyanadella/"
 # Reddit .json is IP-blocked from this box (403) — NOT tested here.
 #   Reddit research MUST go through agent-chrome.py (logged-in browser) or
 #   Arctic Shift. See the deep-research skill's Forum Deep Dive HARD RULE.
@@ -228,7 +243,11 @@ kcheck(){  # name | keyvar | success-grep | curl-args...
   local key="${!kv:-}" tmp code
   if [[ -z "$key" ]]; then
     keyed+=("🔑 | $name | — | no key set")
-    act "🔑|$name 未有 key|申請 free key 填入 ~/.config/research-engine/keys.env（見 engine「🔑 Key Activation Checklist」）"
+    if [[ "$kv" == "TIKHUB_API_KEY" ]]; then
+      act "💰|$name 未有 funded key|註冊 key 並入錢後填入 ~/.config/research-engine/keys.env；小紅書 routes 不接受 free credit"
+    else
+      act "🔑|$name 未有 key|申請 free key 填入 ~/.config/research-engine/keys.env（見 engine「🔑 Key Activation Checklist」）"
+    fi
     return
   fi
   tmp=$(mktemp)
@@ -256,6 +275,8 @@ kcheck "Congress.gov"  CONGRESS_API_KEY      "bills"        "https://api.congres
 kcheck "govinfo"       GOVINFO_API_KEY       "collection"   "https://api.govinfo.gov/collections?api_key=${GOVINFO_API_KEY:-}"
 kcheck "OpenFEC"       OPENFEC_API_KEY       "results"      "https://api.open.fec.gov/v1/candidates/?api_key=${OPENFEC_API_KEY:-}&per_page=1"
 kcheck "Finnhub"       FINNHUB_API_KEY       "c"            "https://finnhub.io/api/v1/quote?symbol=AAPL&token=${FINNHUB_API_KEY:-}"
+kcheck "ScrapeCreators social" SCRAPECREATORS_API_KEY "credit" "https://api.scrapecreators.com/v1/account/credit-balance" -H "x-api-key: ${SCRAPECREATORS_API_KEY:-}"
+kcheck "TikHub social" TIKHUB_API_KEY         "data"   "https://api.tikhub.io/api/v1/tikhub/user/get_user_info" -H "Authorization: Bearer ${TIKHUB_API_KEY:-}"
 
 # ── Declared-but-EMPTY keys ───────────────────────────────────────────
 # keys.env can contain `FOO_API_KEY=` with nothing after the `=`. Every downstream
@@ -341,6 +362,23 @@ else
         *)    bact "⚠️ | login: $site | — | $lc";;
       esac
     done
+
+    # XHS has no honest cookie-name-only whoami. Probe the actual native search
+    # page through the one-shot adapter; login wall must be FAILED, not 0 results.
+    SOCIAL="$HOME/MyGithub/ai-research-engine/social-research.py"
+    tmpx=$(mktemp)
+    if [[ -f "$SOCIAL" ]] && timeout 80 python3 "$SOCIAL" xhs-search '咖啡' --route browser >"$tmpx" 2>"$tmpx.err"; then
+      xn=$(jq -r '.count // 0' "$tmpx" 2>/dev/null || echo 0)
+      bact "✅ | Xiaohongshu native search via browser | 200 | $xn notes"
+    elif [[ ! -f "$SOCIAL" ]]; then
+      bact "❌ | Xiaohongshu browser adapter | — | MISSING at $SOCIAL"
+      act "❌|XHS browser adapter 唔見咗|restore ai-research-engine/social-research.py"
+    else
+      xerr=$(tail -1 "$tmpx.err" 2>/dev/null)
+      bact "❌ | Xiaohongshu native search via browser | — | ${xerr:-FAILED}"
+      act "❌|小紅書 native search 未可用|喺 Agent Chrome 手動登入小紅書一次，再跑 social-research.py xhs-search '咖啡' --route browser"
+    fi
+    rm -f "$tmpx" "$tmpx.err"
   fi
 fi
 

@@ -36,9 +36,17 @@ DEPENDS ON CWD」表。**有 Bash 版本就用 Bash** — cwd 無關、零常駐
 agent-chrome.py login-check https://www.reddit.com/     # exit 0 = 已登入（問網站自己 whoami）
 agent-chrome.py fetch 'https://www.reddit.com/r/SUB/search.json?q=Q&restrict_sr=on&sort=top&limit=25'
 agent-chrome.py fetch 'https://www.reddit.com/r/SUB/comments/ID/.json?limit=500'    # 完整 comment tree
+# Reddit JSON search 主要係 posts；搜 comments 要開 logged-in UI，再用 DOM 抽結果
+agent-chrome.py open 'https://www.reddit.com/search/?q=QUERY&type=comments'
 ```
 同樣手法適用於所有登入牆網站（小紅書 / 知乎 / Quora / LinkedIn / LIHKG）。
 E2E：`bash qa/agent-chrome-qa.sh`（14 assertion）。
+
+> **Comments 搜索注意（2026-08-22 實測）**：`/search.json` 唔會完整代替
+> `type=comments`；登入後 UI 可以搜到直接提及產品網址嘅 comments。產品名若同普通詞撞名
+> （例如 `OpenCase`／`open case`），要用 domain 搜索、逐條 full-thread 回查，再分開
+> direct experience、bare recommendation、unrelated homonym。Arctic Shift full-text timeout 要列
+> `FAILED`，唔可以寫成零結果。
 
 > **點解之前一直靜靜哋壞咗**：`agent-chrome.py` 個 `Runtime.evaluate` 冇 `awaitPromise`，
 > 所以每個 `await fetch(...)` 都回 `{}`。Agent 見到空 → 以為做唔到 → skip。已修好 + 加咗
@@ -170,7 +178,7 @@ curl -sS -m 60 'https://arctic-shift.photon-reddit.com/api/comments/tree?link_id
 | **Zenodo** | Research data + papers（CERN 旗下） | `curl "https://zenodo.org/api/records?q=..."` | 免費，零 key |
 | **The News API** | 40,000+ sources，50+ countries | `curl "https://api.thenewsapi.com/v1/news/all?api_token=...&search=..."` | Free tier（有 limit） |
 | **NewsDataHub** | 200K+ daily articles，6,500+ sources | `curl "https://api.newsdatahub.com/v1/news?apikey=...&q=..."` | 50 req/day free |
-| **ScrapeCreators** | Reddit+TikTok+Instagram 一個 key 搞掂 | `curl "https://api.scrapecreators.com/..."` | 100 free credits（last30days 用呢個） |
+| **ScrapeCreators** | Facebook+Instagram+Reddit+TikTok 等公開 social data | `curl "https://api.scrapecreators.com/..." -H "x-api-key: $SCRAPECREATORS_API_KEY"` | 100 initial free credits；cached results free；**不支援小紅書** |
 | **HN Firebase** | Full HN data，所有 stories/comments/users | `curl "https://hacker-news.firebaseio.com/v0/topstories.json"` | 免費，零 key，零 limit |
 
 **新 API（Round 9 新增 — Citation & Academic）：**
@@ -192,7 +200,7 @@ curl -sS -m 60 'https://arctic-shift.photon-reddit.com/api/comments/tree?link_id
 |-----|--------|------|------|
 | **Polymarket (Gamma API)** | Prediction market odds — 真金白銀嘅 outcome 預測 | `curl "https://gamma-api.polymarket.com/markets?tag=ai&closed=false"` | 免費，零 key，零 limit |
 | **Truth Social** | Mastodon-compatible API，US 政治/右翼 discourse | `curl "https://truthsocial.com/api/v1/timelines/tag/{topic}"` | 免費，需 bearer token（browser extract） |
-| **小紅書 (Xiaohongshu)** | 中國 lifestyle/消費 social platform | via xiaohongshu-mcp HTTP API 或 ScrapeCreators | 需 MCP server 或 ScrapeCreators credits |
+| **小紅書 (Xiaohongshu)** | 中國 lifestyle/消費 social platform | TikHub direct REST（keyed）或 `social-research.py xhs-search --route browser` | TikHub XHS search/detail/comments 2026-09-11 為 US$0.01/request；browser route 無 API 成本、毋須 MCP |
 | **Bluesky AT Protocol** | 36M users，tech discourse tracking | `curl "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=...&limit=25"`（⚠️ 用 `api.bsky.app`，唔好用 `public.api.bsky.app` — 後者 CDN WAF block server IP, 403） | 免費，零 key，幾乎零 rate limit |
 | **Mastodon** | 去中心化社群 timelines + trending | `curl "https://mastodon.social/api/v1/trends/statuses"` | 免費，零 key，300 req/5min per instance |
 | **Lemmy** | Reddit 替代品 federated communities | `curl "https://lemmy.world/api/v3/search?q=...&type_=Posts"` | 免費，零 key |
@@ -404,9 +412,15 @@ curl -sS -m 60 'https://arctic-shift.photon-reddit.com/api/comments/tree?link_id
 | ⭐ **Serper Shopping** | **Google Shopping** — 任何產品→真價+邊間店賣（gift 必備） | ✅ `POST google.serper.dev/shopping` `{"q":"gift for mom"}`（用 SERPER key，已攞，200 verified） |
 | ⭐ **Apify MCP** | **scrape 硬 site 嘅最佳解** — Amazon/Temu/Taobao/1688/AliExpress/eBay/Walmart/Etsy 都有維護好 anti-bot 嘅 actor（`junglee/Amazon-crawler`、`piotrv1001/temu-listings-scraper`、`sian.agency/taobao-tmall-product-scraper`、`zen-studio/1688-wholesale-scraper`…） | remote MCP `https://mcp.apify.com`（OAuth）或 `@apify/actors-mcp-server` + `APIFY_TOKEN`。$5 free/mo，無 card。**要裝** |
 | ⭐ **Canopy API** | 免費結構化 Amazon（product/review/deals by ASIN，GraphQL） | `POST https://graphql.canopyapi.co/`（401 verified）。free Hobby 100 req/mo，canopyapi.co 攞 key |
-| **SerpApi engines** | dedicated `engine=amazon`/`walmart`/`ebay`/`google_shopping`（比 parse Google Shopping 乾淨） | `serpapi.com`（401 verified）free 100/mo（⚠️ signup 有 phone wall，未攞） |
+| ⭐ **SerpApi official MCP + Amazon engine** | AI agent 直接搜 Amazon search results；返 ASIN、價錢、rating/review、Prime/delivery 同 clean product link；支援 `amazon.ca` | Hosted MCP `https://mcp.serpapi.com/.../mcp` 或 self-host `github.com/serpapi/serpapi-mcp`；`engine=amazon` + `amazon_domain=amazon.ca` + `k=QUERY`。Free plan 250 searches/mo（2026-09-10 official docs verified） |
+| **Amazon Creators API（官方）** | 官方 REST catalog API：`SearchItems` / `GetItems` / `GetVariations` / `GetBrowseNodes`，包括 `OffersV2`；PA-API 5 replacement | **唔係普通個人 shopping API**：要 fully accepted Amazon Associate、target-marketplace Partner Tag、trailing 30 日至少 10 qualified sales；持續 access / rate 同 referred shipped sales 綁定。適合 publisher/affiliate MCP，唔適合 Nicole 私人購物 |
+| **Amazon Business Product Search + Ordering APIs（官方）** | Product Search 可搜 Amazon Business catalog/offer；Ordering 可落單；NA 包括 Canada | 要 Amazon Business developer onboarding、Amazon 審批同 assigned API roles；2026 onboarding 不可 self-select roles。官方 `@amazonbusiness/ab-integrations-mcp-server` preview **只搜/讀 API 文件**，唔會 call live product catalog |
+| **Amazon.ca consumer AI（官方、非 MCP）** | Rufus（2026-05 改名 Alexa for Shopping）已在加拿大 Amazon app/desktop；Alexa+ 在加拿大可經 Alexa app / Alexa.com shop Amazon | 最低 setup，但係 Amazon 自家界面；截至 2026-09-10 未找到 Amazon 宣布供普通 retail account 給第三方 AI 用的 public Shopping MCP/account API |
+| **Existing Serper Shopping fallback** | Google Shopping structured results，`gl=ca` 可 filter `source="Amazon CA"`，毋須 Amazon login/cookie | 2026-09-10 live test：`wireless earbuds` 返 40 CA offers，其中 13 Amazon CA；有 price/rating/count，但 link 係 Google Shopping redirect，shortlist 要再 resolve direct Amazon URL |
+| **SerpApi engines** | dedicated `engine=amazon`/`walmart`/`ebay`/`google_shopping`（比 parse Google Shopping 乾淨） | `serpapi.com`；free 250/mo。Amazon path 同 official MCP 見上面（2026-09-10 refreshed；本機 `SERPAPI_KEY` 仍未配置） |
 | **superprecio MCP** | 價格比較 / deals / shopping list | `mcp__superprecio__*`（已裝） |
 | ~~**amazon-mcp**~~ ❌ | **廢的** — verified：21 行 no-op stub，0 tool / 0 HTTP call，乜都唔做。`/shop` skill 叫 `mcp__amazon__*` 其實攞唔到嘢 → 改用 Apify/Canopy | uninstall（drama-fm/amazon-mcp） |
+| ~~**rigwild/mcp-server-amazon**~~ ⚠️ | 真係會 scrape Amazon search/cart/orders，但要將完整 Amazon session cookies export 去本地 JSON；DOM selector 易壞，repo 個 purchase tool 只係 mock。私人 account 風險太高 | **唔裝**；search-only 用 SerpApi MCP / Serper，登入後 price/delivery 才用受控 read-only Agent Chrome |
 | ~~**agora-mcp**~~ ❌ | **裝錯** — npm `agora-mcp` 係 Agora **chat** bot（WIP「will not work」），唔係 shopping。真 shopping Agora（Fewsats/SearchAgora）個 API host 已死（000）→ 唔好追 | uninstall |
 | ⭐ **Reddit — 按產品品類搵 sub** | 用產品品類 + Serper `site:reddit.com/r/...` + Arctic Shift subreddit/search 去搵真社群攞用家推薦/避雷，**唔係淨係 gift sub**：廚具→r/cookware·r/Cooking·r/castiron·r/BuyItForLife；耳機→r/headphones·r/HeadphoneAdvice；monitor→r/Monitors；床褥→r/Mattress…。**只有明確送禮**先加 r/giftideas·r/Gifts | `agent-chrome.py fetch` live posts/trees；Arctic Shift archive/cross-check；raw curl reddit.com `.json` = 403 |
 | **Gift-guide scrape** | 抓專業 gift guide / 評測：Wirecutter · RTINGS · NYT/BuzzFeed gift guides · The Strategist | Firecrawl/Tavily Extract/Exa（畀 URL 或 search「best gift for X 2026」） |
@@ -640,6 +654,110 @@ score = (
 ## MCP→curl 轉換（2026-06-11 gateway 瘦身：thin wrapper 唔使常駐）
 
 > 背景：MCP server 上咗 1mcp gateway 共享（port 3050）之後，逐個 thin API wrapper「降級」做一次性 curl —— 零常駐 process、零 lifecycle、跨 agent（Claude Code / Codex）通用。下面每條 curl 都係**逐行讀完該 MCP server source 抽出嚟 + 實測過**先寫入。轉咗嘅 server 已從 gateway config 剔除。
+
+### ✅ Agent Reach source harvest → direct HTTP/browser routes（2026-09-11）
+
+Clone 固定喺 `~/MyGithub/Agent-Reach`；今次審到 commit
+`da5044d26fc6adddb6554d5679c94ac22e76e428`。只抽 endpoint、fallback 同風險控制，
+**冇安裝 Agent Reach、OpenCLI、mcporter 或任何 MCP**。
+
+| Channel | 我哋直接用嘅 route | 2026-09-11 live result | 決定 |
+|---|---|---|---|
+| **Bilibili** | `GET api.bilibili.com/x/web-interface/search/all/v2?keyword=...&page=1`；UA，遇 412/code≠0 才暖首頁 cookie + Referer 重試 | HTTP 200、JSON `code=0`、20+ items | 收；搜尋毋須 `bili-cli`/OpenCLI/MCP |
+| **V2EX** | hot、node topics、topic detail、replies、member 五條 public JSON API | 五條 HTTP 200；probe：hot 8、python node 10、topic 1、replies 173、member `Livid` | 收；discovery 用 `site:v2ex.com`，命中後 API 讀全文+replies |
+| **LinkedIn public** | `r.jina.ai/https://www.linkedin.com/in/USERNAME/` | HTTP 200、86,843 bytes；有 public headline/activity，但 full profile 仍有 sign-in wall | 收做 public fallback；需要登入先用現有 Agent Chrome，唔裝 LinkedIn MCP |
+| **小宇宙** | GET episode HTML → 抽 `media.xyzcdn.net/*.m4a|mp3` → 需要逐字內容先下載/轉錄 | episode HTTP 200（90,650 bytes），audio HEAD 200 | 收；係直抓鏈，唔係 public search API |
+| **雪球** | quote、stock search、public timeline、hot-stock internal JSON endpoints | 暖首頁後四條仍 HTTP 400 / `400016`；Agent Chrome 未有雪球 session 亦 400 | conditional；只在已有登入 session 用 Agent Chrome，唔當 zero-key source |
+
+```bash
+# V2EX：search engine discover ID；API 讀完整內容、作者同 replies
+curl -sS 'https://www.v2ex.com/api/topics/hot.json' -H 'User-Agent: research-engine/1.0'
+curl -sS 'https://www.v2ex.com/api/topics/show.json?node_name=python&page=1' -H 'User-Agent: research-engine/1.0'
+curl -sS 'https://www.v2ex.com/api/topics/show.json?id=TOPIC_ID' -H 'User-Agent: research-engine/1.0'
+curl -sS 'https://www.v2ex.com/api/replies/show.json?topic_id=TOPIC_ID&page=1' -H 'User-Agent: research-engine/1.0'
+curl -sS 'https://www.v2ex.com/api/members/show.json?username=USERNAME' -H 'User-Agent: research-engine/1.0'
+
+# Bilibili public search
+curl -sS 'https://api.bilibili.com/x/web-interface/search/all/v2?keyword=QUERY&page=1' \
+  -H 'User-Agent: Mozilla/5.0' -H 'Referer: https://www.bilibili.com/'
+
+# LinkedIn public surface（full/logged-in data 改用 agent-chrome.py）
+curl -sS 'https://r.jina.ai/https://www.linkedin.com/in/USERNAME/'
+
+# 小宇宙：先抽音頻 URL；唔需要內容就唔好下載成集 podcast
+curl -sSL 'https://www.xiaoyuzhoufm.com/episode/EPISODE_ID' -o /tmp/xiaoyuzhou.html
+perl -ne 'while (/(https:\/\/media\.xyzcdn\.net\/[^"]*\.(?:m4a|mp3))/gi) { print "$1\n" }' /tmp/xiaoyuzhou.html | head -1
+```
+
+**Agent Reach 本身冇可搬嘅 channel：** Facebook、Instagram 同 OpenCLI 版小紅書只係 browser bridge；
+Reddit route 比我哋現有 `agent-chrome.py` + Arctic Shift 弱；Exa/LinkedIn rich mode 只係
+叫 `mcporter` 起另一個 MCP；GitHub、YouTube、RSS、Jina 已經有等價或更完整 direct route。
+呢啲全部冇新增可重用 API 邏輯，所以唔安裝、唔複製 wrapper。
+
+### ✅ Facebook + Instagram + 小紅書 direct-first social layer（2026-09-11）
+
+Agent Reach adapter 冇 API logic，唔代表三個平台冇 route。另行審過 Meta 官方文件、
+ScrapeCreators OpenAPI、TikHub endpoint metadata，同 `xpzouying/xiaohongshu-mcp` source 後，
+工具庫採用三層：**official special-purpose → direct provider API → local browser fallback**。
+
+一次性工具：`~/MyGithub/ai-research-engine/social-research.py`。佢只在 command 執行期間存在，
+唔開 server、唔裝 MCP、唔 export browser cookie。Credential 由環境或
+`~/.config/research-engine/keys.env` 讀，唔會輸出 key。
+
+| 平台/用途 | Route | 真正 coverage | 限制／決定 |
+|---|---|---|---|
+| **Meta Content Library API** | Meta first-party，secure environment | FB Pages/posts/public groups/events/profiles/comments/Marketplace；IG accounts/posts/comments；100+ fields、每 query 最多 100,000 results | 最完整；要 academic 或以 scientific/public-interest research 為 primary/core activity 嘅 nonprofit，獨立審批；只在 Meta SRE/SOMAR 分析。Meta SRE 無 access/computation fee。批准後先當 usable |
+| **Facebook Pages Search** | `GET graph.facebook.com/pages/search` | Page name/metadata，批准後可再讀 public Page posts/comments | competitive-analysis live data 需要 Page Public Content Access、App Review、business verification；唔係全站 posts/people search |
+| **Facebook Creator Discovery** | `GET /creator_marketplace/creators` | semantic search 已 opt-in creators、recent content/metrics | Brand/partnership ads 用；Business app + eligible brand + Page token + Advanced Access；Standard Access 只返 mock data |
+| **Instagram Graph** | hashtag search / business discovery | professional accounts、公開 hashtagged media | hashtag 30 unique/rolling 7 days；要 professional IG account、permissions + App Review；唔係 consumer/general keyword search |
+| **Meta Ad Library** | official UI/API | Meta ads、政治/issue ads、publisher platform 包 FB/IG | 專門做 ads；API 需 FB identity/location confirmation + developer app/token |
+| **ScrapeCreators** | direct REST + `x-api-key` | IG search/profile/posts/reels/hashtags/comments；FB profile/posts/groups/comments/events/Ad Library | 100 initial free credits；大部分 1 credit。IG comment endpoint vendor 自報約 90% success；`include_replies=true` 固定 15 credits。**OpenAPI 無 XHS/RedNote path** |
+| **TikHub XHS** | direct REST + Bearer token | XHS search、note detail、comments、user/product/topic | 2026-09-11 endpoint-info live probe：search/detail/comments US$0.01/request、10/s、free trial credit 不適用 |
+| **Local XHS browser** | Agent Chrome :9223 + `window.__INITIAL_STATE__` | 第一頁 native search cards，帶 note ID、`xsec_token`、作者、互動、URL | 無 key、無 cookie export；first-page discovery only。登入/CAPTCHA 失敗要記 FAILED，唔係 EMPTY |
+
+```bash
+SR=~/MyGithub/ai-research-engine/social-research.py
+
+# Instagram
+python3 "$SR" scrapecreators /v1/instagram/search query='QUERY'
+python3 "$SR" scrapecreators /v1/instagram/search/hashtag hashtag='TAG' date_posted=last-month
+python3 "$SR" scrapecreators /v2/instagram/reels/search query='QUERY' page=1
+python3 "$SR" scrapecreators /v2/instagram/post/comments url='POST_URL'
+
+# Facebook
+python3 "$SR" scrapecreators /v1/facebook/profile/posts url='PAGE_URL'
+python3 "$SR" scrapecreators /v1/facebook/group/posts url='GROUP_URL' sort_by=CHRONOLOGICAL
+python3 "$SR" scrapecreators /v1/facebook/post/comments url='POST_URL'
+python3 "$SR" scrapecreators /v1/facebook/events/search query='QUERY'
+python3 "$SR" scrapecreators /v1/facebook/adLibrary/search/ads query='QUERY' country=CA status=ALL trim=true
+
+# 小紅書：auto = 有 TikHub key 用 REST；冇 key 用本機 Agent Chrome
+python3 "$SR" xhs-search 'QUERY_ZH' --route auto --page 1 --sort general
+python3 "$SR" tikhub /api/v1/xiaohongshu/web_v3/fetch_note_detail note_id='NOTE_ID' xsec_token='XSEC_TOKEN'
+python3 "$SR" tikhub /api/v1/xiaohongshu/web_v3/fetch_note_comments note_id='NOTE_ID' cursor=''
+```
+
+**Source extraction：** clone `~/MyGithub/xiaohongshu-mcp` 固定審查 commit
+`aad2a3d249a347859975ce3b76d3442c4a027780`。真正可重用嘅部分唔係 MCP protocol：
+`xiaohongshu/search.go` 只係 navigate `search_result?keyword=...`、等
+`window.__INITIAL_STATE__.search.feeds`，再抽 `noteCard`；`feed_detail.go` 同樣由
+`window.__INITIAL_STATE__.note.noteDetailMap` 抽 detail/comments。呢個 search 核心已縮成
+`social-research.py` 一個 command；冇搬 Rod browser、MCP server、login service、posting/like/favourite tools。
+
+**每次跑法：** web search 用 `site:facebook.com` / `site:instagram.com/p|reel` /
+`site:xiaohongshu.com/explore` 做 recall；同時跑 native/structured route；命中後展開 comments。
+三個 pass 分開寫 ledger，保留 query、language variant、filter、page/cursor、timestamp、count、URL。
+Search snippet 只係 lead，未開到原帖就唔好當已驗證正文。
+
+Primary/vendor docs：
+
+- Meta Content Library：`https://transparency.meta.com/researchtools/meta-content-library/`
+- Meta Pages search：`https://developers.facebook.com/documentation/pages-api/search-pages`
+- Meta Instagram hashtag：`https://developers.facebook.com/docs/instagram-api/guides/hashtag-search/`
+- Meta Facebook Creator Discovery：`https://developers.facebook.com/documentation/fb-creator-discovery`
+- ScrapeCreators OpenAPI：`https://docs.scrapecreators.com/openapi.json`
+- TikHub XHS search：`https://docs.tikhub.io/420136398e0`
+- 小紅書官方 Open Platform：`https://openaccount.xiaohongshu.com/docs/api-reference`
 
 ### ✅ mcp-hn → HN Algolia API（source: erithwik/mcp-hn，100% passthrough，零附加邏輯）
 
@@ -999,6 +1117,16 @@ Compile all findings into structured report:
   → Cost spent this session: $X.XX
 ```
 
+### Official dynamic-PDF fallback
+
+政府網站有時用帶 `forcedownload` 或臨時資產 ID 嘅官方 PDF；搜尋／fetch 工具可能已經成功建立索引，
+之後 `open` 同一 URL 卻回 502。呢個係 retrieval failure，唔係文件不存在或內容為空。處理次序：
+
+1. 由官方 HTML 頁面 click 出資產 URL，保留 originating page 同 final asset URL。
+2. `curl -L --fail --show-error` 直接下載官方 PDF；驗證 `%PDF`、頁數、byte count 同 SHA-256。
+3. 用 `pdftotext -layout` 抽完整文字，再按頁碼／section 核對引用內容；需要視覺證據先 render 指定頁。
+4. ledger 分開記錄：web fetch `FAILED 502`，direct official download `GOT DATA`；唔准將前者當 EMPTY。
+
 ---
 
 ## 💀 死咗 MCP — 待 fix queue
@@ -1038,6 +1166,8 @@ Compile all findings into structured report:
 | ✅ | **FMP** | 已攞 + **實測通**（`/stable/`）。股票/IPO/financials |
 | ✅ | **OpenStates** | 已攞 + **實測通**（Google OAuth）。州立法 |
 | ✅ | **OpenSanctions** | 已攞 + **實測通**（Google OAuth，free trial key）。制裁/PEP 篩查 |
+| 🔑 | **ScrapeCreators** | 未有 `SCRAPECREATORS_API_KEY`；100 initial free credits。解鎖 Facebook/Instagram structured search、posts、groups、comments、events、ads。cached results free |
+| 💰 | **TikHub** | 未有 `TIKHUB_API_KEY`；註冊送 US$0.05 trial，但 XHS search/detail/comments 標示 `allow_free_credit=false`。入少量 balance 後每次 US$0.01 |
 | ⏳ | **Finnhub** | account + email verified，但 key 仍 reject（疑 anti-bot flag），retest |
 | ⏳ | **CORE** | register form submit 咗，key 經 email（多數要審批），未到 |
 | ❌ | **Serper.dev** | 自動註冊被 server hard-block（"not possible to register"）— 人手 signup |
@@ -1160,6 +1290,15 @@ If Twitter spend > $5/mo     → ⚠️ review if reads are worth it
 ---
 
 ## Sharpening Log
+
+### Round 28（2026-09-10）— Amazon product search for AI agents
+
+- **Consumer public MCP gap confirmed**：Amazon 有多個 MCP initiative，但 Amazon Business Integrations MCP 只查 API docs、Amazon Ads MCP 只做廣告、AWS Marketplace MCP 只搜 AWS software；AWS Labs `awslabs/mcp` tree 亦無 consumer retail shopping server。未找到 Amazon 宣布 ordinary Amazon.ca account 可供第三方 AI 使用的 public shopping MCP/account API。
+- **Official REST paths separated**：Creators API 有真 `SearchItems`，但 access 綁 Amazon Associates final acceptance、Partner Tag、trailing-30-day 10 qualified sales 同 ongoing referral revenue；Amazon Business Product Search/Ordering APIs 有 Canada support，但要 Business account、Amazon approval 同 assigned role。兩者都唔係個人 shopping shortcut。
+- **Best practical MCP**：SerpApi 自家 hosted/open-source MCP 支援 `engine=amazon` + `amazon_domain=amazon.ca`，free 250 searches/mo，結構化回傳 ASIN、price、rating/reviews、Prime/delivery、clean link；比 export Amazon cookies 的 unofficial MCP 安全。
+- **Zero-new-account fallback live-tested**：existing Serper Shopping key 用 `gl=ca` 搜 `wireless earbuds` 返 40 results，其中 13 個 `Amazon CA`。可即時做 shortlist，但 result link 係 Google Shopping redirect，direct ASIN/link 仍要 second-stage resolution。
+- **Security exclusion**：`rigwild/mcp-server-amazon` 會把完整 Amazon session cookies 寫入 `amazonCookies.json`，並 expose orders/cart tools；purchase tool 其實只係 mock。列為不安裝，read-only product discovery 改用 data API，account-specific price/delivery 才用受控 browser read。
+- **Amazon Business onboarding live-form audit（2026-09-11）**：官方 Onboarding overview 而家直連 4-page Pulse questionnaire（live GraphQL schema 可公開讀；form 設定 `maximumNumberOfSubmissions: 1`），唔再只係舊 release note 所講 email enquiry。必填 legal entity／incorporation country／HQ／company website／size／revenue bracket／business+developer contacts，並明確分流「own company — internal/operational」vs third-party product；API/AI page 會問 Product Search/Cart/Ordering scope、least-privilege 理由、downstream sharing、AI 是否讀 Amazon Business data、會否送去 OpenAI/Gemini/Anthropic/Bedrock、同 autonomous ordering controls。小公司有 `1–10` employees、`Less than $5M` 選項；冇公開最低規模門檻，但 production approval 仍由 Amazon Business team 指派 role。最乾淨 internal route：Product Search only + Business Product Catalog role + every purchase requires explicit human action。
 
 ### Round 16（2026-08-19）— Public-institution staff background verification
 
@@ -1482,3 +1621,62 @@ WorkSafeBC s.135 research exposed a source-integrity problem that applies to all
 - SCC official newer-decision PDFs: `https://www.scc-csc.ca/cso-dce/<citation>_eng.pdf`
 
 **Tooling produced:** `Evidence/Case-Law-Library/04-Claim-s135-mental-disorder/tools/acquire_official_full_text.py` now implements this workflow with resumable source selection, validation, provenance and hashes.
+
+### Round 19（2026-08-23）— Official-template visual verification
+
+Design-template research needs the same source discipline as text research. Use image search only for broad pattern discovery, then retrieve at least one complete issuing-body PDF and render it for visual inspection. Separate recognition certificates from factual verification letters: borrow their identity hierarchy, but include only fields supported by known facts. Record omitted fields as deliberate exclusions in the coverage ledger.
+
+### Round 20（2026-08-24）— Dynamic government-PDF recovery
+
+BC Community Gaming Grants 嘅 2026 official guidelines 經官方頁面 click 可取得完整 53-page PDF，但 web `open`
+其後對同一 dynamic asset URL 回 502。用 `curl -L` 下載、`pdftotext -layout` 抽字後成功核對 program-description、
+participant-count、volunteer-hour 同 gaming-record 條文。新增 official dynamic-PDF fallback：originating page + final URL
+雙重 provenance、PDF integrity/hash、完整抽字、FAILED 同 GOT DATA 分開記。
+
+### Round 21（2026-08-26）— Hebrew Bible primary-text source
+
+- **Mechon-Mamre Hebrew-English Bible**（`https://mechon-mamre.org/p/pt/`）提供逐章希伯來文與英文平行經文，適合核對Tanakh故事、章節同短引文；本輪已用Genesis 39、Deuteronomy 19及1 Kings 21交叉核對誣告、查證與假見證主題。
+- **Sefaria API**（`https://www.sefaria.org/api/v3/texts/<REF>`）適合結構化核對希伯來原文；部分英文版本受授權限制而經API返回`null`，英文引文改用Mechon-Mamre頁面直接核對。
+- **Quran.com API**（`https://api.quran.com/api/v4/verses/by_key/<SURAH:VERSE>`）可一次核對多個英文譯本；本輪用Qur'an 12:25–35及49:6核對約瑟故事、證據查驗同收到消息後先查證嘅原文。
+- **SuttaCentral Bilara API**（`https://suttacentral.net/api/bilarasuttas/<REF>/<TRANSLATOR>`）提供逐行根本語、英文譯文同註釋；本輪用Dhammapada 256–257核對匆忙判斷、公正及不偏不倚。
+- **The Latin Library**（`https://www.thelatinlibrary.com/`）適合核對古典拉丁原文；本輪以Seneca《Medea》199–200核對`parte inaudita altera`段落，英文語境另以Theoi Classical Texts交叉檢查。
+
+### Round 22（2026-08-26）— Corporate org-chart escalation research
+
+- 內部組織圖研究要分清 `people reporting to`、`manager`、`direct report` 同 `also works with`；同頁出現不等於匯報關係。
+- 升級對象不能只按職級選。用三點交叉：內部 reporting line、公司公開職責、官方 filing 的責任範圍。
+- Privacy／employment record 搜尋要分開「法律決定人」與「records custodian」：DPO／General Counsel 負責回覆及指示；HR／IT 可能持有資料，但不應把 applicant 推去逐個追 custodian。
+- 同名者多而公開身份不足時，保留內部職銜並標記 `NO RELIABLE MATCH`；不得把其他人的公開履歷拼接到目標人物身上。
+
+### Round 23（2026-08-28）— Statutory filing deadline vs evidence-wait date
+
+- 法律程序研究必須分開三個時鐘：①啟動 review／appeal 嘅法定期限；②另一條證據線嘅策略等待日；③開檔後 submission／補件期限。唔可以因為等另一機構回覆而延遲保全本身嘅 review 權利。
+- WorkSafeBC claim review 嘅官方控制係決定後 90 日內提出；health-and-safety enforcement review 係 45 日。Review Division 官方流程亦寫明，request 提交並 initiated 後會提供 decision file，所有 parties 再有機會交 submission／additional information。
+- 因此，日期標籤要連同來源同法律功能記錄。例如 `2026-09-04 Varonis PIPA response control` 唔可以縮寫成 `Prevention deadline`，更唔可以當成 Claim 48979313 Review 嘅 filing trigger。
+
+### Round 24（2026-08-28）— Review filing may terminate first-instance reconsideration
+
+- 行政覆核研究唔可以只比較「早交」同「遲交」嘅 deadline risk；要先查正式 filing 會唔會改變原決定人嘅 jurisdiction、通知其他 parties、披露文件，同啟動法定 decision clock。
+- WorkSafeBC compensation decision 有兩個重疊但功能不同嘅時鐘：原決定人一般可於決定後 75 日內自行 reconsider；worker 有 90 日提出 Review Division review。一旦 review 已依 s.270 filed，s.123(2)(b) 一般禁止 Board 再 reconsider 原決定。撤回 review 亦唔會自動令原決定人恢復 jurisdiction。
+- 所以 timing recommendation 必須列明：`reconsideration window`、`review filing deadline`、`hard internal filing date`，並核對正式 filing 會否例行通知 employer。不得把「越早保全權利」當成一律越有利；亦不得拖到最後一日。應按用戶目的採用有明確 hard stop 嘅 controlled delay。
+
+### Round 25（2026-08-29）— BCLaws current-consolidation and multi-ground pleading check
+
+- BCLaws 搜尋結果可同時返回舊 `consolXX` 頁和現行 `complete/statreg` 頁；兩者文字可能不同。引用現行法例前，必須開啟 `complete/statreg` 版本並核對頁面當日內容。今輪舊 `consol28` 頁仍顯示《Human Rights Code》s.22 為六個月，而現行 `complete/statreg` 及 BCHRT 2026 Form 1.1 均顯示一年。
+- BCHRT 程序研究要分開 `case/file`、`statutory provision`、`protected ground` 和 `allegation`。同一 employment complaint 可在同一份 Form 1.1／同一案號內選擇多個 grounds；修訂則依 Rule 24 用一份 Form 3 加入 details 或 allegations。每個 ground 仍須分別陳述 protected characteristic、adverse effect 和 nexus。
+- 表格頁數屬 filing constraint，不是研究或 master pleading 的內容上限。保留完整 master，再把獲批准的事實鏈壓縮到 Tribunal 指定的 Form 3 附頁上限；不得以多份 Form 3 規避同一次 amendment 的頁數控制。
+
+### Round 26（2026-08-29）— Inferring institutional reaction without cultural stereotyping
+
+- 研究收件人「可能點諗／有咩感受」時，民族、國籍、宗教或姓名不是可靠心理證據。最多只可作弱背景，並要明確標示不能推斷個人態度。
+- 較可靠的推論順序是：①收件人的正式職責及決策權；②收到的實際文字；③同期回覆的時間和逐字措辭；④其後可觀察行動；⑤機構公開政策及監管承諾。每個推論要指出哪些是文件事實、哪些是角色導向的推斷。
+- 同日回覆同時出現安撫、保留原決定、限制溝通和結案語言時，應拆成多個可能並存的 institutional objectives（穩定僱傭關係、建立無報復紀錄、控制法律／聲譽風險、限制未來記錄量），不得把單一句子解讀成完整內心動機。
+
+### Round 27（2026-08-31）— BCHRT complaint／amendment drafting source hierarchy
+
+- BCHRT amendment research 先鎖定現行官方 Form 3、Rules 同 General Application guide；格式、頁數、字體、evidence restriction、particulars／new allegations 分別全部由現行官方來源控制。
+- 寫作方法再用 CLAS drafting guide 加一份完整 mock complaint 校準。完整 mock 主要教 chronology、roles、material words、adverse effect 同 nexus；唔用來取代官方程序規則。
+- 公開 filed historical Form 3 只用來觀察 amendment syntax：逐項寫清楚 add／delete／replace。舊表格唔控制現行格式。
+- Decisions 用來判斷 particulars 與 new allegations 的邊界，以及公平通知所需 facts；唔將整串 authorities 搬入三頁 complaint body。
+- 找不到公開的近期完整 Form 3，必須記為 `EMPTY／UNAVAILABLE`，唔可以當成「不存在」；改用 current official form + CLAS full mock + actual historical filing + recent decisions 的組合。
+- Complaint body 係 material-fact document，唔係 factum：先說今次改甚麼，再按日期寫 who did what，最後逐項連接 protected characteristic／activity、adverse effect 同 nexus。案例、證據路徑及完整法律分析留在 internal source ledger。
