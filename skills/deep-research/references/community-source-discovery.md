@@ -50,6 +50,9 @@ used and unused, and distinguish `EMPTY`, `FAILED`, and `SKIPPED`.
 
 ## 4. Search the selected sources
 
+Do not run a health check or consult an old health report before searching. Execute the
+selected source route directly; the real retrieval is the live operational check.
+
 For each source:
 
 1. Load its access recipe and credential reference from the phonebook.
@@ -57,6 +60,11 @@ For each source:
 3. Search through the source's first-party API.
 4. Expand the useful full thread, replies, attachments, records, or dataset.
 5. Use a bounded browser-page route only when no usable API exists.
+
+Classify the attempt immediately: relevant evidence is `MATERIAL`; a successful route
+with no relevant evidence is `EMPTY`; endpoint, authentication or parser failure is
+`FAILED`. Report `FAILED` and continue with other selected sources. Reproduce and repair
+the route afterwards rather than spending an extra pre-search request on every source.
 
 Never put a password, token, cookie, recovery code, or secret in the repository or tool
 output. Never export browser cookies.
