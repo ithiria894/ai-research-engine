@@ -1,11 +1,29 @@
 # Research Engine — 資料搜集工具 Inventory
 
-> 最後更新：2026-05-31（Round 14: health-check repair triage + 申請到 7 個 API key + 🛡️ AI-Security cluster + 💬 Social 擴充 + interactive mind map）。前置：Round 13（fix broken MCP + 16 zero-key source）、Round 12（retry + 真 MCP liveness + GEO skills）、Round 11（GEO cluster）。
+> 最後更新：2026-10-13（Round 44: LLM-selected source phonebook + API access routes）。
 > 呢個 file 係 research 工具嘅 master list。定期更新（搵新 API、MCP、data source）。
 > Skill: `/market-research` 會 reference 呢個 file。
 >
 > **Philosophy：** 資料搜集係所有 decision 嘅 foundation。寧願花 80% token 做 research，20% 做 execution。
 > **原則：** 所有免費嘅工具一定要 apply。Token 成本唔係問題，資料質素先係。
+
+---
+
+## Core architecture（簡單版）
+
+```text
+一條問題
+  → LLM 判斷邊啲網站／source 可能有相關或意外資訊
+  → 列出建議用同暫時未用嘅 source，Nicole 可加／刪
+  → 由 community-sources.json 讀 access recipe／credential reference
+  → 需要時登入，再用 source 本身 first-party API search
+  → 冇 usable API 先有限度 fetch page
+  → 回報證據，同時列 USED／UNUSED／EMPTY／FAILED／SKIPPED
+```
+
+`community-sources.json` 係黃頁／電話簿，唔係 classifier。Cluster 只係方便 LLM 搵 source，
+唔限制一條問題屬於邊類。Credential 只存在 gopass、環境變數或既有 browser session；registry
+只記 reference，永遠唔存 secret。
 
 ---
 
@@ -39,7 +57,9 @@ agent-chrome.py fetch 'https://www.reddit.com/r/SUB/comments/ID/.json?limit=500'
 # Reddit JSON search 主要係 posts；搜 comments 要開 logged-in UI，再用 DOM 抽結果
 agent-chrome.py open 'https://www.reddit.com/search/?q=QUERY&type=comments'
 ```
-同樣手法適用於所有登入牆網站（小紅書 / 知乎 / Quora / LinkedIn / LIHKG）。
+其他登入牆網站先找佢本身喺 browser 內用緊嘅 JSON API、tRPC、GraphQL 或
+Next/RSC payload；用 Agent Chrome 原頁面 `fetch(..., {credentials:'include'})` 取結構化資料。
+**DOM extraction 只係最後退路，唔係 crawler；唔 export cookie，唔並行掃頁。**
 E2E：`bash qa/agent-chrome-qa.sh`（14 assertion）。
 
 > **Comments 搜索注意（2026-08-22 實測）**：`/search.json` 唔會完整代替
@@ -68,6 +88,108 @@ curl -sS -m 60 'https://arctic-shift.photon-reddit.com/api/comments/tree?link_id
 ```
 
 注意：heavy full-text query 會偶發 `422 {"error":"Timeout. Maybe slow down a bit"}`，用 `-m 60`、慢啲重試。`posts/search` / `comments/search` limit 1-100 或 `auto`；`comments/tree` limit 1-25000。Archive 入面嘅 `post.num_comments` / `score` 可能係 ingest 時 frozen，唔好當 current counter；要用 tree 自己 count。
+
+### 2c️⃣ 1Point3Acres + Indian communities：browser-session API first，禁止全頁 crawler
+
+**1Point3Acres（一畝三分地）係北美華人跨領域 knowledge commons，唔係淨係 tech 求職／面經網。**
+佢嘅核心價值係社群內長尾資源：選校定位、admission／transfer 個案、先修課與學分對應、
+課程／教授／選課評價、syllabus、assignment、歷年題／past paper／考經，以及簽證、租屋、求職、內推同生活流程。
+遇到這些題目時，它同 Reddit 一樣係 core source，有時甚至比公開網頁更高訊號。
+
+查詢用簡體中文、大陸常用詞同精確識別字；向 Nicole 報告仍用香港廣東話，直接引文保留原文。
+
+| 題目 | 1P3A query family（全部都要試，唔好只搜一條） |
+|---|---|
+| 學校／申請 | `学校名/缩写 + 选校`、`定位`、`录取`、`拒信`、`转学`、`二学位`、`转专业`、`CS`、`GPA` |
+| prerequisite／transfer | `学校名 + 先修课`、`转学分`、`学分转换`、`transfer credit`、`prerequisite`、`课程匹配`、`waive` |
+| 課程／教授 | `学校缩写 + 课程号`、`选课`、`教授`、`难度`、`给分`、`作业`、`syllabus`、`midterm`、`final` |
+| 試卷／學習資源 | `课程号 + 真题`、`往年题`、`历年卷`、`题库`、`考经`、`回忆题`、`past paper`、`sample exam`、`practice exam` |
+| 求職／面試 | `找工`、`上岸`、`海投`、`内推`、`面经`、`裁员`、`转码`、`码农`、`new grad`、`SDE` |
+| 簽證／生活 | `学签`、`工签`、`PR`、`OPT`、`H1B`、`租房`、`保险`、`搬家`、`城市名` |
+
+**每個 query family 必須獨立搜尋，再合併和去重。** 唔好將學校、課程、教授、真題、求職同簽證詞全部塞入同一條 hybrid query；實測 `UBC 选课 教授 真题 往年题` 會混入 admission、面經同公開課，稀釋真正 course-resource results。對一科課至少分開跑：`學校縮寫 + 課程號`、`課程號 + 教授`、`課程號 + 真题`、`課程號 + 往年题`、`課程號 + syllabus`、`課程號 + midterm/final`。
+
+學校或課程研究要同時搜 full name、常用縮寫、舊新 course code 同教授名。命中後要開完整 thread、replies、
+`attachment_list`、年份同課程版本；唔好只讀 title/snippet。附件已過期要列 `FAILED/UNAVAILABLE`，唔可寫成「沒有資源」。
+歷年卷同課程經驗可以證明當年、當教授、當版課程嘅實際情況；現行學校要求、deadline、credit rule 同 exam policy 要再回查校方 primary source。
+
+```bash
+SR=~/MyGithub/ai-research-engine/social-research.py
+python3 "$SR" onepoint-search '加拿大 找工 2026' --limit 40
+python3 "$SR" onepoint-thread 1192114 --max-replies 100
+python3 "$SR" grapevine-search 'software engineer layoffs' --limit 40
+python3 "$SR" grapevine-thread POST_UUID_OR_URL --max-comments 100
+```
+
+Route 只在 Agent Chrome 原網站 session 內 call first-party endpoint：
+
+- `trpc.1point3acres.com/trpc/user.me` 驗證 session；
+- `trpc.1point3acres.com/trpc/search.search` 搜尋同 cursor pagination；
+- `api.1point3acres.com/api/v3/threads/:tid` 取主文；
+- `api.1point3acres.com/api/threads/:tid/nested-posts` 同 `api/posts/:pid/nested-posts` 取完整回覆。
+
+Cookie/token 唔會 export。Request 串行，分頁間至少 300 ms；每次先收高相關少量 thread，再展開回覆。
+Session 過期時，重用 Agent Chrome 內已登入 Google session 自動登入；只有 CAPTCHA、MFA 或 Google 要人手批准先叫 Nicole 接手。
+
+**Indian community 唔係一個網站可以取代；要按功能組合：**
+
+| 用途 | Core sources | 優先 access route | 重要偏差／限制 |
+|---|---|---|---|
+| 公司文化、工資、layoff、offer | Grapevine + Blind India + r/developersIndia | Grapevine `apis.gvine.app` 或 Next/RSC；Blind Next/RSC；Reddit browser JSON + Arctic Shift | 匿名自選樣本，難當總體統計 |
+| 面試流程、DSA/LLD/HLD 題 | TakeUForward + LeetCode Discuss India + AmbitionBox | first-party structured/Next payload；web index 只做 discovery | 成功、投訴同特定公司偏差 |
+| 留學選校 | Yocket + r/Indians_StudyAbroad + r/Indian_Academia | Yocket first-party/Next data + Reddit routes | Yocket 有商業顧問 incentive；學校規則要回查官方 |
+| 學校、課程、試卷／學習資源 | University Updates（大學通知、syllabus、question papers）+ Education Observer（model questions、study materials、reviews）+ GATEOverflow（GATE CSE 歷屆題與社群解答）+ Doc Sansar（PYQ／notes）+ 各校 subreddit／學生社群 | 優先公開 thread／分類頁與 first-party payload；按學校、course code、exam、年份分開查詢 | 冇一個單站等同 1P3A；各站地域、考試或院校 coverage 不同，附件可過期，現行要求要回查官方 |
+| MBA／管理學院 admission 與考試 | PaGaLGuY | 公開 admission/exam threads、站內 search 或 first-party payload | MBA-heavy，唔應外推到一般本科或 CS |
+| 美加簽證、H-1B、OPT | RedBus2US + Reddit diaspora communities | Discourse `latest.json`、`search.json`、topic JSON | 論壇只證實個案；法律/政策結論必須用政府 primary source |
+
+Grapevine 已有 `social-research.py` adapter：search 用
+`apis.gvine.app/api/v1/unauthorized/search/post/`，主文用 `unauthorized/feed/`，回覆用
+`unauthorized/post/comments/`；全部喺 Grapevine browser origin 內 fetch。Blind 若只見到
+server-rendered 內容，先取 Next/RSC network payload，唔掃 DOM。
+Plain curl 有 429/403 時唔做 retry crawler；保留 `FAILED`，再改用原 browser session 內嘅 first-party request。
+
+**Bias lock：** 1P3A 偏向華人、北美、留學／專業／移民人群，但 coverage 跨學校、課程、考試、就業同生活；Grapevine/Blind 偏向印度 tech 白領。佢哋係高質感知與個案資料，唔係人口代表性樣本。
+
+### 2d️⃣ Admissions／升學：其中一組 topic-specific sources
+
+當問題涉及升學時，可能相關嘅細分 route 包括 non-traditional／mature／returning student、interrupted education、refugee／displaced applicant、international transfer、alternative qualifications、records unavailable、case-by-case waiver、recent academic evidence、transfer credit、full aid。呢節只係一組 source 同 query ideas；唔係全域預設，亦唔阻止 LLM 同時揀職涯、移民、研究、行業、社群或其他網站。
+
+#### 八條獨立 evidence lanes
+
+| Lane | 要搵嘅資料 | 優先來源 |
+|---|---|---|
+| 1. Eligibility | citizenship／residency、international、transfer、second-degree、years out of school、previous credits、degree status | program page、faculty calendar/catalogue、admissions FAQ、application instructions |
+| 2. Academic basis | alternative qualifications、associate degree、university study、prerequisites、recent academic readiness、test要求 | department admissions、registrar、transfer guide、course catalogue、official exam provider |
+| 3. Documents／exceptions | unavailable transcript、direct verification、waiver、substitute evidence、English waiver、refugee／political disruption procedures | registrar、admissions operations、refugee/students-at-risk office、written replies；論壇只作 lead |
+| 4. Selection reality | applicants、admits、yield、interview timing、selection stages、class profile、repeat applicants | institutional research／Common Data Set、annual report、official podcast、student newspaper、FOI/ATI；forum cohort threads |
+| 5. Comparable people | admitted／rejected profiles、non-veteran／international／refugee／older applicants、education gaps、community/research background | full forum threads、student profiles、alumni pages、LinkedIn/public CV、podcasts；身份自述標 `self-reported` |
+| 6. Funding | fee waiver、need-blind／need-aware、international transfer aid、full demonstrated need、refugee scholarships、outside awards、true net cost | financial-aid office、scholarship terms、cost-of-attendance、tax/residency rules；forum 只補實際 experience |
+| 7. Academic fit | major access、internal specialization、course sequence、labs／professors、research groups、credit ceiling、time to degree | department、calendar、course archive、faculty/lab pages、student reviews、1P3A／Reddit course threads |
+| 8. Immigration／life | study permit/visa、Canadian PR presence、citizenship days、work authorization、health coverage、housing | government primary sources、school international office；forum 個案不可代替法律規則 |
+
+#### Rare-program query expansion
+
+每一間 program 都要分開查以下 query families，唔好合成一條：
+
+1. **Exact identity：** official program name、縮寫、舊名、新名、school/faculty name。
+2. **Applicant type：** `nontraditional`、`mature student`、`returning student`、`resumed undergraduate`、`adult learner`、`interrupted education`、`refugee`、`displaced student`、`protected person`、`international transfer`、`second bachelor's`、`no bachelor's`。
+3. **Academic proof：** `recent academic record`、`academic readiness`、`community college`、`non-degree course`、`visiting student`、`online credit`、`preprint`、`research experience`、`academic reference`。
+4. **Exception language：** `waiver`、`exception`、`alternative qualification`、`case-by-case`、`special consideration`、`discretion`、`extenuating circumstances`、`missing transcript`、`unavailable records`、`substitute documentation`。
+5. **Selection stages：** year + `applicants`、`admitted`、`acceptance rate`、`interview`、`decision`、`waitlist`、`yield`、`class profile`、`second attempt`、`reapply`。
+6. **Funding：** `fee waiver`、`financial aid`、`international transfer aid`、`full demonstrated need`、`need blind`、`need aware`、`refugee scholarship`。
+7. **Adverse search：** `rejected`、`denied`、`ineligible`、`no aid`、`cannot waive`、`transcript required`、`international not eligible`、`credit expired`。正面個案唔可以取代 adverse authority。
+
+#### Source ladder for rare routes
+
+1. **Current official:** admissions/program/faculty/registrar/financial-aid/international/refugee pages、application portal instructions、calendar、official email replies。
+2. **Official administrative evidence:** Common Data Set、institutional research dashboards、annual reports、meeting minutes、FOI/ATI disclosure、official podcasts/webinars。
+3. **Archived official:** Wayback、舊 PDF／handbook／application、舊 staff pages；記錄 version/date，唔將舊規則當 current。
+4. **Community cohort threads:** 1Point3Acres、Reddit school subs + r/TransferToTop25／r/ApplyingToCollege／r/IntltoUSA、College Confidential、The Student Room、Yocket／Indian Academia。必須讀完整 thread、日期、reply tree 同附件。
+5. **People trail:** student newspaper、admitted-student/alumni profile、public LinkedIn/CV、podcast、conference／NGO bio。只報公開可核實資料，匿名自述單獨標示。
+
+Program 太窄、直接 posts 太少時，唔可以停喺「冇資料」。要擴張去相鄰 cohort、舊 program 名、同類 non-traditional programs、student profiles、interview timeline、staff talks、school newspaper、archived pages、FOI/ATI 同 people trail。連續三輪跨 source-type expansion 都冇 materially new information，先可以寫 saturation；同時保留 `EMPTY`、`FAILED`、`SKIPPED` 分類。
+
+每間目標學校另建 contact map：undergraduate admissions、program director、faculty admissions/dean's designate、registrar/records、transfer-credit evaluator、financial aid、international/refugee/students-at-risk office。搵到聯絡人唔代表自動寄信；任何外寄仍須完整 preview 同 Nicole 當次授權。
 
 ### 3️⃣ 每次 research 出報告都要有 SOURCE COVERAGE LEDGER
 
@@ -1680,3 +1802,128 @@ participant-count、volunteer-hour 同 gaming-record 條文。新增 official dy
 - Decisions 用來判斷 particulars 與 new allegations 的邊界，以及公平通知所需 facts；唔將整串 authorities 搬入三頁 complaint body。
 - 找不到公開的近期完整 Form 3，必須記為 `EMPTY／UNAVAILABLE`，唔可以當成「不存在」；改用 current official form + CLAS full mock + actual historical filing + recent decisions 的組合。
 - Complaint body 係 material-fact document，唔係 factum：先說今次改甚麼，再按日期寫 who did what，最後逐項連接 protected characteristic／activity、adverse effect 同 nexus。案例、證據路徑及完整法律分析留在 internal source ledger。
+
+### Round 28（2026-09-12）— Public Naver Cafe retrieval without Search API credentials
+
+- 韓國醫美個案搜尋可以先用 Naver 公開 HTML 搜尋發現 cafe URL；唔應該因為 Naver Search API credentials 缺失就把結果標成 `EMPTY`。API credentials 缺失係 `FAILED`，公開 HTML fallback 另行記錄。
+- 公開 Cafe 可用 `https://apis.naver.com/cafe-web/cafe-search-api/v2/cafes/{cafeId}/search/articles` 搜尋文章，再用 `https://article.cafe.naver.com/gw/v4/cafes/{cafeId}/articles/{articleId}` 取文；兩者加 request header `X-Cafe-Product: mweb`。先由 cafe URL／metadata 確認 `cafeId`，再固定記錄 article ID、標題、日期及 canonical public URL。
+- Member-only cafe 的 article endpoint 會回 HTTP 401 / error `0004`。Naver 搜尋頁有時仍提供有限 public snippet；snippet 只可支持 snippet 中明示的文字，必須標 `SNIPPET ONLY`，不可當完整文章、不可推斷相片、留言或未顯示手術材料。
+- 醫美術式驗證要把 `무보형물`（無人工假體）、`자가연골`（自體軟骨）同 `무이식／연골이식 없이`（零移植）分開。`코끝묶기` 亦可能與鼻中隔／耳軟骨移植同時做；只有手術清單或病歷式材料說明可證明零移植，before/after 外觀本身不能證明。
+
+### Round 29（2026-09-13）— Sungyesa full-post and original-image recovery
+
+- Sungyesa 原帖被 Cloudflare 403 擋住時，可用 `https://r.jina.ai/http://sungyesa.com/d03/{postId}` 取回完整可檢索 Markdown；相片連結仍指向 Sungyesa 靜態原圖，可直接下載保存。呢條路徑可保留帖文標題、術式、日數、醫院、醫生欄、逐圖 `전／후` 標籤及 canonical post URL，比搜尋 snippet 完整。
+- 圖片標籤同正文可能矛盾（本輪有兩圖均標 `전`，但作者正文明寫術前及術後 6 小時）。遇到矛盾唔可以靜默修正：PDF 要同時記錄網站標籤、正文敘述、視覺線索同判讀不確定性。
+- 比較醫生風格時先按時間穩定度分層：同一人 6–12 個月更新 ＞ 單次長期病人帖 ＞ 1–2 個月時間線 ＞ 術後數日 ＞ 官方精選相。早期低腫脹只支持恢復期觀察，不能代替最終線高、疤痕或持久度。
+
+### Round 30（2026-09-13）— Cross-platform cosmetic-review deduplication
+
+- 同一段醫美評價出現在兩個平台，唔等於兩名獨立病人或兩次獨立驗證。先以術式、醫生、日期／術後日數、圖片同正文 exact／near-exact match 做跨平台 dedup；相同內容只計一個 patient episode。
+- 重複貼文可以由病人自行 cross-post、平台同步、活動獎賞或代營運造成；除非來源明示，唔推斷邊一種。但報告必須標示 `DUPLICATE / NOT INDEPENDENT`，並降低「多平台一致」的證據權重。
+- 醫生評分頁要先讀 moderation policy。若頁面明文只容許推薦／感謝、不容許個別醫生負評，該頁的高分與大量留言只支持正面訊號的存在，不能估算滿意率、併發症率或正負評比例。
+
+### Round 31（2026-09-29）— Tax-disability forms vs involuntary-care risk
+
+- 評估健康／稅務表格會否觸發強制精神科介入時，要分開三套法律功能：①表格本身嘅行政目的及用字；②稅務資料保密與例外；③省級強制留院嘅獨立法定程序。相同詞語（例如 `severe`、`risk of harm`）唔代表相同法律測試。
+- 先開完整現行 T2201，逐項核對實際 checkbox、上下文及 `marked restriction` 定義；再核對《Income Tax Act》s.241。一般保密係主規則，而 s.241(3.1) 只係容許披露與 `imminent danger of death or physical injury` 有關嘅 taxpayer information，唔應將一般功能限制誤寫成自動轉介制度。
+- BC 強制留院要用現行 BCLaws `complete/statreg` 版本核對《Mental Health Act》ss.1、22、28及《Mental Health Regulation》規定嘅 Form 4.1／4.2。T2201 唔係 medical certificate；勾選框本身唔取代當時由 physician／NP 作出嘅 examination、法定意見及指定表格。
+- 風險溝通要同時避免兩種錯誤：唔可以保證「絕對零披露」，亦唔可以將單一歷史／功能性 checkbox 誇大成 `imminent danger`。要標出最直接涉及安全／現實感／治療決定能力嘅欄位，並把較典型 executive-function 欄位分開。
+
+### Round 32（2026-10-07）— BC Supreme Court self-represented cost triage
+
+- 民事訴訟成本要分開三盤數：①交畀法院嘅 Schedule 1 fees；②自己要付嘅送達、謄本、專家等 disbursements；③輸訴後可能判畀對方嘅 costs。只講「可申請免法院費」會嚴重低估風險。
+- Rule 20-5 fee waiver 只處理政府 Schedule 1 fees；官方 Form 80 package 明文指出，waiver 唔包括 transcripts，亦唔包括判畀對方嘅 costs。申請人要以收入、支出、資產、工作及技能資料證明 undue hardship，唔係單憑「唔想畀錢」。
+- 短審訊亦要先核對 Rules 14-1(1)(f)(ii) 同 15-1(15)：完成審訊為 1 日或以下、超過 1 日至 2 日、超過 2 日至 3 日，現行 fast-track costs 分別係 $8,000、$9,500、$11,000，另加合理 disbursements 及適用稅項；法院仍可另行命令。
+- 風險清單必須另查 Rule 9-1 settlement offers、Rule 9-8 discontinuance，同 Rule 3-4 counterclaim。輸訴本身唔會自動產生一宗「告返轉頭」；但同一宗案嘅 costs order 可執行，而有獨立事實及法律基礎嘅 counterclaim 即使原告撤訴亦可繼續。
+
+### Round 33（2026-10-07）— Separate access nondisclosure from substantive employment wrong
+
+- BC 私人合約僱傭一般冇獨立 procedural-fairness claim；`Golob` 顯示即使調查嚴重有缺陷，單憑程序缺陷仍不足以成立民事 claim。研究必須先指出真正嘅 contract／tort／statutory wrong。
+- PIPA s. 30(2) 只係容許 investigation access response 不確認或否認資料存在；佢唔會驗證 finding 正確。要同時核對 s. 23 exception、s. 28 complete response、s. 33 accuracy、s. 51 burden 及 s. 52 remedies。
+- 民事 pleading 要寫 material facts，唔需要預先附上對方掌握嘅全部證據。Rule 3-7(17)、(20) 容許按當時已知程度 plead knowledge／particulars；Rule 7-1 及 7-2 再處理文件披露同宣誓問話。
+- 當紀錄只證明公司冇指出、提供或確認材料時，唔可以寫成「證據不存在」。可爭辯嘅 honest-performance claim 要建立喺正面陳述、明知誤導、合約直接連繫及後果；拒絕交代只係背景同 discovery 需要，唔係 knowledge 嘅替代品。
+
+### Round 34（2026-10-07）— Separate digital content, authenticity, attribution and evidentiary weight
+
+- 數碼指控研究要拆成四層：①畫面顯示嘅內容；②畫面及時間資料嘅真實、完整性；③相關日期由邊個控制帳號／號碼／裝置；④將全部證據衡量後嘅重量。見到 screenshot 唔可以跳過中間兩層直接寫作者已證明。
+- `Balance of probabilities` 係最後衡量證據嘅標準，唔係一件新證據；但亦唔可以誤寫成一定要有 metadata 或獨立 corroboration。`McDougall` 確認可信證供有時可以單獨足夠，判斷要睇全部證據、矛盾、可信性同可靠性。
+- 對外文字用「至今未被指出或提供歸屬鏈」，唔寫「冇證據存在」；亦唔寫「screenshot 完全冇證據價值」。最有效係逐項問邊個 file、完整 identifier、日期、來源、核實人、credibility assessment 同實際 decision use。
+- 後來出現材料要分兩個時間問題：材料能否證明事件實際發生，以及決策人在原 finding 當日實際知道或審閱過乜。後來材料未必補得返原調查／誠實履約問題，但 `Golob` 顯示佢仍可能影響 after-acquired cause。
+
+### Round 35（2026-10-07）— PIPA investigation-record access：由 blanket conclusion 回到逐項資料
+
+- 先分清「機構拒絕 access 並採取一個法律立場」同「機構違抗已發出嘅 OIPC order」。未有 order 時，`we complied` 只係被覆核嘅結論；order 發出後，PIPA s. 53 先控制 30 日 compliance、judicial review 同 stay。
+- PIPA s. 23 係 information-level 分析，唔係用 document label 決定。調查檔案可能同時包含申請人 personal information、第三者 personal information、source identity、privileged material、contact information 同 work product information；要逐部分判斷，並依 s. 23(5) sever 可披露部分。
+- `work product information` 唔會將調查員工作時收集嘅所有資料一概排除。P23-06、P24-01 同 P26-11 均確認：針對申請人嘅 statements、allegations、行為詳情、他人對申請人嘅想法，以及討論申請人嘅電郵，可以係申請人 personal information；重點係資料係咪 about 申請人，以及申請人有冇準備／收集該資料。
+- 公司可合理爭辯 s. 23(1)(b) 無要求另行創造一張 file-to-finding evidence map；因此申請應鎖定現有 underlying、attribution、verification 同 analysis records 入面關於申請人嘅 personal information，以及該 personal information 實際 ways of use。
+- ss. 28／30 要機構合理協助、盡合理可能準確完整回覆，並就每項拒絕講明 reasons 同 exact provision。P26-11 顯示一句「已經提供 responsive records」取代唔到清楚標示被扣起資料、法例條文同理由。
+- inquiry 時，s. 51 將 no-access burden 放喺機構；s. 38 俾 Commissioner 私下取得及檢查爭議紀錄。研究結論必須保留真正未知：未睇 underlying records 前，無法逐頁裁定披露範圍，但亦唔可以接受機構以 blanket conclusion 代替 record-specific analysis。
+
+### Round 36（2026-10-07）— Corporate escalation timing：知情層級、notice價值同僱傭風險
+
+- Corporate knowledge要分四層：①direct recipient／signatory；②因職責而合理可能知道；③公司governance文件所寫嘅一般reporting route；④實際向CEO／Board formal notice。CHRO經手個案證明executive HR知情，唔自動證明CEO或任何director睇過。
+- email archive「無CEO／director header hit」只支持目前外部紀錄無直接notice；公司內部forward、Legal briefing同Board material仍然係unknown，唔可以由0 hit推成從未發生。
+- 拒絕披露可以同litigation-risk control一致，但動機仍要有文件先可以寫成事實。較準確係列出可共存解釋，再用後續內部文件、OIPC production或civil discovery驗證。
+- 高層升級同時有兩個相反效果：建立notice並提高其後報復／不利行動嘅證據風險；亦會令事件立即進入Legal、defence同employment-decision層。法定／policy non-retaliation係禁止理由及事後remedy，唔係自動凍結termination power。
+- 當員工第一目標係維持僱用，而CHRO／DPO已知、外部程序已啟動、暫無新adverse action，完整CEO／Board package宜trigger-based hold。以termination、PIP、新discipline、bonus／performance reliance、重大職責變動或新一輪同模式指控作客觀release trigger，比純粹再追舊finding更有證據力。
+- CHRO出具含termination警告嘅正式紀律文件後，唔應將hold理由寫成「避免提醒公司可以解僱」；termination option早已進入file。要分清公司一般／持續評估終止方案嘅合理風險假設，同已有時間表、批准或具體步驟嘅active termination plan。升級策略加入pre-decision triggers：突發HR／Legal meeting、全面交接、權限移除、新performance paper trail、PIP／show-cause、severance／release等；目標係預防時，唔機械式等正式termination先升級。
+
+### Round 37（2026-10-08）— AI detector evaluation needs a frozen pre-AI human control
+
+- 單篇待測文字跑多個 detector 只顯示跨工具分歧，不能直接暴露 false positive。加入一篇作者、年份及全文來源可核實、生成式 AI 出現前已出版的 human control；固定連續完整段落、長度、SHA-256、word counter、提交範圍和每個服務的 evidence screenshot／raw response。
+- 同一固定 control 要交畀同一 detector panel，並用同一表格並排比較待測文本；服務 tokenizer、免費長度上限、model version、sensitivity 及 failed access 要分開記。FAILED 不等於 pass。
+- 本輪 Jonathan Swift 1729 *A Modest Proposal* control（463 words）在 Grammarly、GPTZero、Copyleaks、Pangram、Scribbr、Sapling 均獲 0% AI 或 100% human，但 ZeroGPT 回 56.2% AI／260 AI words，直接證明有效 API response 仍可對已知人類文本產生 false positive。
+- `n=1` control 只可作 document-level counterexample，不可估計 false-positive rate、confidence interval 或 significance。著名舊文可能已在訓練／reference data 出現；後續完整 benchmark 應再加入同 genre、同長度、較少見且 provenance 清楚的多篇 controls。
+
+### Round 38（2026-10-08）— Company-to-school research needs three denominator layers
+
+- 公開 LinkedIn Talent Insights Company Report 分析有時可由搜尋引擎 mirror 發現，但 evidence record 要保留 canonical LinkedIn article、報告月份、location、current/past-employer 狀態、title/function/skill filters。同一間公司用不同 filter 得到嘅 headcount、school count 同 hires 不可直接合併。
+- Company Report 嘅 Education tab 能提供 school、recent graduates、highest degree 同 field of study；Talent Flow／Overview 可補 hires、departures、attrition 同 job posts。呢啲係 LinkedIn profile aggregates，唔係畢業班就業率，亦冇 applicant 或校友總數 denominator。
+- 選校判斷要疊三層：① company × school aggregate 睇 target-employer visibility；②校方 first-destination report 睇 cohort、response/knowledge rate、employment、further study、salary 同 named employers；③行政資料如 U.S. Census PSEO 睇同 cohort、同定義嘅 earnings／industry cross-check。三層互相校準，唔將 logo list 當 placement rate。
+- PSEO 只包括 partner institutions；earnings 係 2023 dollars、attached workers、用 differential privacy，status 5 cells 要標 suppressed。學校不在資料集係 unavailable，唔係零 outcome。
+- 官方 PDF 或 Tableau landing page 被 403／404／dynamic embed 擋住，要記 `FAILED/UNAVAILABLE`、HTTP 狀態同已讀到嘅官方 index metadata；不可因 direct file 失敗就寫成學校冇數，亦不可用過時 PDF 冒充 current static outcome。
+
+### Round 39（2026-10-08）— Hidden-gem university search must separate outcome, access and aid
+
+- 選校 hidden-gem scan 先用 current administrative data 作盲篩選，再先睇校名：同一 credential、CIP、measurement year、valid status 同最小樣本門檻。之後先加入 admission route、transfer-credit ceiling、residency、international aid 同實際淨成本，避免 prestige prompt 決定候選池。
+- 每個結果要分三類：① `career gem`＝就業／收入強；② `application gem`＝Nicole 合資格、資助可行而出路亦合理；③ `trap`＝表面 outcome 強，但 route-specific aid 或 eligibility 令佢實際不可行。Career gem 唔自動升格為 application gem。
+- 成人／nontraditional program 嘅專屬 aid 可以完全推翻學校一般 international-aid statement。一定要開到 exact route 頁：例如 general international applicants 可獲 full need，唔代表 REAL／GS／continuing-education route 同樣有 aid；route-specific 「no aid」優先。
+- College Scorecard field earnings只涵蓋 Title-IV-aided completers，並排除 measurement-year students、死亡者及非工作者；小型 liberal-arts college CS cells 常見 n 細或 suppressed。每個 median 必須連 n 一齊報，`n < 100` 標 descriptive/fragile，唔做顯著性或因果判斷；可再用 PSEO 或校方 first-destination 作獨立 cross-check，但唔合併不同 cohort／定義。
+- consortium／cross-registration 係小校 hidden gem 嘅實質資產，但要讀限制：每學期上限、home-school minimum load、host capacity／permission、課程能否計入 major，以及交通。寫「有 access」唔等於保證入到指定 MIT／UMass／Amherst 課。
+
+### Round 40（2026-10-13）— Claude startup credits：direct cohort 同 partner allocation 要分開
+
+- Anthropic 於 2026-10-06 公布嘅 direct Claude Startups cohort，原本接受成立五年內或近兩年有募資嘅 startup；bootstrapped 公司亦可申請。當期主要 Anthropic benefits 係 US$1,000 first-party API credits，同符合條件嘅新 Team 客戶一年最多五個 Premium seats。呢條唔係 Amii 嘅 US$30,000 route，亦唔係 VC partner 嘅最高 US$100,000 route。
+- 2026-10-13 官方 launch article 加咗 update：current cohort full，暫停接受新申請。研究任何限時 startup offer 必須同日重開 official program page 同 launch article；搜尋引擎快取仍可能顯示 `Apply today`，不可當 live availability。
+- Amii 係獨立 partner route：active ML Exploration 或 Level Up participants `may be eligible` for up to US$30,000 Claude API credits。ML Exploration 仍有自己嘅加拿大、software-product、revenue、time-commitment 同 cohort deadline；入選課程同獲批 credits 都不可混寫成自動結果。
+- Founder success story 只證明該申請人自述獲批。比較 eligibility 同 competitiveness 時要拆開：法定／公開門檻、market traction、Claude integration、可驗證 prototype、funding、domain identity、以及申請當日 cohort capacity。`Bootstrapped` 唔等於 `no traction`；本輪 nuva 案例自述零外部募資，但同時列出大量 learners、paying learners、企業客戶及社群分發，因此唔可用佢推論 pre-revenue startup 必然獲批。
+
+### Round 41（2026-10-13）— Diaspora forums 改用 first-party browser-session APIs
+
+- 1Point3Acres 已實測 browser-session API：`user.me` 認證、`search.search` cursor 搜尋、thread API 主文、top-level 同 nested replies 均 HTTP 200。本輪查詢 `加拿大 找工 2026` 返回 2026 年討論；thread 1192114 主文顯示 22 replies，adapter 載入 4 個 top-level 及合計 22 個 reply nodes。
+- 原則改為 API-first：請求在 Agent Chrome 原頁面執行，browser 自行攜帶 session/cookies/TLS context；不 export credential，不用 DOM 全頁 crawler。Pagination 串行且至少相隔 300 ms。
+- Grapevine first-party API 已實測：post search、single-post feed 及 comments 均 HTTP 200；`software engineer` 搜尋返回對題帖子，指定 post 載入 2/2 comments。公開 post 同時透過 Next/RSC 載入。Blind 公開 post/channel 主要使用 Next/RSC server payload。兩者應先讀 API/RSC network data，只在結構化 route 不可用時才作有限 DOM fallback。
+- Indian tech community 需分功能組合：Grapevine/Blind India/r/developersIndia 讀 workplace；TakeUForward/LeetCode Discuss/AmbitionBox 讀面經；Yocket/Indian Academia/Indians Study Abroad 讀留學；RedBus2US Discourse JSON 讀 diaspora immigration。Trackitt 本輪從當前環境連線失敗，只能列 `FAILED/conditional`，不可當 core working source。
+- 1P3A 同 Indian 匿名 forum 皆為自選樣本。它們可支持「有這種經驗／這種說法」，不能單獨支持母體比例、整體市場率或法律規則。
+
+### Round 42（2026-10-13）— 1Point3Acres 定位為圈內人資源庫
+
+- 1Point3Acres coverage 擴闊為北美華人跨領域 community resource library：除求職／面經，亦包括學校與 admission、transfer／prerequisite／學分對應、選課、教授、course code、syllabus、assignment、past paper／真題／回憶題、附件、簽證、住房與生活流程。
+- 搜尋必須按 query family 分開跑再去重。實測 hybrid query `UBC 选课 教授 真题 往年题` 混入 admission、面經同公開課；之後禁止以一條混合 query 代替學校、course、教授、試卷與附件的獨立檢索。
+- 命中 thread 後要讀完整主文、replies 同 attachment metadata，核對年份、教授和 course version。附件失效記為 `FAILED/UNAVAILABLE`，不可當成「冇資源」。現行要求仍回查學校或政府 primary source。
+- 印度社群冇單一網站完整複製 1P3A；resource routing 改為組合：University Updates／Education Observer／各校社群處理院校與 course 資料，GATEOverflow／Doc Sansar 處理 PYQ／試題／notes，PaGaLGuY 處理 MBA admission/exams；另保留既有 workplace、interview、study-abroad 與 immigration stack。
+
+### Round 43（2026-10-13）— Rare-admissions source lane（topic-specific）
+
+- 加入升學題目可選用嘅 source lane；核心係 non-traditional／interrupted-education／refugee／international-transfer 等極窄 routes，而唔係一般 ranking 或泛選校。呢條 lane 唔係 general engine 嘅預設。
+- 新增八條 evidence lanes：eligibility、academic basis、documents/exceptions、selection reality、comparable people、funding、academic fit、immigration/life。每條獨立搜尋，再交叉核對。
+- Rare program search 加入 exact/old names、adjacent programs、year-by-year cohort threads、reapplication、adverse terms、student/alumni people trail、school newspaper、official podcast、archived pages、Common Data Set、FOI/ATI 同 contact map。三輪跨 source-type expansion 冇新材料先可判定 saturation。
+- 1Point3Acres、Reddit、College Confidential、The Student Room 等用來挖長尾個案與 timeline；公開規則、waiver authority、funding 同 immigration 結論仍以學校或政府 primary source 為準。Grapevine／Blind 繼續保留作 career/outcome 補充。
+
+### Round 44（2026-10-13）— General source phonebook，LLM 揀 source
+
+- Research engine 收斂成一條簡單 loop：問題 → LLM 提議可能有料嘅 source → Nicole 加／刪 → 讀 access recipe／credential reference → 登入後用 first-party API search → 報告證據同 source ledger。
+- `community-sources.json` 係 machine-readable 黃頁，唔做 hard classification、ranking 或排除。Cluster 只係方便 LLM 記得 source；一條問題可以跨任何類別，亦可以試一個未肯定有冇該話題嘅網站。
+- 每次 research 開始前列 proposed 同 unused/optional sources，保留 human in the loop；完成後列實際 `USED／UNUSED／EMPTY／FAILED／SKIPPED`。
+- 新增 College Confidential public Discourse JSON、The Student Room public thread browser route、BC Transfer Guide official public API adapters；連同既有 Reddit、1Point3Acres、Grapevine、Blind、Xiaohongshu routes 記入電話簿。
+- Account 只喺 public route 唔夠而且 gated evidence 真係有獨特價值時先開。Secret 放 gopass 或既有 browser session；Git registry 只放 reference，唔放 credential value。

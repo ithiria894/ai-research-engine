@@ -379,8 +379,117 @@ else
       act "❌|小紅書 native search 未可用|喺 Agent Chrome 手動登入小紅書一次，再跑 social-research.py xhs-search '咖啡' --route browser"
     fi
     rm -f "$tmpx" "$tmpx.err"
+
+    # 1Point3Acres: use the site's own tRPC endpoint inside the persisted
+    # Agent Chrome session.  This is deliberately not a DOM-scraping probe.
+    tmp1p=$(mktemp)
+    if [[ -f "$SOCIAL" ]] && timeout 80 python3 "$SOCIAL" onepoint-search \
+        '加拿大 找工' --limit 3 >"$tmp1p" 2>"$tmp1p.err"; then
+      one_route=$(jq -r '.route // empty' "$tmp1p" 2>/dev/null)
+      one_n=$(jq -r '.count // 0' "$tmp1p" 2>/dev/null || echo 0)
+      one_auth=$(jq -r '.authenticated // false' "$tmp1p" 2>/dev/null)
+      if [[ "$one_route" == "browser-session-api" && "$one_auth" == "true" && "${one_n:-0}" -ge 1 ]]; then
+        bact "✅ | 1Point3Acres first-party API via browser | 200 | $one_n results; authenticated tRPC route"
+      else
+        bact "❌ | 1Point3Acres first-party API via browser | 200 | unexpected route/auth/count"
+        act "❌|1Point3Acres API adapter 回應不完整|跑 social-research.py onepoint-search '加拿大 找工' --limit 3；不要改用 DOM crawler"
+      fi
+    elif [[ ! -f "$SOCIAL" ]]; then
+      bact "❌ | 1Point3Acres API adapter | — | MISSING at $SOCIAL"
+      act "❌|1Point3Acres API adapter 唔見咱|restore ai-research-engine/social-research.py"
+    else
+      one_err=$(tail -1 "$tmp1p.err" 2>/dev/null)
+      bact "❌ | 1Point3Acres first-party API via browser | — | ${one_err:-FAILED}"
+      act "❌|1Point3Acres session 未可用|重用 Agent Chrome 內 Google session 登入，然後重跑；不要改用 DOM crawler"
+    fi
+    rm -f "$tmp1p" "$tmp1p.err"
+
+    tmpgv=$(mktemp)
+    if [[ -f "$SOCIAL" ]] && timeout 80 python3 "$SOCIAL" grapevine-search \
+        'software engineer' --limit 2 >"$tmpgv" 2>"$tmpgv.err"; then
+      gv_route=$(jq -r '.route // empty' "$tmpgv" 2>/dev/null)
+      gv_n=$(jq -r '.count // 0' "$tmpgv" 2>/dev/null || echo 0)
+      if [[ "$gv_route" == "browser-session-api" && "${gv_n:-0}" -ge 1 ]]; then
+        bact "✅ | Grapevine first-party API via browser | 200 | $gv_n results"
+      else
+        bact "❌ | Grapevine first-party API via browser | 200 | unexpected route/count"
+        act "❌|Grapevine API adapter 回應不完整|跑 social-research.py grapevine-search 'software engineer' --limit 2；不要改用 DOM crawler"
+      fi
+    elif [[ ! -f "$SOCIAL" ]]; then
+      bact "❌ | Grapevine API adapter | — | MISSING at $SOCIAL"
+    else
+      gv_err=$(tail -1 "$tmpgv.err" 2>/dev/null)
+      bact "❌ | Grapevine first-party API via browser | — | ${gv_err:-FAILED}"
+      act "❌|Grapevine API route 未可用|查清 CORS/API schema；不要改用寬頻 DOM crawler"
+    fi
+    rm -f "$tmpgv" "$tmpgv.err"
+
+    tmptsr=$(mktemp)
+    if [[ -f "$SOCIAL" ]] && timeout 90 python3 "$SOCIAL" studentroom-thread \
+        7507123 --max-posts 1 >"$tmptsr" 2>"$tmptsr.err"; then
+      tsr_route=$(jq -r '.route // empty' "$tmptsr" 2>/dev/null)
+      tsr_n=$(jq -r '.loaded_posts // 0' "$tmptsr" 2>/dev/null || echo 0)
+      if [[ "$tsr_route" == "public-thread-via-agent-chrome" && "${tsr_n:-0}" -ge 1 ]]; then
+        bact "✅ | The Student Room public thread via browser | 200 | $tsr_n post parsed"
+      else
+        bact "❌ | The Student Room public thread via browser | 200 | unexpected route/count"
+      fi
+    elif [[ ! -f "$SOCIAL" ]]; then
+      bact "❌ | The Student Room adapter | — | MISSING at $SOCIAL"
+    else
+      tsr_err=$(tail -1 "$tmptsr.err" 2>/dev/null)
+      bact "❌ | The Student Room public thread via browser | — | ${tsr_err:-FAILED}"
+      act "❌|The Student Room browser route 未可用|用 web search discovery，再跑 social-research.py studentroom-thread THREAD_ID"
+    fi
+    rm -f "$tmptsr" "$tmptsr.err"
   fi
 fi
+
+# Public phonebook and API adapters do not require Agent Chrome.
+SOCIAL="${SOCIAL:-$HOME/MyGithub/ai-research-engine/social-research.py}"
+REGISTRY="$HOME/MyGithub/ai-research-engine/community-sources.json"
+if [[ -f "$REGISTRY" ]] && jq -e '.schema_version and (.sources | type == "array") and (.sources | length > 0)' \
+    "$REGISTRY" >/dev/null 2>&1; then
+  source_count=$(jq '.sources | length' "$REGISTRY")
+  bact "✅ | Community source phonebook | local | $source_count sources; valid JSON schema shell check"
+else
+  bact "❌ | Community source phonebook | local | missing or invalid: $REGISTRY"
+  act "❌|Community source phonebook 壞咗|validate community-sources.json and restore required fields"
+fi
+
+tmpcc=$(mktemp)
+if [[ -f "$SOCIAL" ]] && timeout 60 python3 "$SOCIAL" collegeconf-search \
+    'Eli Whitney Students Program' --limit 1 >"$tmpcc" 2>"$tmpcc.err"; then
+  cc_route=$(jq -r '.route // empty' "$tmpcc" 2>/dev/null)
+  cc_n=$(jq -r '.count // 0' "$tmpcc" 2>/dev/null || echo 0)
+  if [[ "$cc_route" == "public-discourse-json" && "${cc_n:-0}" -ge 1 ]]; then
+    bact "✅ | College Confidential public Discourse API | 200 | $cc_n search result"
+  else
+    bact "❌ | College Confidential public Discourse API | 200 | unexpected route/count"
+  fi
+else
+  cc_err=$(tail -1 "$tmpcc.err" 2>/dev/null)
+  bact "❌ | College Confidential public Discourse API | — | ${cc_err:-FAILED}"
+  act "❌|College Confidential JSON route 未可用|check search.json/topic JSON schema"
+fi
+rm -f "$tmpcc" "$tmpcc.err"
+
+tmpbc=$(mktemp)
+if [[ -f "$SOCIAL" ]] && timeout 60 python3 "$SOCIAL" bctransfer-institutions \
+    --query UBCV --limit 1 >"$tmpbc" 2>"$tmpbc.err"; then
+  bc_route=$(jq -r '.route // empty' "$tmpbc" 2>/dev/null)
+  bc_n=$(jq -r '.count // 0' "$tmpbc" 2>/dev/null || echo 0)
+  if [[ "$bc_route" == "official-public-api" && "${bc_n:-0}" -ge 1 ]]; then
+    bact "✅ | BC Transfer Guide official API | 200 | UBCV institution route working"
+  else
+    bact "❌ | BC Transfer Guide official API | 200 | unexpected route/count"
+  fi
+else
+  bc_err=$(tail -1 "$tmpbc.err" 2>/dev/null)
+  bact "❌ | BC Transfer Guide official API | — | ${bc_err:-FAILED}"
+  act "❌|BC Transfer Guide API 未可用|check public agreementws endpoint/schema"
+fi
+rm -f "$tmpbc" "$tmpbc.err"
 
 # ── MCP availability BY CWD SCOPE ─────────────────────────────────────
 # .mcp.json is project-scoped: a server only loads when Claude's cwd is that

@@ -18,8 +18,9 @@ A research infrastructure for AI agents. Not another chatbot wrapper. Not anothe
 
 This is:
 - **A complete inventory** of 100+ free data sources with curl examples, rate limits, and auth requirements for every single one
-- **A multi-agent methodology** where cheap models (Sonnet) collect from dozens of sources in parallel, then a powerful model (Opus) cross-references and synthesizes
-- **A source selection step** that reasons about your specific question and picks which of 18 source clusters are actually relevant — like a pharmacist picking medicines for a patient, not just dumping the whole pharmacy
+- **An LLM-led source-hypothesis step** that reads the whole question and selects every plausible direct, adjacent, and exploratory source across overlapping clusters
+- **A community capability registry** that records what niche communities contain, how to search them, whether a session is needed, and which access routes have actually been verified
+- **An optional multi-agent methodology** for parallel collection when the user requests delegation; the same workflow also runs in one main agent
 - **A pre-flight check** that silently verifies what tools are installed before presenting options, so you're never silently missing coverage
 - **A verification step** that checks coverage, flags contradictions, and identifies gaps before producing the final report
 - **A quality framework** (DRACO dimensions) that scores output on factual accuracy, analytical depth, presentation, and source attribution
@@ -32,7 +33,8 @@ This is:
 | **Academic Papers** | 250M+ papers | Semantic Scholar, OpenAlex, arXiv, PubMed, Crossref, CORE, DBLP, DOAJ, Zenodo |
 | **Citations & Impact** | 6 APIs | OpenCitations, NIH iCite (RCR metric), ORCID, ROR, Altmetric, OpenAIRE |
 | **Patents** | 140M+ patents | USPTO PatentsView, EPO OPS, Lens.org, Google Patents BigQuery |
-| **Social & Community** | 15+ platforms | Reddit, X/Twitter, Bluesky, Mastodon, HN, Lobste.rs, Discourse, Discord, Telegram, Slack, StackExchange (170+ sites), Hashnode, DEV.to, Lemmy |
+| **Admissions & Education** | Official + community evidence | Program/admissions/faculty/registrar/financial-aid pages, Common Data Set, institutional research, FOI/ATI, Wayback, 1Point3Acres, Reddit, College Confidential, The Student Room, school communities |
+| **Social & Community** | 25+ platforms | Reddit, 1Point3Acres, Grapevine, Blind India, TakeUForward, RedBus2US, Yocket, Indian Reddit communities, X/Twitter, Bluesky, Mastodon, HN, Lobste.rs, Discourse, Discord, Telegram, Slack, StackExchange (170+ sites), Hashnode, DEV.to, Lemmy |
 | **Trends & Predictions** | 8+ sources | Google Trends, TrendsMCP, Polymarket, TikTok, Instagram, YouTube, Truth Social |
 | **News & Media** | 6+ sources | GDELT, newsmcp, NewsAPI, NYTimes, RSS feeds, Google News |
 | **Podcasts** | 190M+ episodes | PodcastIndex, Apple Podcasts/iTunes, Listen Notes |
@@ -46,40 +48,29 @@ This is:
 
 ## How It Works
 
-```
-Step 0: Source Selection (Opus, before any agents launch)
-  Analyze the question → reason about which of 18 source clusters are relevant
-  Pre-flight check: silently verify what tools are installed/configured
-  Present sources grouped by WHY (not just a flat list)
-  Flag missing tools with install instructions
-  User confirms: go / just use what's ready / let me adjust
-
-Phase 1: Collection (Sonnet agents, parallel)
-  Launch one agent per confirmed cluster, all in the background
-  Each agent: raw findings + confidence score + gaps
-  Sonnet costs 5x less than Opus — right model for data collection
-
-Phase 1.5: Verification
-  One Sonnet agent audits all results:
-  → Coverage score 1-5
-  → Contradictions flagged
-  → Missing topics identified
-  → If score < 3, launch follow-up agents
-
-Phase 2: Synthesis (Opus, main thread — never delegated)
-  Cross-reference all sources
-  Flag contradictions (never silently merge conflicting claims)
-  Score on DRACO dimensions (factual accuracy, analytical depth, presentation, source attribution)
-  Output structured report with full citations
+```text
+Question
+  → LLM proposes every website/source that may contain useful or unexpected information
+  → Nicole adds or removes sources
+  → Engine loads each source's access recipe and credential reference
+  → Log in when needed and search through the source's first-party API
+  → Return the evidence plus a ledger of sources used, unused, empty, or failed
 ```
 
-## Source Selection — the "Pharmacist Model"
+That is the complete core loop. `community-sources.json` is a phonebook, not a
+classifier. It remembers what each source contains and how to access it. The LLM may
+select sources across any number of topics and may add a source that is not yet in the
+phonebook. A bounded browser-page route is a fallback only when no usable API exists.
 
-The skill doesn't just fire all 18 clusters at every question. That wastes time and tokens. Before launching a single agent, it reasons about your specific question and picks which clusters would actually contain relevant data.
+## Source Selection — LLM reads the phonebook
+
+The skill does not assign a query to one rigid category. The LLM reads the question,
+checks the phonebook, and proposes every source that may have relevant or surprising
+information. Nicole can add or remove sources before the API searches begin.
 
 The question "Has anyone built an MCP server for browser recording?" has very different source needs than "What's the economic impact of AI regulation?" The skill thinks through this before touching any API.
 
-**18 source clusters, each labeled by access type:**
+**20+ source clusters, each labeled by access type:**
 
 - 🟢 **FREE** — curl directly, zero key, zero setup
 - 🔑 **KEY** — free API key required
@@ -130,15 +121,12 @@ Before presenting the source list, the skill silently verifies:
 
 You're never silently missing coverage. If something isn't set up, you see exactly what's missing and a one-line install command.
 
-## Model Selection
+## Execution Model
 
-The skill tells you exactly which models it's using and why:
-
-- **Sonnet** — all search/collect/extract agents. Can use every tool, costs 5x less than Opus.
-- **Haiku** — simple single-source lookups. Costs 25x less than Opus. Used when an agent only needs 1-2 tools.
-- **Opus** — synthesis only, in the main thread. Never used for collection. Synthesis is the part where quality actually matters.
-
-After source selection is confirmed, you choose the collection model (recommended: Sonnet) before any agents launch.
+Source quality and retrieval coverage do not depend on a fixed model name. The main
+agent can execute the complete workflow itself. When the user explicitly asks for
+delegation, independent source lanes can run in parallel and the main thread retains
+integration, contradiction checking, and final synthesis.
 
 ## What Makes This Different
 
@@ -155,9 +143,14 @@ After source selection is confirmed, you choose the collection model (recommende
 ## Files
 
 ```
-research-engine.md          # Master inventory: every API, MCP, and data source
-skills/deep-research/       # Claude Code skill: the multi-agent workflow
-  SKILL.md                  # Full methodology + agent prompts + report template
+research-engine.md                          # Master inventory and research methodology
+community-sources.json                      # Machine-readable community capability registry
+social-research.py                          # Verified one-shot community/API adapters
+health-check.sh                             # Route and dependency pre-flight checks
+qa/                                         # End-to-end QA scripts
+skills/deep-research/
+  SKILL.md                                  # LLM-led workflow and report contract
+  references/community-source-discovery.md  # Discovery, access, onboarding, and registry rules
 ```
 
 ## Quick Start

@@ -1,0 +1,240 @@
+{
+  "schema_version": "1.0",
+  "updated_at": "2026-10-13",
+  "routing_policy": {
+    "mode": "llm_selected_phonebook",
+    "rule": "The LLM reads the question and proposes every source that may contain useful or unexpected information. Nicole can add or remove sources before collection.",
+    "execution": "For each selected source, load its access recipe and credential reference, authenticate when required, and search through its first-party API. Use a bounded page route only when no usable API exists.",
+    "reporting": "Report sources used and not used. Keep EMPTY, FAILED and SKIPPED separate."
+  },
+  "sources": [
+    {
+      "id": "reddit",
+      "name": "Reddit",
+      "domains": ["reddit.com"],
+      "topic_tags": ["cross-domain", "pain-points", "lived-experience", "admissions", "careers", "technology", "products", "local"],
+      "region_tags": ["global"],
+      "languages": ["en", "zh", "multilingual"],
+      "source_kinds": ["community", "discussion", "user-experience"],
+      "routing_keywords": ["reddit", "review", "experience", "pain point", "what people say", "admission", "transfer", "career", "layoff"],
+      "access": {
+        "read": "browser_session",
+        "search": "browser_session_json_and_arctic_shift",
+        "account": "existing_session",
+        "credential_ref": "gopass://chrome/social/www-reddit-com",
+        "session_profile": "agent-chrome"
+      },
+      "routes": {
+        "discovery": ["Reddit search JSON through Agent Chrome", "Arctic Shift search"],
+        "search": ["agent-chrome.py fetch https://www.reddit.com/search.json?...", "Arctic Shift posts/comments APIs"],
+        "thread": ["agent-chrome.py fetch https://www.reddit.com/r/{sub}/comments/{id}/.json?limit=500", "Arctic Shift comment tree"]
+      },
+      "verification": {
+        "date": "2026-10-13",
+        "status": "working",
+        "evidence": "Existing logged-in Agent Chrome route and Arctic Shift fallback are documented and health-checked."
+      },
+      "bias_notes": "Self-selected communities; useful for experiences and leads, not population rates."
+    },
+    {
+      "id": "onepoint3acres",
+      "name": "1Point3Acres",
+      "domains": ["1point3acres.com", "trpc.1point3acres.com", "api.1point3acres.com"],
+      "topic_tags": ["cross-domain", "north-america", "chinese-diaspora", "admissions", "courses", "past-papers", "careers", "immigration", "housing", "technology"],
+      "region_tags": ["north-america", "us", "canada", "china"],
+      "languages": ["zh-CN", "en"],
+      "source_kinds": ["community", "discussion", "resource-library", "attachments"],
+      "routing_keywords": ["一亩三分地", "一畝三分地", "北美", "华人", "留学", "转学", "选课", "教授", "真题", "面经", "找工", "签证"],
+      "access": {
+        "read": "browser_session_api",
+        "search": "browser_session_api",
+        "account": "existing_google_sso_session",
+        "credential_ref": null,
+        "session_profile": "agent-chrome"
+      },
+      "routes": {
+        "discovery": ["first-party tRPC hybrid search"],
+        "search": ["social-research.py onepoint-search"],
+        "thread": ["social-research.py onepoint-thread"]
+      },
+      "verification": {
+        "date": "2026-10-13",
+        "status": "working",
+        "evidence": "Authenticated tRPC search plus thread, top-level reply and nested-reply APIs returned structured data."
+      },
+      "bias_notes": "North-American Chinese diaspora and professional/student skew; query in Simplified Chinese and verify rules against primary sources."
+    },
+    {
+      "id": "college-confidential",
+      "name": "College Confidential",
+      "domains": ["talk.collegeconfidential.com"],
+      "topic_tags": ["admissions", "transfer", "financial-aid", "college-life", "parents", "us-education"],
+      "region_tags": ["us", "international"],
+      "languages": ["en"],
+      "source_kinds": ["community", "discussion", "cohort-thread"],
+      "routing_keywords": ["college confidential", "college admission", "transfer", "financial aid", "chance me", "decision thread", "applicant"],
+      "access": {
+        "read": "public_json",
+        "search": "public_json",
+        "account": "not_required",
+        "registration_status": "not_registered_signup_did_not_create_account",
+        "credential_ref": null,
+        "session_profile": null
+      },
+      "routes": {
+        "discovery": ["Discourse search.json"],
+        "search": ["social-research.py collegeconf-search"],
+        "thread": ["social-research.py collegeconf-thread"]
+      },
+      "verification": {
+        "date": "2026-10-13",
+        "status": "working",
+        "evidence": "Public Discourse search.json and topic/post JSON returned HTTP 200."
+      },
+      "bias_notes": "Applicant and parent self-reports; cohort threads can reveal timing and exceptions but do not override official policy."
+    },
+    {
+      "id": "the-student-room",
+      "name": "The Student Room",
+      "domains": ["thestudentroom.co.uk"],
+      "topic_tags": ["admissions", "courses", "exams", "past-papers", "student-life", "careers", "uk-education"],
+      "region_tags": ["uk", "international"],
+      "languages": ["en"],
+      "source_kinds": ["community", "discussion", "resource-library"],
+      "routing_keywords": ["student room", "ucas", "tmua", "a level", "mature student", "imperial", "oxford", "cambridge", "past paper"],
+      "access": {
+        "read": "public_page_via_browser_transport",
+        "search": "web_discovery_then_public_thread",
+        "account": "registered_email_account",
+        "registration_status": "registered_and_activated_2026-10-13",
+        "credential_ref": "gopass://research-engine/community/the-student-room",
+        "session_profile": "agent-chrome"
+      },
+      "routes": {
+        "discovery": ["web search: site:thestudentroom.co.uk {query}"],
+        "search": ["External web discovery; internal search is conditionally blocked"],
+        "thread": ["social-research.py studentroom-thread"]
+      },
+      "verification": {
+        "date": "2026-10-13",
+        "status": "conditional",
+        "evidence": "Email registration and account activation succeeded. A direct public thread returned HTTP 200 through Agent Chrome; automated internal search returned HTTP 403."
+      },
+      "bias_notes": "UK-student skew. Discover with web indexes, then read the complete public thread."
+    },
+    {
+      "id": "bc-transfer-guide",
+      "name": "BC Transfer Guide",
+      "domains": ["bctransferguide.ca", "api.bctransferguide.ca"],
+      "topic_tags": ["transfer-credit", "course-equivalency", "institutions", "subjects", "bc-education"],
+      "region_tags": ["canada", "british-columbia"],
+      "languages": ["en"],
+      "source_kinds": ["official", "structured-data", "transfer-agreement"],
+      "routing_keywords": ["bc transfer", "transfer credit", "course equivalency", "ubc", "sfu", "tru", "langara", "british columbia"],
+      "access": {
+        "read": "public_api",
+        "search": "public_api_and_site_form",
+        "account": "not_required",
+        "credential_ref": null,
+        "session_profile": null
+      },
+      "routes": {
+        "discovery": ["public API metadata", "official course-to-course search"],
+        "search": ["social-research.py bctransfer-institutions", "social-research.py bctransfer-subjects", "official course-to-course search page"],
+        "thread": []
+      },
+      "verification": {
+        "date": "2026-10-13",
+        "status": "working",
+        "evidence": "Official API discovery, country, institution and subject endpoints returned HTTP 200."
+      },
+      "bias_notes": "Authoritative for published BC transfer agreements; absence may mean no listed agreement, not that an institution cannot assess credit individually."
+    },
+    {
+      "id": "grapevine",
+      "name": "Grapevine",
+      "domains": ["grapevine.in", "apis.gvine.app"],
+      "topic_tags": ["careers", "compensation", "layoffs", "interviews", "companies", "india", "technology"],
+      "region_tags": ["india", "global-tech"],
+      "languages": ["en", "hi", "multilingual"],
+      "source_kinds": ["community", "discussion", "workplace"],
+      "routing_keywords": ["grapevine", "india tech", "salary", "compensation", "layoff", "company culture", "interview"],
+      "access": {
+        "read": "public_first_party_api",
+        "search": "public_first_party_api",
+        "account": "not_required",
+        "registration_status": "pending_google_account_selection",
+        "credential_ref": null,
+        "session_profile": "agent-chrome"
+      },
+      "routes": {
+        "discovery": ["first-party unauthorized search API"],
+        "search": ["social-research.py grapevine-search"],
+        "thread": ["social-research.py grapevine-thread"]
+      },
+      "verification": {
+        "date": "2026-10-13",
+        "status": "working",
+        "evidence": "Public first-party post search, feed and comment APIs returned structured data."
+      },
+      "bias_notes": "Indian tech-worker and anonymous self-selection bias; useful for leads and experiences, not workforce-wide rates."
+    },
+    {
+      "id": "blind",
+      "name": "Blind",
+      "domains": ["teamblind.com"],
+      "topic_tags": ["careers", "compensation", "layoffs", "interviews", "companies", "technology"],
+      "region_tags": ["global-tech", "us", "india"],
+      "languages": ["en", "ko"],
+      "source_kinds": ["community", "discussion", "workplace"],
+      "routing_keywords": ["blind", "salary", "total compensation", "layoff", "company culture", "interview", "offer"],
+      "access": {
+        "read": "public_page_with_optional_gated_depth",
+        "search": "public_page_with_optional_gated_depth",
+        "account": "verified_work_email_account",
+        "registration_status": "registered_and_verified_2026-10-13",
+        "credential_ref": "gopass://research-engine/community/blind",
+        "session_profile": "agent-chrome"
+      },
+      "routes": {
+        "discovery": ["public site search", "web search: site:teamblind.com {query}"],
+        "search": ["public search pages or first-party Next/RSC payload"],
+        "thread": ["public post page or first-party Next/RSC payload"]
+      },
+      "verification": {
+        "date": "2026-10-13",
+        "status": "working",
+        "evidence": "Cloudflare Email Routing delivered Blind's work-email code to the verified personal destination; account creation and authenticated web access succeeded."
+      },
+      "bias_notes": "Verified-employer and tech-worker skew; useful for workplace leads and experiences, not workforce-wide rates."
+    },
+    {
+      "id": "xiaohongshu",
+      "name": "Xiaohongshu / RedNote",
+      "domains": ["xiaohongshu.com"],
+      "topic_tags": ["cross-domain", "reviews", "shopping", "travel", "beauty", "education", "careers", "local"],
+      "region_tags": ["china", "east-asia", "global-chinese"],
+      "languages": ["zh-CN"],
+      "source_kinds": ["community", "review", "user-experience", "visual"],
+      "routing_keywords": ["小红书", "小紅書", "rednote", "攻略", "避雷", "测评", "留学", "医美", "旅游"],
+      "access": {
+        "read": "browser_session_or_paid_api",
+        "search": "browser_session_or_paid_api",
+        "account": "existing_session_when_available",
+        "credential_ref": "gopass://maxtax/creator-accounts/xiaohongshu",
+        "session_profile": "agent-chrome"
+      },
+      "routes": {
+        "discovery": ["native search through Agent Chrome", "TikHub when configured"],
+        "search": ["social-research.py xhs-search"],
+        "thread": ["bounded browser extraction when required"]
+      },
+      "verification": {
+        "date": "2026-10-13",
+        "status": "conditional",
+        "evidence": "Native search adapter and optional TikHub route are installed; availability depends on session/API health."
+      },
+      "bias_notes": "Highly recommendation-driven and commercialized; search positive, negative and neutral terms separately."
+    }
+  ]
+}
