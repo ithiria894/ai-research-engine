@@ -1,7 +1,6 @@
 ---
 name: deep-research
 description: Unified entry point for ANY search — deep research, buying a product / finding a gift (Shopping mode), product competitive analysis, AI-security tracking, academic papers, news, social/forum discussion, crypto, gov/legal data. Auto-detects mode + routes the query to the right research-engine cluster. Use for any "find me / research / compare / where to buy / what to gift / what are people saying about X" task.
-argument-hint: "<research question, topic, or product name>"
 allowed-tools: [Bash, Read, Write, WebSearch, WebFetch, Agent, mcp__tavily__tavily_search, mcp__tavily__tavily_extract, mcp__tavily__tavily_research, mcp__tavily__tavily_crawl, mcp__tavily__tavily_map, mcp__exa__web_search_exa, mcp__exa__get_code_context_exa, mcp__exa__crawling_exa, mcp__firecrawl__firecrawl_search, mcp__firecrawl__firecrawl_scrape, mcp__firecrawl__firecrawl_crawl, mcp__firecrawl__firecrawl_map, mcp__context7__query-docs, mcp__context7__resolve-library-id, mcp__paper-search__*, mcp__arxiv__*, mcp__semantic-scholar__*, mcp__scholar-mcp__*, mcp__youtube-transcript__*, mcp__open-websearch__*, mcp__paper-distill__*, mcp__apify__*, mcp__dialog-mcp__*, mcp__chrome-devtools__*, mcp__gmail__*, mcp__teams__*, mcp__reddit__*, mcp__discourse__*, mcp__hackernews__*, mcp__stackoverflow__*, mcp__xiaohongshu__*, mcp__trend-pulse__*, mcp__activitypub__*, mcp__weibo__*, mcp__ptt__*, mcp__zhihu__*]
 ---
 
@@ -50,16 +49,21 @@ If the user's question is about **an existing tool, product, or platform they al
 **🔬 General Mode** — 其餘所有 research question：
 - → Go to [General Mode Workflow](#general-mode-workflow)
 
-**Step B — CLUSTER ROUTER（揀啱 source，唔好乜都 web search）：**
+**Step B — LLM 揀 source（電話簿，唔係 classifier）：**
 
-讀 `RESEARCH_ENGINE`，按 query 主題 route 去對應 cluster 嘅 source（mind map 17 個 domain）。揀 1-3 個最啱嘅 cluster，淨係用嗰啲 source：
+讀完整問題、`RESEARCH_ENGINE`、`community-sources.json` 同
+`references/community-source-discovery.md`。由 LLM 剔晒所有可能有相關或意外資訊嘅網站／
+source；可以跨任何 cluster，亦可以加入電話簿未有嘅 source。先畀 Nicole 加／刪，再逐個讀
+access recipe／credential reference、登入，並用 first-party API search。冇 API 先做有限 page
+fetch。
 
 | Query 關於… | Cluster → 用邊啲 source |
 |---|---|
 | 買嘢/送禮/格價 | 🛍️ Shopping：Serper Shopping · Apify · superprecio curl（superprecio.ar API，見 research-engine「MCP→curl」章）· **Reddit via `agent-chrome.py` + Arctic Shift/Serper discovery**（按產品品類搵真 sub，e.g. 廚具→r/cookware，唔係淨係 gift sub） |
 | 學術/論文/研究 | 📚 Academic：arXiv·OpenAlex·S2·OpenReview + paper-search/arxiv MCP |
+| **升學／admissions／transfer／獎學金** | 🎓 Admissions：官方 program/admissions/faculty/registrar/financial-aid pages + Common Data Set／institutional research／FOI/ATI／Wayback；1Point3Acres + Reddit + College Confidential + The Student Room + school-specific communities 深挖 cohort、interview、exceptions、comparable profiles。呢條只係升學題目嘅候選 route，唔係全域預設。 |
 | 新聞/時事 | 📰 News：GDELT（curl 零 key）·google-trends·RSS curl（`curl FEED_URL` 直讀 XML）。⚠️ newsmcp 服務 2026-06 永久關閉 |
-| 社群最近傾乜 | 💬 Social：Reddit (`agent-chrome.py` primary · Arctic Shift zero-key archive · RSS slow fallback)·HN·Bluesky·Mastodon·Lemmy·last30days |
+| 社群嘅自己友資源／最近傾乜 | 💬 Social：Reddit (`agent-chrome.py` + Arctic Shift)·**1Point3Acres browser-session API（北美華人跨領域 knowledge commons：學校、transfer、課程、教授、past papers、考經、簽證、生活、求職；同 Reddit 等優先）**·Grapevine·Blind India·TakeUForward·RedBus2US·Yocket·Indian Reddit communities·HN·Bluesky·Mastodon·Lemmy·last30days |
 | dev/package | 📦 Dev：npm·PyPI·HuggingFace·libraries.io·GitHub GraphQL |
 | 政府/經濟/法律 | 🏛️⚖️ Gov/Legal：FRED✅·Census✅·OpenStates✅·CourtListener·Congress |
 | 公司/金融/制裁 | 🏢 Company：SEC·FMP✅·OpenSanctions✅·Finnhub |
@@ -74,16 +78,12 @@ If the user's question is about **an existing tool, product, or platform they al
 
 ---
 
-## Agent Model Selection
+## Execution Model
 
-**🚨 Default: launch ALL research agents with `model: "opus"`.** (Nicole's standing rule, 2026-05-30.)
-
-The research-engine philosophy is **資料質素 > token 成本** — "token cost is not the concern, data quality is". A research agent that mis-reads a source, gives up early, or fails to chain tools wastes the whole run no matter how cheap it was. Opus agents collect more thoroughly, recover from tool errors better, and notice when a source returned nothing (instead of silently reporting "found nothing"). That reliability is worth more than the token saving.
-
-- **Opus** — DEFAULT for every collect/search/extract agent. Use unless the user explicitly says to save tokens.
-- **Sonnet / Haiku** — only if the user explicitly opts into cheaper models for a trivial single-source lookup. Not the default.
-
-The pattern: **Opus collects → Opus (main thread) synthesizes.** Agents bring back raw data + citations; the main thread does cross-referencing, gap analysis, and final judgment.
+資料質素同 coverage 優先。預設由 main agent 完成 source reasoning、collection、verification 同
+synthesis。只有用戶明確要求 delegation／subagents／parallel agent work，先將互不重疊嘅 source
+lanes 分派出去；main thread 永遠保留 integration、contradiction checking 同最終判斷。唔可以
+因為冇開 subagent 而縮窄 source coverage。
 
 ---
 
@@ -345,6 +345,12 @@ Tools: mcp__chrome-devtools__navigate_page, evaluate_script, take_snapshot, clic
 #### Forum Selection Guide (which forums for which topics)
 ```
 Tech/Programming    → HN, Lobste.rs, StackExchange, Reddit r/programming, DEV.to, Discourse (OSS)
+North America Chinese schools/courses/exams/transfer/immigration/career/life → 1Point3Acres + Reddit; treat 1P3A as a cross-domain knowledge commons, not a job forum
+India workplace/comp/layoffs → Grapevine, Blind India, r/developersIndia
+India interviews    → TakeUForward interview experiences, LeetCode Discuss India, AmbitionBox
+India study abroad  → Yocket, r/Indians_StudyAbroad, r/Indian_Academia
+India schools/courses/exam resources → University Updates, Education Observer, GATEOverflow (GATE CSE PYQs), Doc Sansar, university-specific student communities; PaGaLGuY for MBA admissions/exams
+India diaspora immigration → RedBus2US Discourse JSON + official government primary sources
 Beauty/Skincare     → Reddit r/SkincareAddiction r/AsianBeauty, 小紅書, Dcard 美妝, PTT MakeUp/Beauty
 Health/Medical      → StackExchange Health, Reddit r/AskDocs, 知乎 醫學, acne.org (web scrape)
 HK/Cantonese        → LIHKG, Reddit r/HongKong
@@ -595,13 +601,34 @@ gh api search/repositories?q=... — advanced search
 
 ## General Mode Workflow
 
-**Architecture: Opus collects, Opus synthesizes.**
+**Architecture: LLM soft-routes, collects, verifies, and synthesizes.**
 
-The skill has three phases. Phase 1 (collection) is delegated to **Opus agents** (default). Phase 1.5 (verification) is one **Opus** agent that audits coverage. Phase 2 (synthesis) is done by you (Opus) in the main thread. NEVER do collection yourself — launch agents.
+Collection can run in the main thread or, only when the user asks, across bounded non-overlapping
+agents. The evidence contract stays the same in either execution mode.
 
-### Step 0: Source Selection — "執藥" (Opus, before launching agents)
+### Step 0: Source List — LLM reads the phonebook
 
-Like a pharmacist picking the right medicines for a patient, analyze the user's question and select which source clusters are relevant. Each source cluster = one agent.
+Analyze the complete question and list every website/source that may contain relevant or
+unexpected information. One query can use many overlapping clusters. The phonebook only stores
+capabilities and access recipes; it never selects or excludes a source.
+
+Read the community registry before forum work:
+
+```bash
+python3 ~/MyGithub/ai-research-engine/social-research.py source-list
+```
+
+This command prints the source phonebook: remembered capabilities and verified access routes. It does
+not rank or select sources. The LLM decides from the full question and must add entirely new sources
+when the substance warrants it.
+
+**Human-in-the-loop checkpoint — before searching:** show Nicole:
+
+1. `Proposed sources` — every source you plan to use, with one short reason each.
+2. `Not proposed / optional` — known but currently unused sources, especially plausible adjacent ones.
+
+Nicole can add, remove, or require any source. After research, the coverage ledger must show what was
+actually used and what remained unused, with `EMPTY`, `FAILED`, and `SKIPPED` kept distinct.
 
 **Available source clusters (the full pharmacy):**
 
@@ -619,7 +646,8 @@ Each source has an access type:
 | 3 | **Academic Papers** | 📦 paper-search (free) · 📦 arxiv-mcp (free) · 📦 semantic-scholar (free) · 📦 paper-distill (free) · 🟢 OpenAlex/DBLP/Crossref/DOAJ/Zenodo/arXiv API (all curl, zero key) · 🔑 CORE (free key) | Research, scientific topics |
 | 4 | **Citation & Impact** | 🟢 OpenCitations (curl, zero key) · 🟢 NIH iCite (curl, zero key) · 🟢 ORCID (curl, zero key) · 🟢 ROR (curl, zero key) · 🟢 OpenAIRE (curl, zero key) · 🟢 medRxiv (curl, zero key) · 🔑 Altmetric (free research key) | Research impact, key researchers |
 | 5 | **Patent & IP** | 🔑 USPTO PatentsView (free key) · 🔑 EPO OPS (free registration) · 🔑 Lens.org (free for research) · 🔑 Google Patents BigQuery (1TB/mo free) | Prior art, IP landscape |
-| 6 | **Discussion Forums** | **Reddit → `agent-chrome.py` primary for live logged-in search + full trees; Arctic Shift for zero-key archive/search; Reddit RSS only as 1 req/min fallback. NEVER raw curl reddit.com `.json` (403).** Other login-gated (小紅書/知乎/微博/LIHKG/PTT/Dcard) → `agent-chrome.py fetch` first, MCP only if the health report proves it is loaded in this cwd. curl OK only for deep zero-auth: 🟢 HN Algolia · 🟢 Lobste.rs · 🟢 Bluesky · 🟢 Mastodon · 🟢 Lemmy · 🟢 StackExchange · 🟢 DEV.to. MCPs: 📦 Discourse (official) · 📦 trend-pulse (37 sources) · 📦 Twitter (💰) | Community discussions, user experiences, sentiment — **USE FORUM DEEP DIVE AGENT TEMPLATE (has the HARD RULE)** |
+| 5A | **Admissions & Education Pathways** | **Current official program/admissions/faculty/registrar/financial-aid/international/refugee pages; calendars and application instructions; Common Data Set, institutional research, annual reports, FOI/ATI, Wayback archives; 1Point3Acres, Reddit, College Confidential, The Student Room, Yocket/Indian Academia, school communities, student newspapers, alumni/public-profile trail.** | Non-traditional, mature, interrupted-education, refugee/displaced, international transfer, alternative qualifications, missing records, waiver/exception, recent academic evidence, transfer credit, full aid |
+| 6 | **Discussion Forums & Community Resource Libraries** | **Reddit → `agent-chrome.py` + Arctic Shift. 1Point3Acres → `social-research.py onepoint-search/onepoint-thread` through first-party APIs; it is a cross-domain North-American Chinese knowledge commons for schools, admissions/transfer, course and professor reviews, syllabi, assignments, past papers/exam recollections, immigration, housing, daily life and careers—not merely a job/interview forum. Use it at equal priority with Reddit whenever the topic touches that community. Indian stack → sources chosen by function.** Other login-gated sites: first-party JSON/tRPC/GraphQL/Next-RSC inside Agent Chrome; DOM only as a bounded last resort. | Community-only knowledge, files, lived experience, sentiment — **USE FORUM DEEP DIVE TEMPLATE + API-FIRST RULE** |
 | 7 | **Trends & Predictions** | 📦 trendsmcp (100 free/mo) · 📦 google-trends-mcp (free) · 🟢 Polymarket Gamma API (curl, zero key) · 💰 ScrapeCreators TikTok/IG (100 free credits) | Trending topics, predictions |
 | 8 | **Video & Podcasts** | 📦 youtube-transcript (free) · 🔑 PodcastIndex (free key) · 🟢 iTunes API (curl, zero key) · 💰 Listen Notes (freemium) | Conference talks, expert opinions |
 | 9 | **Package Registries** | 🟢 npm/PyPI/crates.io/Packagist/RubyGems/Homebrew/Docker Hub/HuggingFace (all curl, zero key) · 🔑 libraries.io (free key) · 🟢 VS Code Marketplace (curl, unofficial) · 🟢 OSV.dev (curl, zero key) | Dev tool adoption, ecosystem data |
@@ -661,7 +689,7 @@ logged out → tell the user now, while it is still cheap to fix.
 
 - 🟢 FREE APIs → check the health report (some go dead/change without notice)
 - 🔧 CLI → check if installed: `which gh` etc.
-- 🌐 BROWSER → **Reddit and every login-gated forum go through `agent-chrome.py fetch` (Bash). Never raw curl. See the HARD RULE in the Forum Deep Dive Agent Template.**
+- 🌐 BROWSER → **Use Agent Chrome as the authenticated transport, but retrieve the site's first-party JSON/tRPC/GraphQL/Next-RSC payload whenever available. 1Point3Acres must use `social-research.py` API commands. DOM is a bounded fallback only; never run a broad scraper. Never raw Reddit curl.**
 - 📦 MCP → ⚠️ read the health report's **"MCP servers — WHICH ONES YOU ACTUALLY GET DEPENDS ON CWD"** table before instructing any agent to call `mcp__*`. `.mcp.json` is project-scoped: a session started in `~` sees only the user-global servers, NOT the 16 in `~/.claude/.mcp.json`. Telling an agent to call a tool that does not exist in its session is the single most common cause of a silently-skipped source. **When a Bash equivalent exists, prefer Bash** — it is cwd-independent and costs zero resident RAM.
 - 🔑 KEY → check if env var is set (`source ~/.config/research-engine/keys.env` first)
 - 💰 PAID → check if key exists AND note remaining quota if known
@@ -790,7 +818,7 @@ Default: **all collection agents run on `model: "opus"`** (standing rule — dat
 
 When the user's question involves community opinions, user experiences, reviews, or "what do people think about X", **ALWAYS launch a dedicated Forum Deep Dive Agent** using this template.
 
-> 🚨 **HARD RULE — Reddit and any login-gated forum go through the logged-in agent Chrome, via Bash. Never raw `curl .json`. Never skip it.**
+> 🚨 **HARD RULE — use the site's first-party API inside the logged-in Agent Chrome session. Prefer JSON/tRPC/GraphQL/Next-RSC network payloads; DOM extraction is only a bounded last resort, never a crawler. Never raw Reddit `curl .json`. Never skip a required forum.**
 >
 > Raw `curl` on `reddit.com/....json` returns **HTTP 403** from this machine (verified 2026-08-11, and re-verified by every `health-check.sh` run). Running the identical request *inside* a real logged-in Chrome tab returns 200 with the full comment tree, because it carries the profile's cookies and TLS fingerprint.
 >
@@ -803,7 +831,9 @@ When the user's question involves community opinions, user experiences, reviews,
 >
 > **⛔ Do NOT reach for `mcp__chrome-devtools__*` or `mcp__dialog-mcp__*` first.** Those are project-scoped MCP servers: `chrome-devtools` only loads when Claude's cwd is `~/.claude`, and `dialog-mcp` is not configured at all. A default session started in `~` has neither. That mismatch is exactly why forum research kept coming back empty — the agent tried a tool that did not exist, got nothing, and moved on.
 >
-> - **Login-gated forums (小紅書, 知乎, 微博, LIHKG, PTT, Dcard, Quora, LinkedIn) → same `agent-chrome.py fetch` pattern**, pointed at that site's own JSON endpoint. Check the session first with `agent-chrome.py login-check <url>`.
+> - **1Point3Acres → API route only, cross-domain coverage:** `python3 ~/MyGithub/ai-research-engine/social-research.py onepoint-search 'QUERY_IN_SIMPLIFIED_CHINESE' --limit 40`, then `onepoint-thread THREAD_ID --max-replies 100`. Do not reduce it to job/interview research. For schools and courses, search exact school name + abbreviation + course code + professor, across `选校/定位/录取/拒信/转学/先修课/转学分/学分转换/课程匹配/选课/教授/难度/给分/作业/syllabus/真题/往年题/历年卷/题库/考经/回忆题/past paper/midterm/final`, plus career and immigration terms as relevant. **Run those as separate query families and merge/deduplicate results; never concatenate school, course, professor, exam-resource, career and visa terms into one hybrid query.** Open full threads, replies and attachment metadata; title-only search is incomplete. Report to Nicole in Hong Kong Cantonese/Traditional Chinese, preserving direct quotations.
+> - **Indian stack → route by function:** Grapevine + Blind India for workplace/comp; TakeUForward + LeetCode Discuss India + AmbitionBox for interviews; Yocket + Indian-study subreddits for admissions; University Updates + Education Observer + university-specific communities for school/course material; GATEOverflow + Doc Sansar for PYQs/exam resources; PaGaLGuY for MBA admissions/exams; RedBus2US Discourse JSON for diaspora immigration. No single source is a complete Indian equivalent of 1Point3Acres. Grapevine has API-only commands: `social-research.py grapevine-search 'QUERY' --limit 40` and `grapevine-thread POST_UUID_OR_URL --max-comments 100`. Prefer each site's API or Next/RSC payload. Use at least two source types for consequential conclusions.
+> - **Other login-gated forums** → use the site's own JSON/tRPC/GraphQL/Next-RSC endpoint inside Agent Chrome. Check the session first. DOM extraction is a last resort, not the normal collection loop.
 > - **`curl` is allowed ONLY for genuinely deep zero-auth APIs:** HN Algolia (full-text all history), Lobste.rs `.json`, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to. These are not rate-starved and return real depth.
 > - **An empty response is a DEAD TOOL, not a finding.** Before relying on any source, confirm you actually got data. If a tool failed, say "tool X failed with <error>" — never report its silence as "nothing found on this topic".
 
@@ -823,7 +853,7 @@ DISPLAY=:0 setsid /usr/bin/google-chrome --remote-debugging-port=9223 \
   --no-default-browser-check --restore-last-session=false >/tmp/agent-chrome.log 2>&1 &
 ```
 
-If `login-check` says `out` for a site the research needs, **stop and tell the user to log in** in that Chrome window (the session persists afterwards). Do not silently downgrade to logged-out scraping and present the thin result as the answer.
+If 1Point3Acres is logged out, reuse the Google session already present in Agent Chrome and complete its Google sign-in automatically, then retry the API. Only pause for Nicole if Google presents CAPTCHA, MFA, an account-choice ambiguity, or a user-only approval. For other sites, retry their normal persisted-session login when safe. Never silently downgrade to logged-out scraping.
 
 **Agent prompt template (copy and customize {TOPIC}, {SUBREDDITS}, {FORUMS}):**
 
