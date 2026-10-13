@@ -120,19 +120,22 @@ retrieval is the current operational signal:
 
 - Relevant data returned → `MATERIAL`
 - Successful response with no relevant result → `EMPTY`
-- Endpoint, authentication or parser failure → `FAILED`; report it and continue
+- Endpoint, authentication or parser failure → `FAILED`; report it, set the source
+  aside for this question, and continue
 
-Use the health checker later for maintenance and diagnosis:
+Use external-source health probes only in a later batched maintenance pass:
 - Whether the local registry, CLI and Agent Chrome transport work
 - Whether each selected community adapter returns real data
 - Whether credentials or a logged-in session are required
 - Whether a selected endpoint is healthy, empty, skipped or failed
 
-Run quick mode after engine changes, `--source` after a real retrieval failure to
-reproduce and diagnose it, `--community` for a periodic community audit, and `--full`
-for an explicit broad maintenance audit. This keeps ordinary research fast and prevents
-routine work from spending limited credits. If a selected route is unavailable, the
-coverage ledger says so instead of treating its silence as evidence.
+Quick mode is a local regression check after engine changes; it does not probe the
+broad/keyed source inventory. During periodic maintenance, use `--source` to
+reproduce failures collected in the ledger, `--community` for a community audit, and
+`--full` for an explicit broad audit. Do not interrupt the live research run to diagnose
+or repair a failed source. This keeps ordinary research fast and prevents routine work
+from spending limited credits. If a selected route is unavailable, the coverage ledger
+says so instead of treating its silence as evidence.
 
 ## Execution Model
 
@@ -174,7 +177,7 @@ skills/deep-research/
 # Fast local check: registry, CLIs and Agent Chrome transport. No broad API sweep.
 bash health-check.sh
 
-# After a real retrieval failure, reproduce and diagnose only that source.
+# During a later maintenance pass, reproduce failures collected in the ledger.
 bash health-check.sh --source reddit --source onepoint3acres
 
 # Periodic community-route audit (no keyed or broad API inventory).

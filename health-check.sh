@@ -32,7 +32,7 @@ Usage: bash health-check.sh [--quick | --community | --full] [--source ID ...]
 
   --quick       Local regression after engine changes: registry, CLI and Chrome transport (default).
   --community   Probe every source in community-sources.json, but no paid/keyed inventory.
-  --source ID   Reproduce/diagnose a named source after real retrieval failed; repeatable.
+  --source ID   During later maintenance, reproduce a failed source from the ledger; repeatable.
   --full        Comprehensive inventory plus every community source and keyed API.
 
 `--full` can consume limited API/MCP quota; run it only as an explicit maintenance audit.
@@ -740,7 +740,7 @@ REPORT_TMP=$(mktemp "$REPORT_DIR/.health-check-report.success.XXXXXX")
   else
     echo "> Result: **HEALTHY**"
   fi
-  echo "> Point-in-time maintenance snapshot, not a pre-search allowlist. Use \`--source\` only after a real retrieval failure, to reproduce and diagnose it."
+  echo "> Point-in-time maintenance snapshot, not a pre-search allowlist. Use \`--source\` in a later maintenance pass to reproduce failures collected in the ledger."
   echo "> Generated: $(date -u '+%Y-%m-%d %H:%M UTC')"
   echo "> Mode: $MODE"
   if [[ ${#SELECTED_SOURCES[@]} -gt 0 ]]; then

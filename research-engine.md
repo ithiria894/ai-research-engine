@@ -29,7 +29,7 @@
 
 ```bash
 bash health-check.sh                                      # quick：local/registry/CLI/CDP
-bash health-check.sh --source reddit --source onepoint3acres  # 真實 retrieval 失敗後重現／診斷
+bash health-check.sh --source reddit --source onepoint3acres  # 之後 maintenance 批次重現 ledger failures
 bash health-check.sh --community                         # 定期驗全 community registry
 bash health-check.sh --full                              # 維護用全量 audit；會用 keyed/MCP quota
 ```
@@ -37,9 +37,10 @@ bash health-check.sh --full                              # 維護用全量 audit
 普通研究唔跑 health check，亦唔用舊 health report 做 gate；直接做 selected source 嘅真實
 retrieval。攞到 relevant data = `MATERIAL`；HTTP/API 成功但冇 relevant result = `EMPTY`；
 endpoint／auth／parser 壞 = `FAILED`，今次 ledger 如實報告並繼續其他 source，之後先維修。
-改完 engine 跑 quick；真實 retrieval 失敗後先用 repeatable `--source` 重現／診斷；
-`--community`／`--full` 隔一段時間手動維護。`--full` 唔係每個 session 嘅前置步驟，亦
-唔可以喺冇需要時消耗 limited credits。
+`EMPTY` 同 `FAILED` 都只係今次放低個 source；唔中斷正式 research 去即場診斷或維修。
+改完 engine 跑 quick；隔一段時間先將 ledger 累積嘅 failures 用 repeatable `--source`
+批次重現，或者手動跑 `--community`／`--full` 維護。`--full` 唔係每個 session 嘅前置
+步驟，亦唔可以喺冇需要時消耗 limited credits。
 報告 atomic 寫入；途中 timeout／interrupt 會明確寫 `INTERRUPTED / FAILED`，唔會保留舊成功
 報告扮今次已完成。外部 source 冇結果要分清 `EMPTY`、`FAILED` 同 `SKIPPED`。
 

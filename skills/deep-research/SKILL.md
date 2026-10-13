@@ -74,7 +74,7 @@ fetch。
 | 科學/健康/化學 | 🔬 Science：ClinicalTrials·PubChem·GBIF·openFDA·WHO |
 | **韓國醫美/整容/疤痕修復** | 🏥 K-Beauty Med：見下方「韓國醫美 Research Cluster」 |
 
-> ✅ = 已有 API key（存 `~/.config/research-engine/keys.env`，`source` 佢再 curl）。真實 retrieval 失敗後，可用 `health-check.sh --source ID` 重現同診斷。
+> ✅ = 已有 API key（存 `~/.config/research-engine/keys.env`，`source` 佢再 curl）。真實 retrieval 失敗只記入 ledger；隔一段時間 maintenance 先用 `health-check.sh --source ID` 批次重現同診斷。
 
 ---
 
@@ -671,7 +671,7 @@ Each source has an access type:
 # Local engine/registry/CLI/CDP transport only. No broad external inventory.
 bash ~/MyGithub/ai-research-engine/health-check.sh
 
-# Reproduce and diagnose a route only after real retrieval has failed.
+# During a later maintenance pass, reproduce failures collected in the ledger.
 bash ~/MyGithub/ai-research-engine/health-check.sh \
   --source reddit --source onepoint3acres --source college-confidential
 
@@ -684,11 +684,13 @@ Do not run or consult a health check as a gate before ordinary research. Read th
 registry and execute the selected source's real search immediately; that retrieval is
 the only current operational evidence. A response with relevant data is `MATERIAL`; a
 successful response with no relevant result is `EMPTY`; an endpoint, authentication or
-parser error is `FAILED`. Report the failure in the coverage ledger and continue with
-the remaining sources. Use `--source` afterwards only to reproduce/diagnose that
-failure. Run quick mode after engine changes, `--community` for a manual periodic audit,
-and `--full` only for a manual comprehensive maintenance audit. `--full` also hits the
-broad zero-key inventory and real keyed/MCP endpoints.
+parser error is `FAILED`. Use `MATERIAL`; set `EMPTY` aside for this question; report
+`FAILED`, set that source aside for the current run, and continue with the remaining
+sources. Do not interrupt live research to diagnose or repair it. During a later batched
+maintenance pass, use `--source` to reproduce failures accumulated in the ledger. Run
+quick mode after engine changes, `--community` for a manual periodic audit, and `--full`
+only for a manual comprehensive maintenance audit. `--full` also hits the broad
+zero-key inventory and real keyed/MCP endpoints.
 The script writes
 `~/MyGithub/ai-research-engine/health-check-report.md` atomically. An interrupted run
 marks the report **INTERRUPTED / FAILED**, so an older success cannot masquerade as the
@@ -698,16 +700,16 @@ When a check is run, read the applicable rows. A failed endpoint that returns no
 NOT evidence of "nothing found"; record it as `FAILED`. A source that was not selected
 or probed is `UNUSED`/`SKIPPED`, not healthy by assumption.
 
-**If an actual browser retrieval fails, diagnose the session afterwards:**
+**During a later maintenance pass, diagnose accumulated browser failures:**
 
 ```bash
 agent-chrome.py status                                  # Chrome up? which sites have cookies?
 agent-chrome.py login-check https://www.reddit.com/     # exit 0 = logged in
 ```
 
-Do this yourself in the main thread after the actual retrieval fails. If Chrome is down
-→ start it. If a needed site is
-logged out → tell the user now, while it is still cheap to fix.
+Do not run these commands inside the live research run. Record the retrieval as `FAILED`,
+continue with the other selected sources, and use these commands when the accumulated
+failure ledger is handled in a later maintenance pass.
 
 **Step 2 — execute the selected routes directly:**
 
@@ -863,7 +865,7 @@ agent prompt.
 > - **Indian stack → route by function:** Grapevine + Blind India for workplace/comp; TakeUForward + LeetCode Discuss India + AmbitionBox for interviews; Yocket + Indian-study subreddits for admissions; University Updates + Education Observer + university-specific communities for school/course material; GATEOverflow + Doc Sansar for PYQs/exam resources; PaGaLGuY for MBA admissions/exams; RedBus2US Discourse JSON for diaspora immigration. No single source is a complete Indian equivalent of 1Point3Acres. Grapevine has API-only commands: `social-research.py grapevine-search 'QUERY' --limit 40` and `grapevine-thread POST_UUID_OR_URL --max-comments 100`. Prefer each site's API or Next/RSC payload. Use at least two source types for consequential conclusions.
 > - **Other login-gated forums** → use the site's own JSON/tRPC/GraphQL/Next-RSC endpoint inside Agent Chrome. Check the session first. DOM extraction is a last resort, not the normal collection loop.
 > - **`curl` is allowed ONLY for genuinely deep zero-auth APIs:** HN Algolia (full-text all history), Lobste.rs `.json`, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to. These are not rate-starved and return real depth.
-> - **An empty response is a DEAD TOOL, not a finding.** Before relying on any source, confirm you actually got data. If a tool failed, say "tool X failed with <error>" — never report its silence as "nothing found on this topic".
+> - **Separate `EMPTY` from `FAILED`.** A successful query with no relevant result is `EMPTY`; an endpoint/auth/parser error is `FAILED`. If a tool failed, say "tool X failed with <error>" and set it aside for this run—never report its silence as "nothing found on this topic".
 
 **Browser session — the 3 commands you need**
 
@@ -1440,7 +1442,7 @@ Save findings to `OUTPUT_DIR/[product]-[date].md`.
 
 ## Rules
 
-0. **No health-check gate** — never run or consult a health check before an ordinary search. Execute the selected source directly. Data = `MATERIAL`; a successful empty response = `EMPTY`; endpoint/auth/parser failure = `FAILED` and must be reported. Use `--source ID` only afterwards to diagnose a real failure; `--community`/`--full` are manual maintenance. A failed endpoint's silence is never "found nothing".
+0. **No health-check gate or in-run repair** — never run or consult a health check before an ordinary search. Execute the selected source directly. Use `MATERIAL`; set `EMPTY` aside for that question; report `FAILED`, set the source aside for that run, and continue. Do not run `--source ID` inside live research. Reproduce accumulated failures later during batched maintenance; `--community`/`--full` are also manual maintenance. A failed endpoint's silence is never "found nothing".
 1. **Read research-engine.md FIRST** — every time, no exceptions
 1b. **🚨 FORUMS = `agent-chrome.py` OR VERIFIED ZERO-AUTH API, NEVER RAW REDDIT CURL.** Reddit live research MUST use `agent-chrome.py fetch` through the logged-in browser session for search + FULL comment trees. Arctic Shift is the zero-key Reddit archive/search fallback and cross-check. MCPs are allowed only when the tool is actually visible in the current harness. Raw `curl reddit.com/*.json` is 403/surface-starved here and must not be reported as absence. `curl` is allowed for genuinely deep zero-auth APIs (Arctic Shift, HN Algolia, Lobste.rs, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to). Fetch FULL comment trees, not just titles.
 2. **Use every selected relevant free source** — source selection is broad and LLM-led, but do not query unrelated sources merely because they exist in the inventory.

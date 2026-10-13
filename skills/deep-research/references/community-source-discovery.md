@@ -63,8 +63,10 @@ For each source:
 
 Classify the attempt immediately: relevant evidence is `MATERIAL`; a successful route
 with no relevant evidence is `EMPTY`; endpoint, authentication or parser failure is
-`FAILED`. Report `FAILED` and continue with other selected sources. Reproduce and repair
-the route afterwards rather than spending an extra pre-search request on every source.
+`FAILED`. Use `MATERIAL`; set `EMPTY` aside for this question; report `FAILED`, set the
+source aside for the current run, and continue with other selected sources. Do not stop
+live research to run a diagnostic request. Reproduce accumulated failures together in a
+later maintenance pass.
 
 Never put a password, token, cookie, recovery code, or secret in the repository or tool
 output. Never export browser cookies.
