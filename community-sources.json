@@ -160,8 +160,8 @@
       "source_kinds": ["community", "discussion", "workplace"],
       "routing_keywords": ["grapevine", "india tech", "salary", "compensation", "layoff", "company culture", "interview"],
       "access": {
-        "read": "public_first_party_api",
-        "search": "public_first_party_api",
+        "read": "browser_origin_public_api",
+        "search": "browser_origin_public_api",
         "account": "not_required",
         "registration_status": "pending_google_account_selection",
         "credential_ref": null,
@@ -189,8 +189,8 @@
       "source_kinds": ["community", "discussion", "workplace"],
       "routing_keywords": ["blind", "salary", "total compensation", "layoff", "company culture", "interview", "offer"],
       "access": {
-        "read": "public_page_with_optional_gated_depth",
-        "search": "public_page_with_optional_gated_depth",
+        "read": "authenticated_browser_page; structured adapter_not_yet_pinned",
+        "search": "web_discovery_or_authenticated_browser; structured adapter_not_yet_pinned",
         "account": "verified_work_email_account",
         "registration_status": "registered_and_verified_2026-10-13",
         "credential_ref": "gopass://research-engine/community/blind",
@@ -203,8 +203,8 @@
       },
       "verification": {
         "date": "2026-10-13",
-        "status": "working",
-        "evidence": "Cloudflare Email Routing delivered Blind's work-email code to the verified personal destination; account creation and authenticated web access succeeded."
+        "status": "conditional",
+        "evidence": "Cloudflare Email Routing delivered Blind's work-email code to the verified personal destination; account creation and authenticated web access succeeded. A stable structured search/thread adapter is not yet pinned, so authenticated access must not be reported as full retrieval coverage."
       },
       "bias_notes": "Verified-employer and tech-worker skew; useful for workplace leads and experiences, not workforce-wide rates."
     },

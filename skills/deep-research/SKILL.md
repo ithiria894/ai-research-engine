@@ -74,7 +74,7 @@ fetch。
 | 科學/健康/化學 | 🔬 Science：ClinicalTrials·PubChem·GBIF·openFDA·WHO |
 | **韓國醫美/整容/疤痕修復** | 🏥 K-Beauty Med：見下方「韓國醫美 Research Cluster」 |
 
-> ✅ = 已有 API key（存 `~/.config/research-engine/keys.env`，`source` 佢再 curl）。跑前可 `bash ~/MyGithub/ai-research-engine/health-check.sh` 確認 source 生死。
+> ✅ = 已有 API key（存 `~/.config/research-engine/keys.env`，`source` 佢再 curl）。Route 過期、改版或失敗時，可用 `health-check.sh --source ID` 診斷。
 
 ---
 
@@ -668,26 +668,47 @@ Each source has an access type:
 | 19 | **Blockchain & On-chain Data** | 🟢 DeFiLlama (curl, zero key) · 🟢 DexScreener (curl, zero key) · 🟢 GeckoTerminal (curl, zero key) · 🟢 CoinGecko (curl, zero key) · 🟢 Polymarket Gamma/Data/CLOB (curl, zero key) · 🔑 Etherscan V2 multichain (free key, 50+ chains) · 🔑 Dune Analytics API (free tier) · 🔑 Bitquery GraphQL (free tier) · 🟢 The Graph subgraphs (GraphQL) · 🟢 mempool.space (curl, zero key) · 🟢 Solana RPC/Solscan (curl) · 💰 Nansen/Arkham (paid, smart-money labels) | Crypto/DeFi/NFT, wallet & token analytics, prediction markets, on-chain flows, smart-money/insider tracking, DEX trades |
 | 20 | **GEO / AI Answer-Engine Visibility** | 🟢 Context7 submit (free) · 🟢 GitMCP gitmcp.io (free) · 🟢 LangChain mcpdoc (free) · 🟢 Cloudflare AI Analytics (free) · 🟢 Dark Visitors (freemium) · 🔑 Perplexity Sonar API (probe what AI says) · 🔑 SerpApi / DataForSEO / SearchAPI.io (Google AI Overview extraction, free tier) · 🟡 free-tier visibility trackers: Rankscale / Knowatoa / Trakkr / AIVO / Radarkit · 💰 Profound / Otterly / Peec / Scrunch (paid SOV trackers) · 🟢 Mintlify / Fern (auto llms.txt + MCP, free Hobby) | "Will AI engines / coding agents discover + recommend + correctly use my product/package?" GEO/AEO, llms.txt/MCP discoverability, AI citation share-of-voice. See research-engine.md **Round 11** for the evidence (llms.txt ≈ 0 for AI search but useful for coding agents; docs-MCP > llms.txt; Reddit dominates AI citations; Context7 submit = zero-effort win). |
 
-### Pre-flight Check: "Research Engine Status"
+### Manual Health Check: "Research Engine Status"
 
-**Step 1 — Run the health check (MANDATORY before any research session):**
+**Health checks are manual maintenance and diagnostics, not a per-question prerequisite:**
 
 ```bash
+# Local engine/registry/CLI/CDP transport only. No broad external inventory.
 bash ~/MyGithub/ai-research-engine/health-check.sh
+
+# Diagnose a stale, changed or failing route; repeat --source when needed.
+bash ~/MyGithub/ai-research-engine/health-check.sh \
+  --source reddit --source onepoint3acres --source college-confidential
+
+# Maintenance modes, not the ordinary per-question default:
+bash ~/MyGithub/ai-research-engine/health-check.sh --community
+bash ~/MyGithub/ai-research-engine/health-check.sh --full
 ```
 
-This pings every zero-key free API, CLI, and lists connected MCP servers, then writes `~/MyGithub/ai-research-engine/health-check-report.md` with ✅/⚠️/❌ per source. **Read that report. Only hand agents ✅ sources.** A ❌ endpoint that returns nothing is NOT evidence of "nothing found" — it's a dead tool, and citing its silence as a finding is a research defect. (If the report is fresh — generated today — you can reuse it instead of re-running.)
+Do not automatically run any health check before ordinary research. Read the registry
+and the most recent maintenance report, then execute the selected source's real search;
+that retrieval is itself the current operational evidence. Run quick mode after engine
+changes, `--source` when a route is stale, changed or failing, `--community` for a manual
+periodic community audit, and `--full` only for a manual comprehensive maintenance
+audit. `--full` also hits the broad zero-key inventory and real keyed/MCP endpoints.
+The script writes
+`~/MyGithub/ai-research-engine/health-check-report.md` atomically. An interrupted run
+marks the report **INTERRUPTED / FAILED**, so an older success cannot masquerade as the
+current result.
 
-**Step 1b — if any forum/social cluster is selected, probe the browser session NOW (before launching agents):**
+When a check is run, read the applicable rows. A failed endpoint that returns nothing is
+NOT evidence of "nothing found"; record it as `FAILED`. A source that was not selected
+or probed is `UNUSED`/`SKIPPED`, not healthy by assumption.
+
+**If a selected browser route is stale or fails, diagnose the session:**
 
 ```bash
 agent-chrome.py status                                  # Chrome up? which sites have cookies?
 agent-chrome.py login-check https://www.reddit.com/     # exit 0 = logged in
 ```
 
-Do this yourself, in the main thread, *before* the agents launch. Ten seconds here
-prevents ten agents from each independently discovering the browser is down and
-quietly returning "found nothing". If Chrome is down → start it. If a needed site is
+Do this yourself in the main thread when the existing verification is stale or the
+actual retrieval fails. If Chrome is down → start it. If a needed site is
 logged out → tell the user now, while it is still cheap to fix.
 
 **Step 2 — confirm what's available for the selected clusters:**
@@ -702,7 +723,7 @@ logged out → tell the user now, while it is still cheap to fix.
 **Then in your Step 0 presentation, flag any issues:**
 
 ```
-I'll search these sources (10 agents in parallel):
+I'll search these sources:
 
 **Does this already exist?**
 ✅ Code & Libraries — GitHub repos, npm/PyPI packages
@@ -796,7 +817,7 @@ Here's what I need to find out, and where I'll look:
 ⬚ Knowledge Graph
 ⬚ Books & Archives
 
-That's 9 definite + 3 maybe agents. Want me to include the maybes too?
+That's 9 definite + 3 optional source groups. Want me to include the optional ones too?
 
 Options:
 (a) Go with everything (install missing tools first)
@@ -813,15 +834,19 @@ Options:
 
 **Option (b) is important** — some users want results NOW without installing anything. The engine should gracefully degrade: use whatever free curl APIs are available in each cluster, skip MCP-only sources that aren't installed, and note in the final report which sources were skipped and what coverage was lost.
 
-**Only after user confirms sources, launch the agents.**
-
-Default: **all collection agents run on `model: "opus"`** (standing rule — data quality > token cost). Don't ask which model; just use Opus. Only drop to Sonnet/Haiku if the user explicitly says to save tokens. Then Opus (main thread) synthesizes.
+**Only after the user confirms sources, proceed to collection.** The main agent performs
+collection by default. Use sub-agents only when Nicole explicitly requests delegation;
+then give each one a bounded, non-overlapping source lane and keep integration in the
+main thread.
 
 **Then proceed to Phase 1.**
 
-### Forum Deep Dive Agent Template (MANDATORY when Cluster 6 is selected)
+### Forum Deep Dive Collection Template
 
-When the user's question involves community opinions, user experiences, reviews, or "what do people think about X", **ALWAYS launch a dedicated Forum Deep Dive Agent** using this template.
+When the user's question involves community opinions, user experiences, reviews, or
+"what do people think about X", apply this collection contract in the main thread. If
+Nicole explicitly requests delegation, the same text can be used as a bounded forum
+agent prompt.
 
 > 🚨 **HARD RULE — use the site's first-party API inside the logged-in Agent Chrome session. Prefer JSON/tRPC/GraphQL/Next-RSC network payloads; DOM extraction is only a bounded last resort, never a crawler. Never raw Reddit `curl .json`. Never skip a required forum.**
 >
@@ -860,7 +885,7 @@ DISPLAY=:0 setsid /usr/bin/google-chrome --remote-debugging-port=9223 \
 
 If 1Point3Acres is logged out, reuse the Google session already present in Agent Chrome and complete its Google sign-in automatically, then retry the API. Only pause for Nicole if Google presents CAPTCHA, MFA, an account-choice ambiguity, or a user-only approval. For other sites, retry their normal persisted-session login when safe. Never silently downgrade to logged-out scraping.
 
-**Agent prompt template (copy and customize {TOPIC}, {SUBREDDITS}, {FORUMS}):**
+**Optional delegated-agent prompt (only after Nicole explicitly asks for sub-agents):**
 
 ```
 You are a Forum Research Agent. Search ALL of these discussion forums for: {TOPIC}
@@ -1036,13 +1061,15 @@ Report in the user's language. Cite every finding with source URL.
 - Gaming → Reddit, Discord, 巴哈姆特
 - Startups → HN, Product Hunt, IndieHackers
 
-### Phase 1: Collection (Opus agents, background)
+### Phase 1: Collection (main agent by default)
 
-#### Step 1: Launch Agents
+#### Step 1: Retrieve from the confirmed sources
 
-For each confirmed source cluster, launch ONE agent at the confirmed model. Launch ALL in ONE message with `run_in_background: true`.
+The main agent runs every selected source recipe, batching safe independent requests
+where possible. Keep one source-coverage ledger across the task so repeated query
+families, retries and exclusions are traceable and deduplicated.
 
-Each agent's prompt MUST include:
+Every collection lane MUST:
 - The specific tools/APIs from its cluster (copy from the table above)
 - "Report raw findings with URLs. Do NOT synthesize or draw conclusions."
 - "Use tables and structured formats. Paste key quotes directly."
@@ -1050,17 +1077,21 @@ Each agent's prompt MUST include:
 - 🚨 **"START your report with a SOURCE COVERAGE LEDGER: one row per source you attempted, with the exact command, and status ✅ GOT DATA (with counts) / ⬜ EMPTY (200 but no results) / ❌ FAILED (paste the real error) / ⏭️ SKIPPED (say why). Never report a ❌ as a ⬜ — a broken tool is not evidence that nothing exists. If you could not run something, say so plainly rather than omitting the row."** — without this, the orchestrator cannot tell coverage from silence, and the final report will overstate how much of the web was actually searched.
 - "At the END of your report, add a CONFIDENCE section: rate your confidence 1-5 that you found comprehensive data, and list any GAPS — topics you searched for but found little/nothing on."
 
-Agents return RAW DATA — lists of papers, URLs, quotes, numbers. Not analysis. Plus a confidence rating + gap list for the verification step.
+Collection first returns RAW DATA — lists of papers, URLs, quotes and numbers — plus a
+confidence rating and gap list. Synthesis comes later.
 
 **Content Extraction (second wave):**
-After first wave returns, if specific URLs need deep-diving, launch additional agents: Tavily Extract + Exa Crawl + Firecrawl Scrape.
+After the first wave, deepen specific URLs with an appropriate extractor. Paid or
+limited extractors still require Nicole's approval.
 
-#### Step 3: Wait for all agents to complete
-Do not proceed until all background agents have returned.
+If Nicole explicitly requested delegation, give each sub-agent a bounded,
+non-overlapping source lane and wait for all requested lanes. Otherwise no sub-agent is
+needed.
 
-### Phase 1.5: Verification (Opus, BEFORE synthesis — Round 9 新增)
+### Phase 1.5: Verification (main agent, BEFORE synthesis)
 
-After ALL Phase 1 agents return, launch ONE Opus verification agent with ALL agent results:
+After collection, the main agent verifies coverage, contradictions, source authority
+and gaps. If Nicole explicitly requested a separate verifier, use this prompt:
 
 ```
 Verification Agent prompt:
@@ -1084,17 +1115,21 @@ Output a structured JSON:
 "
 ```
 
-**If coverage_score < 3**: Launch follow-up agents targeting the gaps before synthesis.
+**If coverage_score < 3**: run targeted follow-up searches before synthesis. Use
+follow-up agents only when Nicole requested delegation.
 **If contradictions found**: Flag them explicitly in the final report — never silently merge conflicting claims.
 
 > This step is based on VMAO (ICLR 2026) which improved answer completeness from 3.1 → 4.2/5.
 
-### Phase 2: Synthesis (Opus, main thread — NEVER delegate this)
+### Phase 2: Synthesis (main thread — never delegate this)
 
-**Tell the user:** "All agents returned. I'm now reading and cross-referencing everything myself (Opus). This is the part where cheap models won't cut it — synthesis needs the best model."
+Tell Nicole that collection is complete and that the evidence is now being
+cross-referenced. Do not claim that agents were used when collection stayed in the main
+thread.
 
 #### Step 4: Cross-Reference and Synthesize
-YOU (Opus) do this — NEVER delegate synthesis to a collection agent. Read all agent results yourself and:
+The main agent does this. Never delegate synthesis to a collection agent. Read all
+retrieved evidence yourself and:
 - Compare findings across sources
 - Flag contradictions
 - Identify consensus vs outlier opinions
@@ -1245,11 +1280,13 @@ idea-reality-mcp: scan GitHub + HN + npm + PyPI + PH
 → Reality score > 70 = pivot or differentiate
 ```
 
-### Step 3: Phase 1 — Broad Scan (parallel agents, ALL FREE TOOLS)
+### Step 3: Phase 1 — Broad Scan (selected relevant free tools)
 
 > ⚠️ Free tools first. After Phase 1, ask user: "免費搵到 X 個結果，需唔需要用 paid tools 再深入？"
 
-Launch ALL agents in ONE message with `model: "opus"` and `run_in_background: true`.
+Run the relevant lanes in the main thread, batching independent requests. If Nicole
+explicitly requested delegation, the lanes below are bounded non-overlapping agent
+scopes.
 
 #### Agent A: Direct Competitors — FREE
 ```
@@ -1331,9 +1368,12 @@ Launch ALL agents in ONE message with `model: "opus"` and `run_in_background: tr
 
 ### Step 3.5: Verification (same as General Mode Phase 1.5)
 
-After ALL agents return, launch ONE Opus verification agent to check coverage + contradictions. See the **Phase 1.5: Verification** section above for the full prompt.
+After collection, the main agent checks coverage and contradictions using the Phase
+1.5 contract above. Use a separate verification agent only when Nicole explicitly
+requested delegation.
 
-If coverage_score < 3 or major gaps found, launch follow-up agents before proceeding.
+If coverage_score < 3 or major gaps remain, run focused follow-up searches before
+proceeding.
 
 ### Step 4: Phase 2 — Paid Deep Dive (ONLY if Phase 1 insufficient)
 
@@ -1402,12 +1442,12 @@ Save findings to `OUTPUT_DIR/[product]-[date].md`.
 
 ## Rules
 
-0. **Run the health check FIRST** — `bash ~/MyGithub/ai-research-engine/health-check.sh`, read the report, only use ✅ sources. A dead endpoint's silence is never "found nothing".
+0. **Do not run health checks automatically for every question** — use the real selected-source retrieval as the live signal. Run quick mode after engine changes, `--source ID` to diagnose stale/changed/failing routes, and `--community`/`--full` only as manual periodic maintenance. A failed endpoint's silence is never "found nothing".
 1. **Read research-engine.md FIRST** — every time, no exceptions
 1b. **🚨 FORUMS = `agent-chrome.py` OR VERIFIED ZERO-AUTH API, NEVER RAW REDDIT CURL.** Reddit live research MUST use `agent-chrome.py fetch` through the logged-in browser session for search + FULL comment trees. Arctic Shift is the zero-key Reddit archive/search fallback and cross-check. MCPs are allowed only when the health report proves they are loaded in the current cwd. Raw `curl reddit.com/*.json` is 403/surface-starved here and must not be reported as absence. `curl` is allowed for genuinely deep zero-auth APIs (Arctic Shift, HN Algolia, Lobste.rs, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to). Fetch FULL comment trees, not just titles.
-2. **Use ALL available FREE tools** — don't just use one source. Parallel everything.
-3. **Parallel execution** — launch multiple searches simultaneously
-3b. **Sub-agents MUST execute immediately** — when launching sub-agents for data collection, their prompts MUST include "You MUST use tools. Do NOT plan or ask for confirmation. Execute immediately." Sub-agents cannot see the user, so they must never wait for confirmation. Any agent that plans without executing is wasting tokens and time. The Step 0 confirmation workflow is for the MAIN THREAD only, never for sub-agents.
+2. **Use every selected relevant free source** — source selection is broad and LLM-led, but do not query unrelated sources merely because they exist in the inventory.
+3. **Parallelize safe independent requests** — batching reduces round trips; it does not reduce breadth or evidence quality.
+3b. **Delegation is opt-in** — use sub-agents only when Nicole explicitly requests them. Give each a bounded, non-overlapping scope and the shared ledger so they do not repeat searches.
 4. **🚨 FREE TOOLS ONLY BY DEFAULT** — NEVER use paid/limited tools without asking first:
    - After free phase, ASK: "Found X results from free sources. Want to use paid/limited APIs for deeper coverage? (Tavily Research, Exa, Firecrawl, Twitter, ScrapeCreators)"
    - If user says NO → go straight to synthesis with free results
