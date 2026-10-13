@@ -114,19 +114,25 @@ Option (b) is designed for users who want results immediately. The engine degrad
 
 ## Health Check
 
-Health checking is not an automatic prerequisite for every research question. The
-actual selected-source retrieval is the current operational signal. Use the health
-checker manually to verify:
+Health checking is never a gate before an ordinary research question. Do not run it or
+consult an old report before deciding whether to search a selected source. The actual
+retrieval is the current operational signal:
+
+- Relevant data returned → `MATERIAL`
+- Successful response with no relevant result → `EMPTY`
+- Endpoint, authentication or parser failure → `FAILED`; report it and continue
+
+Use the health checker later for maintenance and diagnosis:
 - Whether the local registry, CLI and Agent Chrome transport work
 - Whether each selected community adapter returns real data
 - Whether credentials or a logged-in session are required
 - Whether a selected endpoint is healthy, empty, skipped or failed
 
-Run quick mode after engine changes, `--source` to diagnose a stale, changed or failing
-route, `--community` for a periodic community audit, and `--full` for an explicit broad
-maintenance audit. This keeps ordinary research fast and prevents routine work from
-spending limited credits. If a selected route is unavailable, the coverage ledger says
-so instead of treating its silence as evidence.
+Run quick mode after engine changes, `--source` after a real retrieval failure to
+reproduce and diagnose it, `--community` for a periodic community audit, and `--full`
+for an explicit broad maintenance audit. This keeps ordinary research fast and prevents
+routine work from spending limited credits. If a selected route is unavailable, the
+coverage ledger says so instead of treating its silence as evidence.
 
 ## Execution Model
 
@@ -168,7 +174,7 @@ skills/deep-research/
 # Fast local check: registry, CLIs and Agent Chrome transport. No broad API sweep.
 bash health-check.sh
 
-# Diagnose only the stale, changed or failing phonebook sources.
+# After a real retrieval failure, reproduce and diagnose only that source.
 bash health-check.sh --source reddit --source onepoint3acres
 
 # Periodic community-route audit (no keyed or broad API inventory).

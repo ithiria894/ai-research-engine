@@ -74,7 +74,7 @@ fetch。
 | 科學/健康/化學 | 🔬 Science：ClinicalTrials·PubChem·GBIF·openFDA·WHO |
 | **韓國醫美/整容/疤痕修復** | 🏥 K-Beauty Med：見下方「韓國醫美 Research Cluster」 |
 
-> ✅ = 已有 API key（存 `~/.config/research-engine/keys.env`，`source` 佢再 curl）。Route 過期、改版或失敗時，可用 `health-check.sh --source ID` 診斷。
+> ✅ = 已有 API key（存 `~/.config/research-engine/keys.env`，`source` 佢再 curl）。真實 retrieval 失敗後，可用 `health-check.sh --source ID` 重現同診斷。
 
 ---
 
@@ -671,7 +671,7 @@ Each source has an access type:
 # Local engine/registry/CLI/CDP transport only. No broad external inventory.
 bash ~/MyGithub/ai-research-engine/health-check.sh
 
-# Diagnose a stale, changed or failing route; repeat --source when needed.
+# Reproduce and diagnose a route only after real retrieval has failed.
 bash ~/MyGithub/ai-research-engine/health-check.sh \
   --source reddit --source onepoint3acres --source college-confidential
 
@@ -680,12 +680,15 @@ bash ~/MyGithub/ai-research-engine/health-check.sh --community
 bash ~/MyGithub/ai-research-engine/health-check.sh --full
 ```
 
-Do not automatically run any health check before ordinary research. Read the registry
-and the most recent maintenance report, then execute the selected source's real search;
-that retrieval is itself the current operational evidence. Run quick mode after engine
-changes, `--source` when a route is stale, changed or failing, `--community` for a manual
-periodic community audit, and `--full` only for a manual comprehensive maintenance
-audit. `--full` also hits the broad zero-key inventory and real keyed/MCP endpoints.
+Do not run or consult a health check as a gate before ordinary research. Read the
+registry and execute the selected source's real search immediately; that retrieval is
+the only current operational evidence. A response with relevant data is `MATERIAL`; a
+successful response with no relevant result is `EMPTY`; an endpoint, authentication or
+parser error is `FAILED`. Report the failure in the coverage ledger and continue with
+the remaining sources. Use `--source` afterwards only to reproduce/diagnose that
+failure. Run quick mode after engine changes, `--community` for a manual periodic audit,
+and `--full` only for a manual comprehensive maintenance audit. `--full` also hits the
+broad zero-key inventory and real keyed/MCP endpoints.
 The script writes
 `~/MyGithub/ai-research-engine/health-check-report.md` atomically. An interrupted run
 marks the report **INTERRUPTED / FAILED**, so an older success cannot masquerade as the
@@ -695,23 +698,23 @@ When a check is run, read the applicable rows. A failed endpoint that returns no
 NOT evidence of "nothing found"; record it as `FAILED`. A source that was not selected
 or probed is `UNUSED`/`SKIPPED`, not healthy by assumption.
 
-**If a selected browser route is stale or fails, diagnose the session:**
+**If an actual browser retrieval fails, diagnose the session afterwards:**
 
 ```bash
 agent-chrome.py status                                  # Chrome up? which sites have cookies?
 agent-chrome.py login-check https://www.reddit.com/     # exit 0 = logged in
 ```
 
-Do this yourself in the main thread when the existing verification is stale or the
-actual retrieval fails. If Chrome is down → start it. If a needed site is
+Do this yourself in the main thread after the actual retrieval fails. If Chrome is down
+→ start it. If a needed site is
 logged out → tell the user now, while it is still cheap to fix.
 
-**Step 2 — confirm what's available for the selected clusters:**
+**Step 2 — execute the selected routes directly:**
 
-- 🟢 FREE APIs → check the health report (some go dead/change without notice)
+- 🟢 FREE APIs → call the real query endpoint; classify the response as `MATERIAL`, `EMPTY` or `FAILED`
 - 🔧 CLI → check if installed: `which gh` etc.
 - 🌐 BROWSER → **Use Agent Chrome as the authenticated transport, but retrieve the site's first-party JSON/tRPC/GraphQL/Next-RSC payload whenever available. 1Point3Acres must use `social-research.py` API commands. DOM is a bounded fallback only; never run a broad scraper. Never raw Reddit curl.**
-- 📦 MCP → ⚠️ read the health report's **"MCP servers — WHICH ONES YOU ACTUALLY GET DEPENDS ON CWD"** table before instructing any agent to call `mcp__*`. `.mcp.json` is project-scoped: a session started in `~` sees only the user-global servers, NOT the 16 in `~/.claude/.mcp.json`. Telling an agent to call a tool that does not exist in its session is the single most common cause of a silently-skipped source. **When a Bash equivalent exists, prefer Bash** — it is cwd-independent and costs zero resident RAM.
+- 📦 MCP → use it only when the tool is actually visible in the current harness. `.mcp.json` is project-scoped, so a config entry elsewhere does not prove availability. When a Bash equivalent exists, prefer Bash because it is cwd-independent.
 - 🔑 KEY → check if env var is set (`source ~/.config/research-engine/keys.env` first)
 - 💰 PAID → check if key exists AND note remaining quota if known
 
@@ -1437,9 +1440,9 @@ Save findings to `OUTPUT_DIR/[product]-[date].md`.
 
 ## Rules
 
-0. **Do not run health checks automatically for every question** — use the real selected-source retrieval as the live signal. Run quick mode after engine changes, `--source ID` to diagnose stale/changed/failing routes, and `--community`/`--full` only as manual periodic maintenance. A failed endpoint's silence is never "found nothing".
+0. **No health-check gate** — never run or consult a health check before an ordinary search. Execute the selected source directly. Data = `MATERIAL`; a successful empty response = `EMPTY`; endpoint/auth/parser failure = `FAILED` and must be reported. Use `--source ID` only afterwards to diagnose a real failure; `--community`/`--full` are manual maintenance. A failed endpoint's silence is never "found nothing".
 1. **Read research-engine.md FIRST** — every time, no exceptions
-1b. **🚨 FORUMS = `agent-chrome.py` OR VERIFIED ZERO-AUTH API, NEVER RAW REDDIT CURL.** Reddit live research MUST use `agent-chrome.py fetch` through the logged-in browser session for search + FULL comment trees. Arctic Shift is the zero-key Reddit archive/search fallback and cross-check. MCPs are allowed only when the health report proves they are loaded in the current cwd. Raw `curl reddit.com/*.json` is 403/surface-starved here and must not be reported as absence. `curl` is allowed for genuinely deep zero-auth APIs (Arctic Shift, HN Algolia, Lobste.rs, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to). Fetch FULL comment trees, not just titles.
+1b. **🚨 FORUMS = `agent-chrome.py` OR VERIFIED ZERO-AUTH API, NEVER RAW REDDIT CURL.** Reddit live research MUST use `agent-chrome.py fetch` through the logged-in browser session for search + FULL comment trees. Arctic Shift is the zero-key Reddit archive/search fallback and cross-check. MCPs are allowed only when the tool is actually visible in the current harness. Raw `curl reddit.com/*.json` is 403/surface-starved here and must not be reported as absence. `curl` is allowed for genuinely deep zero-auth APIs (Arctic Shift, HN Algolia, Lobste.rs, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to). Fetch FULL comment trees, not just titles.
 2. **Use every selected relevant free source** — source selection is broad and LLM-led, but do not query unrelated sources merely because they exist in the inventory.
 3. **Parallelize safe independent requests** — batching reduces round trips; it does not reduce breadth or evidence quality.
 3b. **Delegation is opt-in** — use sub-agents only when Nicole explicitly requests them. Give each a bounded, non-overlapping scope and the shared ledger so they do not repeat searches.

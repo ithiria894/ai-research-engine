@@ -4,8 +4,8 @@
   "routing_policy": {
     "mode": "llm_selected_phonebook",
     "rule": "The LLM reads the question and proposes every source that may contain useful or unexpected information. Nicole can add or remove sources before collection.",
-    "execution": "For each selected source, load its access recipe and credential reference, authenticate when required, and search through its first-party API. Use a bounded page route only when no usable API exists.",
-    "reporting": "Report sources used and not used. Keep EMPTY, FAILED and SKIPPED separate."
+    "execution": "For each selected source, load its access recipe and search it directly. The real retrieval is the live operational check; never run or consult a health check as a pre-search gate. Use a bounded page route only when no usable API exists.",
+    "reporting": "Relevant data is MATERIAL; a successful response without relevant data is EMPTY; endpoint, authentication or parser failure is FAILED. Report the failure and continue. Keep FAILED, EMPTY, SKIPPED and UNUSED separate; diagnose or repair failed routes afterwards."
   },
   "sources": [
     {

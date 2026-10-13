@@ -29,15 +29,17 @@
 
 ```bash
 bash health-check.sh                                      # quick：local/registry/CLI/CDP
-bash health-check.sh --source reddit --source onepoint3acres  # route 過期／改版／失敗時診斷
+bash health-check.sh --source reddit --source onepoint3acres  # 真實 retrieval 失敗後重現／診斷
 bash health-check.sh --community                         # 定期驗全 community registry
 bash health-check.sh --full                              # 維護用全量 audit；會用 keyed/MCP quota
 ```
 
-普通研究唔自動跑 health check；直接做 selected source 嘅真實 retrieval，嗰次結果先係當刻
-operational evidence。改完 engine 先跑 quick；route 過期、改版或實際失敗先用 repeatable
-`--source` 診斷；`--community`／`--full` 隔一段時間手動維護。`--full` 唔係每個 session
-嘅前置步驟，亦唔可以喺冇需要時消耗 limited credits。
+普通研究唔跑 health check，亦唔用舊 health report 做 gate；直接做 selected source 嘅真實
+retrieval。攞到 relevant data = `MATERIAL`；HTTP/API 成功但冇 relevant result = `EMPTY`；
+endpoint／auth／parser 壞 = `FAILED`，今次 ledger 如實報告並繼續其他 source，之後先維修。
+改完 engine 跑 quick；真實 retrieval 失敗後先用 repeatable `--source` 重現／診斷；
+`--community`／`--full` 隔一段時間手動維護。`--full` 唔係每個 session 嘅前置步驟，亦
+唔可以喺冇需要時消耗 limited credits。
 報告 atomic 寫入；途中 timeout／interrupt 會明確寫 `INTERRUPTED / FAILED`，唔會保留舊成功
 報告扮今次已完成。外部 source 冇結果要分清 `EMPTY`、`FAILED` 同 `SKIPPED`。
 
