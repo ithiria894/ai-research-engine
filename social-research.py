@@ -572,7 +572,8 @@ def onepoint_auto_login(timeout: int = 45) -> bool:
         die("Playwright is required for automatic 1Point3Acres Google sign-in")
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.connect_over_cdp("http://127.0.0.1:9223")
+        cdp_port = os.environ.get("AGENT_CHROME_PORT", "9223")
+        browser = playwright.chromium.connect_over_cdp(f"http://127.0.0.1:{cdp_port}")
         context = browser.contexts[0]
         page = next(
             (candidate for candidate in context.pages if "1point3acres.com" in candidate.url),
@@ -640,6 +641,8 @@ def onepoint_eval(expression: str) -> object:
     """Run a 1Point3Acres API expression, auto-relogging once if needed."""
     result = agent_chrome_origin_eval("https://www.1point3acres.com", expression)
     if isinstance(result, dict) and result.get("status") == "login_required":
+        if os.environ.get("RESEARCH_ENGINE_NO_AUTO_LOGIN") == "1":
+            return result
         if not onepoint_auto_login():
             die(
                 "1Point3Acres Google sign-in needs user interaction "
@@ -709,11 +712,16 @@ def onepoint_search(query: str, limit: int) -> None:
 
 
 def onepoint_thread(value: str, max_replies: int) -> None:
-    """Call 1Point3Acres' thread and nested-reply APIs inside Agent Chrome."""
-    match = re.search(r"(?:thread-|/home/thread/)?(\d+)", value)
-    if not match:
+    """Fetch top-level replies plus a bounded number of their nested replies.
+
+    ``max_replies`` caps top-level replies. Nested replies are fetched only for
+    those selected parents and have a second aggregate cap of ``max_replies``.
+    """
+    raw = value.strip()
+    match = re.search(r"(?:thread-|/home/thread/)(\d+)(?:[/?#-]|$)", raw)
+    thread_id = raw if raw.isdigit() else (match.group(1) if match else None)
+    if not thread_id:
         die("THREAD_ID_OR_URL must contain a numeric 1Point3Acres thread id")
-    thread_id = match.group(1)
     expression = rf"""
     (async() => {{
       const authInput = {{"0":{{"json":null,"meta":{{"values":["undefined"]}}}}}};
@@ -751,25 +759,30 @@ def onepoint_thread(value: str, max_replies: int) -> None:
         await new Promise(r => setTimeout(r, 300));
       }}
 
+      const selectedTop = top.slice(0, {max_replies});
       let fetchedReplies = 0;
-      for (const post of top) {{
+      for (const post of selectedTop) {{
         const nestedCount = Number(post.replies?.count || 0);
-        const loaded = post.replies?.data?.length || 0;
-        if (nestedCount <= loaded || fetchedReplies >= {max_replies}) continue;
-        const wanted = Math.min(nestedCount, {max_replies} - fetchedReplies);
-        const url = `${{api}}/api/posts/${{post.pid}}/nested-posts?ps=${{wanted}}&skip=0`;
+        const preloaded = Array.isArray(post.replies?.data) ? post.replies.data : [];
+        const kept = preloaded.slice(0, Math.max(0, {max_replies} - fetchedReplies));
+        post.replies = {{count:nestedCount, data:kept}};
+        fetchedReplies += kept.length;
+        if (nestedCount <= kept.length || fetchedReplies >= {max_replies}) continue;
+        const wanted = Math.min(nestedCount - kept.length, {max_replies} - fetchedReplies);
+        const url = `${{api}}/api/posts/${{post.pid}}/nested-posts?ps=${{wanted}}&skip=${{kept.length}}`;
         const response = await fetch(url, {{credentials:'include'}});
         if (!response.ok) return {{status:'failed', http_status:response.status, url}};
         const payload = await response.json();
         if (payload.errno !== 0 || !Array.isArray(payload.posts)) {{
           return {{status:'failed', http_status:response.status, error:payload.msg || 'missing nested posts'}};
         }}
-        post.replies = {{count:nestedCount, data:payload.posts}};
-        fetchedReplies += payload.posts.length;
+        const remaining = {max_replies} - fetchedReplies;
+        const additional = payload.posts.slice(0, remaining);
+        post.replies.data.push(...additional);
+        fetchedReplies += additional.length;
         await new Promise(r => setTimeout(r, 300));
       }}
 
-      const selectedTop = top.slice(0, {max_replies});
       const loadedReplyCount = selectedTop.reduce(
         (n, p) => n + 1 + (p.replies?.data?.length || 0), 0
       );

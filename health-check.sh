@@ -6,16 +6,97 @@
 # (⚠️ ACTION NEEDED section), so research agents skip dead tools instead of
 # silently fetching nothing.
 #
-# Usage: bash health-check.sh
+# Usage: bash health-check.sh [--quick | --community | --full] [--source ID ...]
 # Keys:  ~/.config/research-engine/keys.env (sourced if present)
 # Output: health-check-report.md (in this dir)
 
 set -uo pipefail
-REPORT="$(dirname "$0")/health-check-report.md"
-TIMEOUT=25          # per-try ceiling; crt.sh / S2 are slow, give them room
-CONNECT_TIMEOUT=10
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPORT="${HEALTH_CHECK_REPORT:-$SCRIPT_DIR/health-check-report.md}"
+REPORT_DIR="$(dirname -- "$REPORT")"
+SOCIAL="${SOCIAL:-$SCRIPT_DIR/social-research.py}"
+REGISTRY="${REGISTRY:-$SCRIPT_DIR/community-sources.json}"
+TIMEOUT="${HEALTH_CHECK_TIMEOUT:-10}"
+CONNECT_TIMEOUT="${HEALTH_CHECK_CONNECT_TIMEOUT:-3}"
+RETRIES="${HEALTH_CHECK_RETRIES:-0}"
+MAX_PARALLEL="${HEALTH_CHECK_JOBS:-12}"
+SOURCE_TIMEOUT="${HEALTH_CHECK_SOURCE_TIMEOUT:-30}"
+MODE="quick"
+SELECTED_SOURCES=()
 PASS=0; FAIL=0; WARN=0
 CLAUDE_CFG="$HOME/.claude.json"
+
+usage() {
+  cat <<'EOF'
+Usage: bash health-check.sh [--quick | --community | --full] [--source ID ...]
+
+  --quick       Local engine, registry, CLI and Agent Chrome transport only (default).
+  --community   Probe every source in community-sources.json, but no paid/keyed inventory.
+  --source ID   Probe only the named community source; repeatable.
+  --full        Comprehensive inventory plus every community source and keyed API.
+
+`--full` can consume limited API/MCP quota; run it only as an explicit maintenance audit.
+
+Environment overrides: HEALTH_CHECK_REPORT, HEALTH_CHECK_TIMEOUT,
+HEALTH_CHECK_CONNECT_TIMEOUT, HEALTH_CHECK_RETRIES, HEALTH_CHECK_JOBS,
+HEALTH_CHECK_SOURCE_TIMEOUT, SOCIAL and REGISTRY.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --quick) MODE="quick" ;;
+    --community) MODE="community" ;;
+    --full) MODE="full" ;;
+    --source)
+      [[ $# -ge 2 ]] || { echo "health-check: --source needs an ID" >&2; exit 2; }
+      SELECTED_SOURCES+=("$2")
+      shift
+      ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "health-check: unknown option: $1" >&2; usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+source_selected() {
+  local wanted="$1" selected
+  [[ "$MODE" == "full" || "$MODE" == "community" ]] && return 0
+  for selected in "${SELECTED_SOURCES[@]:-}"; do
+    [[ "$selected" == "$wanted" ]] && return 0
+  done
+  return 1
+}
+
+registry_valid() {
+  [[ -f "$REGISTRY" ]] && jq -e '
+    .schema_version and (.sources | type == "array" and length > 0) and
+    all(.sources[];
+      (.id | type == "string" and length > 0) and
+      (.name | type == "string" and length > 0) and
+      (.domains | type == "array" and length > 0) and
+      (.access | type == "object") and
+      (.routes | type == "object") and
+      (.verification | type == "object") and
+      (.verification.status == "working" or .verification.status == "conditional" or
+        .verification.status == "failed") and
+      (.access.credential_ref == null or
+        (.access.credential_ref | type == "string" and startswith("gopass://")))
+    )
+  ' "$REGISTRY" >/dev/null 2>&1
+}
+
+# Argument/configuration errors are not health-check runs. Validate them before
+# installing the EXIT trap so a typo cannot replace the last valid report.
+if [[ ${#SELECTED_SOURCES[@]} -gt 0 ]]; then
+  registry_valid || { echo "health-check: registry missing or invalid: $REGISTRY" >&2; exit 2; }
+  for selected in "${SELECTED_SOURCES[@]}"; do
+    if ! jq -e --arg id "$selected" 'any(.sources[]; .id == $id)' "$REGISTRY" >/dev/null; then
+      echo "health-check: unknown source id: $selected" >&2
+      exit 2
+    fi
+  done
+fi
 
 # Load obtained API keys so keyed APIs get a REAL probe (not just "needs key").
 KEYS_FILE="$HOME/.config/research-engine/keys.env"
@@ -26,53 +107,117 @@ if [[ -f "$KEYS_FILE" ]]; then set -a; source "$KEYS_FILE" 2>/dev/null; set +a; 
 results=()
 keyed=()       # real-key probe rows
 actions=()     # ⚠️ ACTION NEEDED triage: each = "icon|what|how-to-fix"
+CHECK_DIR=$(mktemp -d)
+CHECK_SEQ=0
+CHECK_PIDS=()
+CHECK_FILES=()
+RUN_FINISHED=0
+RUN_STARTED=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+on_exit() {
+  local rc=$?
+  if [[ "$RUN_FINISHED" -eq 0 ]]; then
+    local failed_report
+    failed_report=$(mktemp "$REPORT_DIR/.health-check-report.failed.XXXXXX")
+    {
+      echo "# Research Engine — Health Check Report"
+      echo ""
+      echo "> Status: **INTERRUPTED / FAILED**"
+      echo "> Started: $RUN_STARTED"
+      echo "> Mode: $MODE"
+      echo "> Exit code: $rc"
+      echo ""
+      echo "This run did not complete. Do not reuse an older success report or interpret missing rows as healthy."
+    } > "$failed_report"
+    mv "$failed_report" "$REPORT"
+  fi
+  [[ -d "$CHECK_DIR" ]] && rm -rf "$CHECK_DIR"
+}
+trap on_exit EXIT
+trap 'exit 124' INT TERM
 
 # Record a repair action (shown at top of report so the check TELLS you the fix).
 act(){ actions+=("$1"); }
 
-check() {
-  local name="$1" url="$2"; shift 2
+check_worker() {
+  local outfile="$1" name="$2" url="$3"; shift 3
   local jq_filter=""
   if [[ "${1:-}" == "--jq" ]]; then
     jq_filter="$2"
     shift 2
   fi
   local extra=("$@")
-  local code size tmp json_ok=1
+  local code size tmp json_ok=1 status row
   # ONE curl per endpoint (body to tmp, code via -w). Doing two separate curls
   # would double-hit rate-limited APIs (e.g. GDELT 1req/5s) and falsely fail them.
   tmp=$(mktemp)
-  # --retry 3 + --retry-all-errors so transient 429 / 5xx / 000-timeout (DOAJ,
-  # crt.sh, Semantic Scholar, PyPI) get re-attempted instead of falsely reported
-  # dead. curl retries on a fresh transfer each time, with exponential-ish backoff.
+  # A health check must be bounded. One retry is enough to separate a transient
+  # blip from a consistently unhealthy endpoint; long retry loops belong in the
+  # actual source adapter, not in a maintenance probe.
   code=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" \
-    --retry 3 --retry-delay 2 --retry-all-errors --retry-connrefused \
-    -A "ResearchEngineHealthCheck/1.0" "${extra[@]}" -o "$tmp" -w "%{http_code}" "$url" 2>/dev/null)
+    --retry "$RETRIES" --retry-delay 1 --retry-all-errors --retry-connrefused \
+    --retry-max-time "$((TIMEOUT * (RETRIES + 1) + 5))" \
+    -A "ResearchEngineHealthCheck/1.0" "${extra[@]}" -o "$tmp" -w "%{http_code}" "$url" 2>/dev/null || true)
   size=$(wc -c < "$tmp" 2>/dev/null || echo 0)
   if [[ -n "$jq_filter" ]] && ! jq -e "$jq_filter" "$tmp" >/dev/null 2>&1; then
     json_ok=0
   fi
   rm -f "$tmp"
   if [[ "$code" =~ ^2 ]] && [[ "$size" -gt 2 ]] && [[ "$json_ok" -eq 1 ]]; then
-    results+=("✅ | $name | $code | OK")
-    ((PASS++))
+    status="pass"; row="✅ | $name | $code | OK"
   elif [[ "$code" =~ ^2 ]] && [[ "$size" -gt 2 ]] && [[ "$json_ok" -eq 0 ]]; then
-    results+=("⚠️ | $name | $code | response failed JSON success check")
-    ((WARN++))
+    status="warn"; row="⚠️ | $name | $code | response failed JSON success check"
   elif [[ "$code" =~ ^2 ]]; then
-    results+=("⚠️ | $name | $code | 2xx but EMPTY body")
-    ((WARN++))
+    status="warn"; row="⚠️ | $name | $code | 2xx but EMPTY body"
   elif [[ "$code" == "429" ]]; then
-    results+=("⚠️ | $name | 429 | rate-limited (TRANSIENT — retry with spacing, not dead)")
-    ((WARN++))
+    status="warn"; row="⚠️ | $name | 429 | rate-limited (TRANSIENT — retry with spacing, not dead)"
   else
-    results+=("❌ | $name | ${code:-000} | dead/blocked/changed")
-    ((FAIL++))
+    status="fail"; row="❌ | $name | ${code:-000} | dead/blocked/changed"
   fi
-  sleep 0.3  # gentle spacing so shared-IP rate limits (GDELT/S2) don't cascade
+  printf '%s\t%s\n' "$status" "$row" > "$outfile"
 }
 
-echo "Running research engine health check..."
+collect_oldest_check() {
+  local pid="${CHECK_PIDS[0]}" outfile="${CHECK_FILES[0]}" status row
+  wait "$pid" || true
+  if [[ -s "$outfile" ]]; then
+    IFS=$'\t' read -r status row < "$outfile"
+  else
+    status="fail"
+    row="❌ | internal health-check worker | — | worker exited without a result"
+  fi
+  results+=("$row")
+  case "$status" in
+    pass) ((PASS++)) ;;
+    warn) ((WARN++)) ;;
+    *) ((FAIL++)) ;;
+  esac
+  CHECK_PIDS=("${CHECK_PIDS[@]:1}")
+  CHECK_FILES=("${CHECK_FILES[@]:1}")
+}
+
+check() {
+  [[ "$MODE" == "full" ]] || return 0
+  local outfile="$CHECK_DIR/$CHECK_SEQ.result"
+  CHECK_SEQ=$((CHECK_SEQ + 1))
+  check_worker "$outfile" "$@" &
+  CHECK_PIDS+=("$!")
+  CHECK_FILES+=("$outfile")
+  if [[ ${#CHECK_PIDS[@]} -ge "$MAX_PARALLEL" ]]; then
+    collect_oldest_check
+  fi
+}
+
+drain_checks() {
+  while [[ ${#CHECK_PIDS[@]} -gt 0 ]]; do
+    collect_oldest_check
+  done
+}
+
+echo "Running research engine health check (mode=$MODE)..."
+if [[ ${#SELECTED_SOURCES[@]} -gt 0 ]]; then
+  echo "Selected community sources: ${SELECTED_SOURCES[*]}"
+fi
 
 # ── Zero-key free APIs (the bulk agents rely on) ──────────────────────
 check "HN Algolia (search)"     "https://hn.algolia.com/api/v1/search?query=ai&tags=story"
@@ -165,6 +310,7 @@ check "USGS Earthquake"         "https://earthquake.usgs.gov/fdsnws/event/1/quer
 check "WHO GHO OData"           "https://ghoapi.azureedge.net/api/Indicator"
 check "Marginalia Search"       "https://api.marginalia.nu/public/search/llm?count=2"
 check "Wikimedia Pageviews"     "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/2026/05/01"
+drain_checks
 
 # ── MCP liveness probe (Round 12) ─────────────────────────────────────
 # CONNECTED ≠ WORKING. A configured MCP can be quota-dead. We hit each keyed
@@ -175,7 +321,7 @@ check "Wikimedia Pageviews"     "https://wikimedia.org/api/rest_v1/metrics/pagev
 #   OAuth MCPs (dialog-mcp) can't be auth'd from bash — only Claude's stored
 #   token works; we report reachability + tell the agent to confirm in-session.
 mcp_results=()
-if [[ -f "$CLAUDE_CFG" ]]; then
+if [[ "$MODE" == "full" && -f "$CLAUDE_CFG" ]]; then
   TKEY=$(jq -r '.mcpServers.tavily.url // ""' "$CLAUDE_CFG" | grep -oP 'tavilyApiKey=\K[^&"]+' || true)
   if [[ -n "${TKEY:-}" ]]; then
     c=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" -o /dev/null -w "%{http_code}" \
@@ -251,7 +397,9 @@ kcheck(){  # name | keyvar | success-grep | curl-args...
     return
   fi
   tmp=$(mktemp)
-  code=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" --retry 2 --retry-delay 2 \
+  code=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" \
+        --retry "$RETRIES" --retry-delay 1 --retry-all-errors \
+        --retry-max-time "$((TIMEOUT * (RETRIES + 1) + 5))" \
         -A "ResearchEngineHealthCheck/1.0" -o "$tmp" -w "%{http_code}" "$@" 2>/dev/null)
   if [[ "$code" =~ ^2 ]] && grep -qi "$ok" "$tmp" 2>/dev/null; then
     keyed+=("✅ | $name | $code | key OK")
@@ -264,19 +412,21 @@ kcheck(){  # name | keyvar | success-grep | curl-args...
   fi
   rm -f "$tmp"; sleep 0.3
 }
-echo "Probing keyed APIs with real keys..."
-kcheck "FRED"          FRED_API_KEY          "observations" "https://api.stlouisfed.org/fred/series/observations?series_id=GDP&api_key=${FRED_API_KEY:-}&file_type=json&limit=1"
-kcheck "US Census"     CENSUS_API_KEY        "NAME"         "https://api.census.gov/data/2021/acs/acs5?get=NAME&for=state:06&key=${CENSUS_API_KEY:-}"
-kcheck "Open PageRank" OPENPAGERANK_API_KEY  "page_rank"    "https://openpagerank.com/api/v1.0/getPageRank?domains%5B%5D=google.com" -H "API-OPR: ${OPENPAGERANK_API_KEY:-}"
-kcheck "FMP"           FMP_API_KEY           "symbol"       "https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=${FMP_API_KEY:-}"
-kcheck "OpenStates"    OPENSTATES_API_KEY    "results"      "https://v3.openstates.org/jurisdictions?per_page=1" -H "X-API-Key: ${OPENSTATES_API_KEY:-}"
-kcheck "OpenSanctions" OPENSANCTIONS_API_KEY "results"      "https://api.opensanctions.org/search/default?q=test&limit=1" -H "Authorization: ApiKey ${OPENSANCTIONS_API_KEY:-}"
-kcheck "Congress.gov"  CONGRESS_API_KEY      "bills"        "https://api.congress.gov/v3/bill?api_key=${CONGRESS_API_KEY:-}&format=json&limit=1"
-kcheck "govinfo"       GOVINFO_API_KEY       "collection"   "https://api.govinfo.gov/collections?api_key=${GOVINFO_API_KEY:-}"
-kcheck "OpenFEC"       OPENFEC_API_KEY       "results"      "https://api.open.fec.gov/v1/candidates/?api_key=${OPENFEC_API_KEY:-}&per_page=1"
-kcheck "Finnhub"       FINNHUB_API_KEY       "c"            "https://finnhub.io/api/v1/quote?symbol=AAPL&token=${FINNHUB_API_KEY:-}"
-kcheck "ScrapeCreators social" SCRAPECREATORS_API_KEY "credit" "https://api.scrapecreators.com/v1/account/credit-balance" -H "x-api-key: ${SCRAPECREATORS_API_KEY:-}"
-kcheck "TikHub social" TIKHUB_API_KEY         "data"   "https://api.tikhub.io/api/v1/tikhub/user/get_user_info" -H "Authorization: Bearer ${TIKHUB_API_KEY:-}"
+if [[ "$MODE" == "full" ]]; then
+  echo "Probing keyed APIs with real keys..."
+  kcheck "FRED"          FRED_API_KEY          "observations" "https://api.stlouisfed.org/fred/series/observations?series_id=GDP&api_key=${FRED_API_KEY:-}&file_type=json&limit=1"
+  kcheck "US Census"     CENSUS_API_KEY        "NAME"         "https://api.census.gov/data/2021/acs/acs5?get=NAME&for=state:06&key=${CENSUS_API_KEY:-}"
+  kcheck "Open PageRank" OPENPAGERANK_API_KEY  "page_rank"    "https://openpagerank.com/api/v1.0/getPageRank?domains%5B%5D=google.com" -H "API-OPR: ${OPENPAGERANK_API_KEY:-}"
+  kcheck "FMP"           FMP_API_KEY           "symbol"       "https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=${FMP_API_KEY:-}"
+  kcheck "OpenStates"    OPENSTATES_API_KEY    "results"      "https://v3.openstates.org/jurisdictions?per_page=1" -H "X-API-Key: ${OPENSTATES_API_KEY:-}"
+  kcheck "OpenSanctions" OPENSANCTIONS_API_KEY "results"      "https://api.opensanctions.org/search/default?q=test&limit=1" -H "Authorization: ApiKey ${OPENSANCTIONS_API_KEY:-}"
+  kcheck "Congress.gov"  CONGRESS_API_KEY      "bills"        "https://api.congress.gov/v3/bill?api_key=${CONGRESS_API_KEY:-}&format=json&limit=1"
+  kcheck "govinfo"       GOVINFO_API_KEY       "collection"   "https://api.govinfo.gov/collections?api_key=${GOVINFO_API_KEY:-}"
+  kcheck "OpenFEC"       OPENFEC_API_KEY       "results"      "https://api.open.fec.gov/v1/candidates/?api_key=${OPENFEC_API_KEY:-}&per_page=1"
+  kcheck "Finnhub"       FINNHUB_API_KEY       "c"            "https://finnhub.io/api/v1/quote?symbol=AAPL&token=${FINNHUB_API_KEY:-}"
+  kcheck "ScrapeCreators social" SCRAPECREATORS_API_KEY "credit" "https://api.scrapecreators.com/v1/account/credit-balance" -H "x-api-key: ${SCRAPECREATORS_API_KEY:-}"
+  kcheck "TikHub social" TIKHUB_API_KEY         "data"   "https://api.tikhub.io/api/v1/tikhub/user/get_user_info" -H "Authorization: Bearer ${TIKHUB_API_KEY:-}"
+fi
 
 # ── Declared-but-EMPTY keys ───────────────────────────────────────────
 # keys.env can contain `FOO_API_KEY=` with nothing after the `=`. Every downstream
@@ -303,7 +453,15 @@ fi
 # section exists because that path was invisible to the health check for months
 # while it was silently broken — agents "found nothing" and nobody could tell.
 browser=()
-bact(){ browser+=("$1"); }
+BPASS=0; BWARN=0; BFAIL=0
+bact(){
+  browser+=("$1")
+  case "$1" in
+    "✅ | "*) ((BPASS++)) ;;
+    "⚠️ | "*) ((BWARN++)) ;;
+    "❌ | "*) ((BFAIL++)) ;;
+  esac
+}
 AC="$HOME/.local/bin/agent-chrome.py"
 CDP_PORT="${AGENT_CHROME_PORT:-9223}"
 
@@ -321,7 +479,7 @@ else
 
     # Regression guard: async JS must resolve. Without awaitPromise every
     # `await fetch(...)` returned {} and agents concluded "browser unavailable".
-    pr=$(timeout 40 python3 "$AC" eval active 'Promise.resolve("AWAIT_OK")' 2>&1 | tail -1)
+    pr=$(timeout "$SOURCE_TIMEOUT" python3 "$AC" eval active 'Promise.resolve("AWAIT_OK")' 2>&1 | tail -1)
     if [[ "$pr" == "AWAIT_OK" ]]; then
       bact "✅ | CDP awaitPromise | — | async JS resolves (no silent {})"
     else
@@ -329,9 +487,11 @@ else
       act "❌|agent-chrome.py eval 唔 await promise|所有 browser fetch 會靜靜哋回 {}。加返 awaitPromise:True 落 Runtime.evaluate"
     fi
 
-    # End-to-end: real Reddit search through the session, and the curl control.
+    # End-to-end Reddit probes run only when selected. Quick mode validates
+    # the transport without spending time on unrelated source calls.
+    if source_selected reddit; then
     tmpb=$(mktemp)
-    if timeout 90 python3 "$AC" fetch \
+    if timeout "$SOURCE_TIMEOUT" python3 "$AC" fetch \
         'https://www.reddit.com/r/LocalLLaMA/search.json?q=llm&restrict_sr=on&sort=top&limit=3' \
         --out "$tmpb" >/dev/null 2>&1; then
       n=$(jq -r '.data.children | length' "$tmpb" 2>/dev/null || echo 0)
@@ -354,7 +514,7 @@ else
     # Login state per site — content-based whoami, not cookie-name guessing
     # (session cookies are httpOnly, so document.cookie always looks logged-out).
     for site in "https://www.reddit.com/"; do
-      lc=$(timeout 60 python3 "$AC" login-check "$site" 2>&1 | tail -1)
+      lc=$(timeout "$SOURCE_TIMEOUT" python3 "$AC" login-check "$site" 2>&1 | tail -1)
       case "$lc" in
         in*)  bact "✅ | login: $site | — | ${lc#in	}";;
         out*) bact "❌ | login: $site | — | LOGGED OUT — ${lc#out	}"
@@ -362,12 +522,13 @@ else
         *)    bact "⚠️ | login: $site | — | $lc";;
       esac
     done
+    fi
 
     # XHS has no honest cookie-name-only whoami. Probe the actual native search
     # page through the one-shot adapter; login wall must be FAILED, not 0 results.
-    SOCIAL="$HOME/MyGithub/ai-research-engine/social-research.py"
+    if source_selected xiaohongshu; then
     tmpx=$(mktemp)
-    if [[ -f "$SOCIAL" ]] && timeout 80 python3 "$SOCIAL" xhs-search '咖啡' --route browser >"$tmpx" 2>"$tmpx.err"; then
+    if [[ -f "$SOCIAL" ]] && timeout "$SOURCE_TIMEOUT" python3 "$SOCIAL" xhs-search '咖啡' --route browser >"$tmpx" 2>"$tmpx.err"; then
       xn=$(jq -r '.count // 0' "$tmpx" 2>/dev/null || echo 0)
       bact "✅ | Xiaohongshu native search via browser | 200 | $xn notes"
     elif [[ ! -f "$SOCIAL" ]]; then
@@ -379,11 +540,13 @@ else
       act "❌|小紅書 native search 未可用|喺 Agent Chrome 手動登入小紅書一次，再跑 social-research.py xhs-search '咖啡' --route browser"
     fi
     rm -f "$tmpx" "$tmpx.err"
+    fi
 
     # 1Point3Acres: use the site's own tRPC endpoint inside the persisted
     # Agent Chrome session.  This is deliberately not a DOM-scraping probe.
+    if source_selected onepoint3acres; then
     tmp1p=$(mktemp)
-    if [[ -f "$SOCIAL" ]] && timeout 80 python3 "$SOCIAL" onepoint-search \
+    if [[ -f "$SOCIAL" ]] && RESEARCH_ENGINE_NO_AUTO_LOGIN=1 timeout "$SOURCE_TIMEOUT" python3 "$SOCIAL" onepoint-search \
         '加拿大 找工' --limit 3 >"$tmp1p" 2>"$tmp1p.err"; then
       one_route=$(jq -r '.route // empty' "$tmp1p" 2>/dev/null)
       one_n=$(jq -r '.count // 0' "$tmp1p" 2>/dev/null || echo 0)
@@ -403,9 +566,11 @@ else
       act "❌|1Point3Acres session 未可用|重用 Agent Chrome 內 Google session 登入，然後重跑；不要改用 DOM crawler"
     fi
     rm -f "$tmp1p" "$tmp1p.err"
+    fi
 
+    if source_selected grapevine; then
     tmpgv=$(mktemp)
-    if [[ -f "$SOCIAL" ]] && timeout 80 python3 "$SOCIAL" grapevine-search \
+    if [[ -f "$SOCIAL" ]] && timeout "$SOURCE_TIMEOUT" python3 "$SOCIAL" grapevine-search \
         'software engineer' --limit 2 >"$tmpgv" 2>"$tmpgv.err"; then
       gv_route=$(jq -r '.route // empty' "$tmpgv" 2>/dev/null)
       gv_n=$(jq -r '.count // 0' "$tmpgv" 2>/dev/null || echo 0)
@@ -423,9 +588,11 @@ else
       act "❌|Grapevine API route 未可用|查清 CORS/API schema；不要改用寬頻 DOM crawler"
     fi
     rm -f "$tmpgv" "$tmpgv.err"
+    fi
 
+    if source_selected the-student-room; then
     tmptsr=$(mktemp)
-    if [[ -f "$SOCIAL" ]] && timeout 90 python3 "$SOCIAL" studentroom-thread \
+    if [[ -f "$SOCIAL" ]] && timeout "$SOURCE_TIMEOUT" python3 "$SOCIAL" studentroom-thread \
         7507123 --max-posts 1 >"$tmptsr" 2>"$tmptsr.err"; then
       tsr_route=$(jq -r '.route // empty' "$tmptsr" 2>/dev/null)
       tsr_n=$(jq -r '.loaded_posts // 0' "$tmptsr" 2>/dev/null || echo 0)
@@ -442,14 +609,29 @@ else
       act "❌|The Student Room browser route 未可用|用 web search discovery，再跑 social-research.py studentroom-thread THREAD_ID"
     fi
     rm -f "$tmptsr" "$tmptsr.err"
+    fi
+
+    if source_selected blind; then
+      tmpblind=$(mktemp)
+      if timeout "$SOURCE_TIMEOUT" python3 "$AC" fetch 'https://www.teamblind.com/' \
+          --out "$tmpblind" >/dev/null 2>&1; then
+        if grep -Eq '\\?"isLoggedIn\\?":true' "$tmpblind"; then
+          bact "✅ | Blind authenticated home feed | 200 | server payload confirms isLoggedIn=true"
+        else
+          bact "❌ | Blind authenticated home feed | 200 | authenticated marker missing"
+          act "❌|Blind session 未登入|用 gopass://research-engine/community/blind 登入 Agent Chrome"
+        fi
+      else
+        bact "❌ | Blind browser route | — | fetch FAILED"
+        act "❌|Blind browser route 失敗|check Agent Chrome and teamblind.com access"
+      fi
+      rm -f "$tmpblind"
+    fi
   fi
 fi
 
 # Public phonebook and API adapters do not require Agent Chrome.
-SOCIAL="${SOCIAL:-$HOME/MyGithub/ai-research-engine/social-research.py}"
-REGISTRY="$HOME/MyGithub/ai-research-engine/community-sources.json"
-if [[ -f "$REGISTRY" ]] && jq -e '.schema_version and (.sources | type == "array") and (.sources | length > 0)' \
-    "$REGISTRY" >/dev/null 2>&1; then
+if registry_valid; then
   source_count=$(jq '.sources | length' "$REGISTRY")
   bact "✅ | Community source phonebook | local | $source_count sources; valid JSON schema shell check"
 else
@@ -457,39 +639,49 @@ else
   act "❌|Community source phonebook 壞咗|validate community-sources.json and restore required fields"
 fi
 
-tmpcc=$(mktemp)
-if [[ -f "$SOCIAL" ]] && timeout 60 python3 "$SOCIAL" collegeconf-search \
-    'Eli Whitney Students Program' --limit 1 >"$tmpcc" 2>"$tmpcc.err"; then
-  cc_route=$(jq -r '.route // empty' "$tmpcc" 2>/dev/null)
-  cc_n=$(jq -r '.count // 0' "$tmpcc" 2>/dev/null || echo 0)
-  if [[ "$cc_route" == "public-discourse-json" && "${cc_n:-0}" -ge 1 ]]; then
-    bact "✅ | College Confidential public Discourse API | 200 | $cc_n search result"
+if source_selected college-confidential; then
+  tmpcc=$(mktemp)
+  if [[ -f "$SOCIAL" ]] && timeout "$SOURCE_TIMEOUT" python3 "$SOCIAL" collegeconf-search \
+      'Eli Whitney Students Program' --limit 1 >"$tmpcc" 2>"$tmpcc.err"; then
+    cc_route=$(jq -r '.route // empty' "$tmpcc" 2>/dev/null)
+    cc_n=$(jq -r '.count // 0' "$tmpcc" 2>/dev/null || echo 0)
+    if [[ "$cc_route" == "public-discourse-json" && "${cc_n:-0}" -ge 1 ]]; then
+      bact "✅ | College Confidential public Discourse API | 200 | $cc_n search result"
+    else
+      bact "❌ | College Confidential public Discourse API | 200 | unexpected route/count"
+    fi
+  elif [[ ! -f "$SOCIAL" ]]; then
+    bact "❌ | College Confidential adapter | — | MISSING at $SOCIAL"
+    act "❌|College Confidential adapter 唔見咗|restore $SOCIAL"
   else
-    bact "❌ | College Confidential public Discourse API | 200 | unexpected route/count"
+    cc_err=$(tail -1 "$tmpcc.err" 2>/dev/null)
+    bact "❌ | College Confidential public Discourse API | — | ${cc_err:-FAILED}"
+    act "❌|College Confidential JSON route 未可用|check search.json/topic JSON schema"
   fi
-else
-  cc_err=$(tail -1 "$tmpcc.err" 2>/dev/null)
-  bact "❌ | College Confidential public Discourse API | — | ${cc_err:-FAILED}"
-  act "❌|College Confidential JSON route 未可用|check search.json/topic JSON schema"
+  rm -f "$tmpcc" "$tmpcc.err"
 fi
-rm -f "$tmpcc" "$tmpcc.err"
 
-tmpbc=$(mktemp)
-if [[ -f "$SOCIAL" ]] && timeout 60 python3 "$SOCIAL" bctransfer-institutions \
-    --query UBCV --limit 1 >"$tmpbc" 2>"$tmpbc.err"; then
-  bc_route=$(jq -r '.route // empty' "$tmpbc" 2>/dev/null)
-  bc_n=$(jq -r '.count // 0' "$tmpbc" 2>/dev/null || echo 0)
-  if [[ "$bc_route" == "official-public-api" && "${bc_n:-0}" -ge 1 ]]; then
-    bact "✅ | BC Transfer Guide official API | 200 | UBCV institution route working"
+if source_selected bc-transfer-guide; then
+  tmpbc=$(mktemp)
+  if [[ -f "$SOCIAL" ]] && timeout "$SOURCE_TIMEOUT" python3 "$SOCIAL" bctransfer-institutions \
+      --query UBCV --limit 1 >"$tmpbc" 2>"$tmpbc.err"; then
+    bc_route=$(jq -r '.route // empty' "$tmpbc" 2>/dev/null)
+    bc_n=$(jq -r '.count // 0' "$tmpbc" 2>/dev/null || echo 0)
+    if [[ "$bc_route" == "official-public-api" && "${bc_n:-0}" -ge 1 ]]; then
+      bact "✅ | BC Transfer Guide official API | 200 | UBCV institution route working"
+    else
+      bact "❌ | BC Transfer Guide official API | 200 | unexpected route/count"
+    fi
+  elif [[ ! -f "$SOCIAL" ]]; then
+    bact "❌ | BC Transfer Guide adapter | — | MISSING at $SOCIAL"
+    act "❌|BC Transfer Guide adapter 唔見咗|restore $SOCIAL"
   else
-    bact "❌ | BC Transfer Guide official API | 200 | unexpected route/count"
+    bc_err=$(tail -1 "$tmpbc.err" 2>/dev/null)
+    bact "❌ | BC Transfer Guide official API | — | ${bc_err:-FAILED}"
+    act "❌|BC Transfer Guide API 未可用|check public agreementws endpoint/schema"
   fi
-else
-  bc_err=$(tail -1 "$tmpbc.err" 2>/dev/null)
-  bact "❌ | BC Transfer Guide official API | — | ${bc_err:-FAILED}"
-  act "❌|BC Transfer Guide API 未可用|check public agreementws endpoint/schema"
+  rm -f "$tmpbc" "$tmpbc.err"
 fi
-rm -f "$tmpbc" "$tmpbc.err"
 
 # ── MCP availability BY CWD SCOPE ─────────────────────────────────────
 # .mcp.json is project-scoped: a server only loads when Claude's cwd is that
@@ -529,14 +721,39 @@ for row in "${mcp_results[@]:-}"; do
   esac
 done
 
-# ── Write report ──────────────────────────────────────────────────────
+KFAIL=0; MFAIL=0
+for row in "${keyed[@]:-}"; do
+  [[ "$row" == "❌ | "* ]] && KFAIL=$((KFAIL + 1))
+done
+for row in "${mcp_results[@]:-}"; do
+  [[ "$row" == "❌ | "* ]] && MFAIL=$((MFAIL + 1))
+done
+
+# ── Write report atomically ───────────────────────────────────────────
+REPORT_TMP=$(mktemp "$REPORT_DIR/.health-check-report.success.XXXXXX")
 {
   echo "# Research Engine — Health Check Report"
   echo ""
-  echo "> Auto-generated by \`health-check.sh\`. Re-run before any research session."
+  echo "> Status: **COMPLETED**"
+  if (( FAIL > 0 || BFAIL > 0 || KFAIL > 0 || MFAIL > 0 )); then
+    echo "> Result: **UNHEALTHY**"
+  else
+    echo "> Result: **HEALTHY**"
+  fi
+  echo "> Auto-generated by \`health-check.sh\`. Use \`--source\` only to diagnose stale, changed or failing routes."
   echo "> Generated: $(date -u '+%Y-%m-%d %H:%M UTC')"
+  echo "> Mode: $MODE"
+  if [[ ${#SELECTED_SOURCES[@]} -gt 0 ]]; then
+    echo "> Selected sources: ${SELECTED_SOURCES[*]}"
+  fi
   echo ""
-  echo "**Summary: ✅ $PASS working · ⚠️ $WARN suspect · ❌ $FAIL dead** (of $((PASS+WARN+FAIL)) zero-key APIs tested)"
+  echo "**Broad inventory: ✅ $PASS working · ⚠️ $WARN suspect · ❌ $FAIL dead** (of $((PASS+WARN+FAIL)) zero-key APIs tested)"
+  echo ""
+  echo "**Local/community routes: ✅ $BPASS working · ⚠️ $BWARN suspect · ❌ $BFAIL failed**"
+  if [[ "$MODE" != "full" ]]; then
+    echo ""
+    echo "> The broad zero-key and keyed inventories were intentionally skipped. Use \`--full\` for the comprehensive audit."
+  fi
   echo ""
   echo "Agents: only use ✅ sources from this list. Treat ❌ as unavailable — do NOT cite \"found nothing\" from a dead endpoint as evidence of absence."
   echo ""
@@ -586,13 +803,21 @@ done
   echo ""
   echo "| Status | API | HTTP | Note |"
   echo "|--------|-----|------|------|"
-  printf '%s\n' "${keyed[@]:-}" | sed '/^$/d; s/^/| /; s/ | /| /g; s/$/ |/'
+  if [[ ${#keyed[@]} -eq 0 ]]; then
+    echo "| ⏭️ | keyed inventory | — | not run in $MODE mode |"
+  else
+    printf '%s\n' "${keyed[@]}" | sed '/^$/d; s/^/| /; s/ | /| /g; s/$/ |/'
+  fi
   echo ""
   echo "## Zero-key free APIs"
   echo ""
   echo "| Status | Source | HTTP | Note |"
   echo "|--------|--------|------|------|"
-  printf '%s\n' "${results[@]}" | sed 's/^/| /; s/ | /| /g; s/$/ |/'
+  if [[ ${#results[@]} -eq 0 ]]; then
+    echo "| ⏭️ | broad inventory | — | not run in $MODE mode |"
+  else
+    printf '%s\n' "${results[@]}" | sed 's/^/| /; s/ | /| /g; s/$/ |/'
+  fi
   echo ""
   echo "## CLIs"
   echo ""
@@ -620,7 +845,15 @@ done
   echo ""
   echo "| Status | MCP | HTTP | Note |"
   echo "|--------|-----|------|------|"
-  printf '%s\n' "${mcp_results[@]:-}" | sed '/^$/d; s/^/| /; s/ | /| /g; s/$/ |/'
+  if [[ ${#mcp_results[@]} -eq 0 ]]; then
+    if [[ "$MODE" == "full" ]]; then
+      echo "| ⚠️ | live MCP quota probes | — | no supported MCP configuration found in the current HOME |"
+    else
+      echo "| ⏭️ | live MCP quota probes | — | not run in $MODE mode |"
+    fi
+  else
+    printf '%s\n' "${mcp_results[@]}" | sed '/^$/d; s/^/| /; s/ | /| /g; s/$/ |/'
+  fi
   echo ""
   echo "## MCP servers — WHICH ONES YOU ACTUALLY GET DEPENDS ON CWD"
   echo ""
@@ -635,8 +868,16 @@ done
   echo "> Rule of thumb: anything not in the **user-global** row is unavailable to a"
   echo "> default session. Prefer Bash (curl / agent-chrome.py) — it is cwd-independent"
   echo "> and costs zero resident RAM."
-} > "$REPORT"
+} > "$REPORT_TMP"
+mv "$REPORT_TMP" "$REPORT"
+RUN_FINISHED=1
 
 echo ""
 echo "Report written to $REPORT"
-echo "Summary: PASS=$PASS WARN=$WARN FAIL=$FAIL"
+echo "Broad inventory: PASS=$PASS WARN=$WARN FAIL=$FAIL"
+echo "Local/community routes: PASS=$BPASS WARN=$BWARN FAIL=$BFAIL"
+echo "Configured keyed/MCP failures: KEYED=$KFAIL MCP=$MFAIL"
+
+if (( FAIL > 0 || BFAIL > 0 || KFAIL > 0 || MFAIL > 0 )); then
+  exit 1
+fi

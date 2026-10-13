@@ -11,13 +11,24 @@ pass=0
 check() {
   local name=$1
   shift
-  if "$@"; then
+  if "$@" >/dev/null; then
     printf 'PASS %s\n' "$name"
     pass=$((pass + 1))
   else
     printf 'FAIL %s\n' "$name" >&2
     exit 1
   fi
+}
+
+capture() {
+  local name=$1 output=$2 error=$3
+  shift 3
+  if "$@" >"$output" 2>"$error"; then
+    return 0
+  fi
+  printf 'FAIL %s\n' "$name" >&2
+  sed -n '1,120p' "$error" >&2
+  exit 1
 }
 
 check "Python syntax" python3 -m py_compile "$SOCIAL"
@@ -38,21 +49,23 @@ check "Registered sources store gopass references only" jq -e '
     .credential_ref == "gopass://research-engine/community/blind")
 ' "$REGISTRY"
 
-python3 "$SOCIAL" source-list >"$TMP/sources.json" 2>"$TMP/sources.log"
-check "Phonebook exposes all sources without routing" jq -e '
-  .type == "source-capability-phonebook" and .count == 8 and
+capture "Phonebook command" "$TMP/sources.json" "$TMP/sources.log" \
+  python3 "$SOCIAL" source-list
+registry_count=$(jq '.sources | length' "$REGISTRY")
+check "Phonebook exposes all sources without routing" jq -e --argjson expected "$registry_count" '
+  .type == "source-capability-phonebook" and .count == $expected and
   ([.sources[].id] | index("reddit") != null) and
   ([.sources[].id] | index("onepoint3acres") != null)
 ' "$TMP/sources.json"
 
-python3 "$SOCIAL" source-list --source college-confidential \
-  >"$TMP/one-source.json" 2>"$TMP/one-source.log"
+capture "Single-source phonebook command" "$TMP/one-source.json" "$TMP/one-source.log" \
+  python3 "$SOCIAL" source-list --source college-confidential
 check "Phonebook can inspect one access recipe" jq -e '
   .count == 1 and .sources[0].access.account == "not_required"
 ' "$TMP/one-source.json"
 
-python3 "$SOCIAL" source-list --source does-not-exist \
-  >"$TMP/missing-source.json" 2>"$TMP/missing-source.log"
+capture "Unknown-source phonebook command" "$TMP/missing-source.json" "$TMP/missing-source.log" \
+  python3 "$SOCIAL" source-list --source does-not-exist
 check "Unknown phonebook id is EMPTY, not FAILED" jq -e '
   .status == "empty" and .count == 0
 ' "$TMP/missing-source.json"

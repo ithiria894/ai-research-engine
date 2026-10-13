@@ -25,6 +25,22 @@
 唔限制一條問題屬於邊類。Credential 只存在 gopass、環境變數或既有 browser session；registry
 只記 reference，永遠唔存 secret。
 
+### Health check 係分層，唔再每題盲掃全網
+
+```bash
+bash health-check.sh                                      # quick：local/registry/CLI/CDP
+bash health-check.sh --source reddit --source onepoint3acres  # route 過期／改版／失敗時診斷
+bash health-check.sh --community                         # 定期驗全 community registry
+bash health-check.sh --full                              # 維護用全量 audit；會用 keyed/MCP quota
+```
+
+普通研究唔自動跑 health check；直接做 selected source 嘅真實 retrieval，嗰次結果先係當刻
+operational evidence。改完 engine 先跑 quick；route 過期、改版或實際失敗先用 repeatable
+`--source` 診斷；`--community`／`--full` 隔一段時間手動維護。`--full` 唔係每個 session
+嘅前置步驟，亦唔可以喺冇需要時消耗 limited credits。
+報告 atomic 寫入；途中 timeout／interrupt 會明確寫 `INTERRUPTED / FAILED`，唔會保留舊成功
+報告扮今次已完成。外部 source 冇結果要分清 `EMPTY`、`FAILED` 同 `SKIPPED`。
+
 ---
 
 ## 🛑 先讀呢段 — 2026-08-11 sanity check 嘅更正（覆蓋下面所有過時 MCP 引用）
@@ -1494,8 +1510,8 @@ If Twitter spend > $5/mo     → ⚠️ review if reads are worth it
 
 ### Round 11（2026-05-30）— GEO cluster + Health Check + Forum MCP mandate
 - **新 cluster 20：GEO / AI Answer-Engine Visibility**（見上面 SEO section 後）— 補返 engine 一直缺嘅 gap：點令 product/package 俾 AI engine + coding agent 發現/推薦/用啱。核心 evidence：llms.txt 對 AI search ≈ 0（limy.ai 500M event study、Google 官方否認）但對 coding agent 有用；**docs-MCP > llms.txt**（Astro 移除 llms.txt 改 MCP）；Reddit 主導 AI citation（Perplexity 46.7%）；Context7 submit = zero-effort win。
-- **Health check script**（`health-check.sh`）— 逐個 ping zero-key API + CLI + 列 connected MCP，出 `health-check-report.md`。首次跑：**54 個 zero-key API 入面 11 個 dead**。死咗：Reddit .json (403)、Bluesky (403)、Semantic Scholar (429)、GDELT (429)、Google PSI (429)、YC OSS (404, URL 變)、crt.sh (502)、DOAJ (000)、Hashnode (301)、Open Library (422)、Perplexity (403)。**呢個就係之前 agent silently fetch 唔到嘢嘅 root cause** — 以後 research session 前必跑。
-- **Forum MCP mandate**（skill 更新）— Reddit + login-gated forum 強制用 MCP（dialog-mcp）或 logged-in Chrome session，禁 raw curl `.json`（surface + rate-limited）。實證：同一個 topic，curl forum agent 攞到 **0 Reddit data**（"completely blocked"），dialog-mcp + browser agent 攞到 **15+ 完整 comment thread**。
+- **Health check script（歷史記錄）**（`health-check.sh`）— 初版逐個 ping zero-key API + CLI + connected MCP，首次跑 54 個 zero-key API 有 11 個 dead，揭發 agent silently fetch 唔到嘢。2026-10-13 已改成分層模式：普通 research 只跑 selected `--source`；`--community`／`--full` 留畀定期維護，唔再每個 session 盲掃全 inventory。
+- **Forum route 歷史更正** — 當時用 dialog-mcp／logged-in Chrome 對比 raw Reddit curl，證明 browser route 可以攞到完整 thread。現行 route 已唔再用 dialog-mcp：live Reddit 用 Agent Chrome JSON，archive/search cross-check 用 Arctic Shift，禁 raw `reddit.com/*.json` curl。
 
 ### Round 1（2026-03-22）
 搵到 30+ 新工具。安裝 5 個：idea-reality、dialog-mcp、free-web-search、newsmcp、mcp-hn。

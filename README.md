@@ -21,7 +21,7 @@ This is:
 - **An LLM-led source-hypothesis step** that reads the whole question and selects every plausible direct, adjacent, and exploratory source across overlapping clusters
 - **A community capability registry** that records what niche communities contain, how to search them, whether a session is needed, and which access routes have actually been verified
 - **An optional multi-agent methodology** for parallel collection when the user requests delegation; the same workflow also runs in one main agent
-- **A pre-flight check** that silently verifies what tools are installed before presenting options, so you're never silently missing coverage
+- **A manual maintenance and diagnostic health check** with quick, targeted-source, community and full-inventory modes
 - **A verification step** that checks coverage, flags contradictions, and identifies gaps before producing the final report
 - **A quality framework** (DRACO dimensions) that scores output on factual accuracy, analytical depth, presentation, and source attribution
 
@@ -112,14 +112,21 @@ Options:
 
 Option (b) is designed for users who want results immediately. The engine degrades gracefully: uses every 🟢 FREE curl API plus already-installed MCPs, skips anything that needs setup, and notes in the final report what coverage was skipped.
 
-## Pre-flight Check
+## Health Check
 
-Before presenting the source list, the skill silently verifies:
-- Whether each MCP server responds
-- Whether required API keys are set
-- Whether CLI tools are installed
+Health checking is not an automatic prerequisite for every research question. The
+actual selected-source retrieval is the current operational signal. Use the health
+checker manually to verify:
+- Whether the local registry, CLI and Agent Chrome transport work
+- Whether each selected community adapter returns real data
+- Whether credentials or a logged-in session are required
+- Whether a selected endpoint is healthy, empty, skipped or failed
 
-You're never silently missing coverage. If something isn't set up, you see exactly what's missing and a one-line install command.
+Run quick mode after engine changes, `--source` to diagnose a stale, changed or failing
+route, `--community` for a periodic community audit, and `--full` for an explicit broad
+maintenance audit. This keeps ordinary research fast and prevents routine work from
+spending limited credits. If a selected route is unavailable, the coverage ledger says
+so instead of treating its silence as evidence.
 
 ## Execution Model
 
@@ -132,7 +139,7 @@ integration, contradiction checking, and final synthesis.
 
 **vs Google Search**: Google indexes web pages. We query 100+ specialized databases directly. Patent filings, academic citations, package download trends, prediction market odds, SEC company filings, government economic data — none of this shows up on page 1 of Google.
 
-**vs ChatGPT / Claude / Gemini "deep research"**: They do 5-10 web searches and synthesize. We do 100+ parallel queries across specialized APIs, verify coverage and flag contradictions before synthesizing, and score output quality explicitly. Their citation accuracy is 40-80% (DeepTRACE, NeurIPS 2025). The verification step exists specifically to catch that.
+**vs ChatGPT / Claude / Gemini "deep research"**: They often stop after a small set of web searches. We select every plausibly relevant specialized source, verify actual retrieval coverage, flag contradictions before synthesizing, and score output quality explicitly. The engine does not query all 100+ sources blindly; the inventory is a phonebook and the question determines which routes are used.
 
 **vs last30days**: Great tool for social recency (Reddit/X/TikTok/Instagram in the last 30 days). We cover that plus academic papers, patents, government data, package registries, company filings, podcasts, prediction markets, and 80+ more sources with no time restriction.
 
@@ -146,7 +153,7 @@ integration, contradiction checking, and final synthesis.
 research-engine.md                          # Master inventory and research methodology
 community-sources.json                      # Machine-readable community capability registry
 social-research.py                          # Verified one-shot community/API adapters
-health-check.sh                             # Route and dependency pre-flight checks
+health-check.sh                             # Manual maintenance and route diagnostics
 qa/                                         # End-to-end QA scripts
 skills/deep-research/
   SKILL.md                                  # LLM-led workflow and report contract
@@ -154,6 +161,27 @@ skills/deep-research/
 ```
 
 ## Quick Start
+
+### Check the engine and selected source routes
+
+```bash
+# Fast local check: registry, CLIs and Agent Chrome transport. No broad API sweep.
+bash health-check.sh
+
+# Diagnose only the stale, changed or failing phonebook sources.
+bash health-check.sh --source reddit --source onepoint3acres
+
+# Periodic community-route audit (no keyed or broad API inventory).
+bash health-check.sh --community
+
+# Explicit comprehensive maintenance audit. This can consume limited API/MCP quota.
+bash health-check.sh --full
+```
+
+The report is written atomically to `health-check-report.md`. If a run is interrupted,
+the report is replaced with an explicit `INTERRUPTED / FAILED` marker instead of
+leaving an older success result in place. `--full` runs independent zero-key probes in
+a bounded parallel pool. Ordinary research does not run a health check automatically.
 
 ### Use the data source inventory directly
 
