@@ -172,5 +172,22 @@ else
   bad "tab hygiene" "tab count grew $before -> $after; agents will flood the browser"
 fi
 
+head_ "T11 — open_tab keeps the whole URL (& # %20 %26 + must survive /json/new)"
+# 2026-10-30: /json/new truncated at a raw "&", so "&limit=2" or XHS "&xsec_source=" vanished silently.
+ot=$(python3 - <<'EOF' 2>&1
+import importlib.util, pathlib
+spec = importlib.util.spec_from_file_location("ac", pathlib.Path.home() / ".local/bin/agent-chrome.py")
+ac = importlib.util.module_from_spec(spec); spec.loader.exec_module(ac)
+u = "https://example.com/p?q=a%20b&v=x%26y&w=c+d&limit=2#frag"
+t = ac.open_tab(u, wait=False); got = t.info["url"]; t.close(); ac.http_text("/json/close/" + t.info["id"])
+print("SAME" if got == u else "GOT " + got)
+EOF
+)
+if [[ "$ot" == "SAME" ]]; then
+  ok "URL with & # %20 %26 + opened byte-for-byte"
+else
+  bad "open_tab URL" "$ot"
+fi
+
 printf '\n\033[1mRESULT: %d passed, %d failed\033[0m\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

@@ -1169,6 +1169,67 @@ def grapevine_search(query: str, limit: int) -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+OPENREVIEW_API = "https://api2.openreview.net"
+
+
+def openreview_get(path: str, params: dict[str, str]) -> None:
+    """GET an OpenReview API v2 path by loading it in an Agent Chrome tab.
+
+    Since 2026-10 the API answers plain HTTP clients with 403
+    ChallengeRequiredError. The challenge page solves itself in a browser,
+    sets an `openreview.clearanceToken` cookie that lasts only minutes, then
+    redirects back to the API URL (verified 2026-10-30). Storing the cookie is
+    useless, and running fetch() from openreview.net pages breaks when the
+    site's own JS navigates, so we load the API URL itself and read the JSON.
+    """
+    if not re.fullmatch(r"/[A-Za-z0-9/_.-]*", path):
+        die(f"path must look like /notes or /groups, got {path!r}", reason="error")
+    url = OPENREVIEW_API + path + ("?" + urllib.parse.urlencode(params) if params else "")
+    ac = load_agent_chrome()
+    if not ac.try_http_json("/json/version", timeout=2):
+        die("Agent Chrome is not running; start it with: agent-chrome.py start", 2, reason="unconfigured")
+    log_event("external_call", route="openreview_tab_load", url=url)
+    tab = ac.open_tab(url, wait=True)
+    target_id = tab.info["id"]
+    payload, challenged = None, False
+    try:
+        deadline = time.time() + 40
+        while time.time() < deadline:
+            state = tab.evaluate("JSON.stringify({host: location.host, ready: document.readyState, "
+                                 "text: document.body ? document.body.innerText : ''})")
+            page = json.loads(state)
+            try:
+                payload = json.loads(page["text"]) if page["host"] == "api2.openreview.net" else None
+            except json.JSONDecodeError:
+                payload = None
+            if isinstance(payload, dict) and payload.get("name") == "ChallengeRequiredError":
+                challenge_url = (payload.get("details") or {}).get("challengeUrl", "")
+                if challenged or not challenge_url.startswith("https://openreview.net/challenge"):
+                    break
+                challenged = True
+                log_event("decision", route="openreview_tab_load", challenge=True)
+                tab.cmd("Page.navigate", {"url": challenge_url})
+                payload = None
+            elif isinstance(payload, dict):
+                break
+            time.sleep(0.5)
+    finally:
+        tab.close()
+        ac.http_text(f"/json/close/{target_id}")
+    if not isinstance(payload, dict):
+        die("OpenReview page never showed JSON within 40s", reason="timeout")
+    if payload.get("name") and payload.get("status"):
+        status = int(payload.get("status") or 0)
+        log_event("external_error", route="openreview_tab_load", http_status=status, error=payload.get("name"))
+        reason = "blocked" if payload.get("name") == "ChallengeRequiredError" else (http_reason(status) if status else "error")
+        die(f"OpenReview HTTP {status} {payload.get('name')}: {str(payload.get('message'))[:300]}", reason=reason)
+    items = next((payload[k] for k in ("notes", "groups", "edges", "profiles", "invitations") if isinstance(payload.get(k), list)), None)
+    log_event("decision", route="openreview_tab_load", challenged=challenged, items=None if items is None else len(items))
+    print(json.dumps({"status": "ok" if items is None or items else "empty", "route": "browser-tab-api",
+                      "url": url, "challenged": challenged, "count": None if items is None else len(items),
+                      "data": payload}, ensure_ascii=False, indent=2))
+
+
 def grapevine_thread(value: str, max_comments: int) -> None:
     """Fetch one Grapevine post and its comments through first-party APIs."""
     match = re.search(
@@ -1285,6 +1346,10 @@ def main() -> None:
     p.add_argument("--t", dest="period", choices=("all", "year", "month", "week", "day", "hour"), default="all")
     p.add_argument("--limit", type=int, default=25)
 
+    p = sub.add_parser("openreview")
+    p.add_argument("path", help="API v2 path, e.g. /notes")
+    p.add_argument("params", nargs="*", help="key=value query parameters")
+
     p = sub.add_parser("bctransfer-institutions")
     p.add_argument("--query")
     p.add_argument("--country-id", type=int, default=40)
@@ -1352,6 +1417,8 @@ def main() -> None:
         if not 1 <= args.max_replies <= 500:
             die("--max-replies must be between 1 and 500")
         onepoint_thread(args.thread, args.max_replies)
+    elif args.command == "openreview":
+        openreview_get(args.path, parse_params(args.params))
     elif args.command == "grapevine-search":
         if not 1 <= args.limit <= 100:
             die("--limit must be between 1 and 100")

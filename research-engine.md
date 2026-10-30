@@ -535,7 +535,7 @@ Program 太窄、直接 posts 太少時，唔可以停喺「冇資料」。要�
 
 | API | 開咩新 domain | 點用（verified 200） |
 |-----|--------------|---------------------|
-| ⭐ **OpenReview** | **學術 peer-review discourse**（ratings/accept-reject rationale，ICLR/NeurIPS）— arXiv/S2 得 paper 冇 review | `https://api2.openreview.net/notes?content.venue=ICLR%202025&limit=10` |
+| ⭐ **OpenReview** | **學術 peer-review discourse**（ratings/accept-reject rationale，ICLR/NeurIPS）— arXiv/S2 得 paper 冇 review | `social-research.py openreview /notes content.venue='ICLR 2025' limit=10`（2026-10-30 起 plain curl 403 ChallengeRequiredError，要經 agent Chrome tab） |
 | ⭐ **CourtListener v4** | **美國全套 case-law + dockets**（36K+ opinion／query）— engine 完全冇法律 | `https://www.courtlistener.com/api/rest/v4/search/?q=...&type=o` |
 | ⭐ **SEC EFTS full-text** | EDGAR **全文**搜（搵每份提到某詞嘅 10-K），metadata API 做唔到 | `https://efts.sec.gov/LATEST/search-index?q="AI"&forms=10-K`（要 UA header） |
 | ⭐ **Socrata Discovery** | **救返死咗嘅 data.gov**（CKAN 404）— 搜全美 state/city open-data portal | `https://api.us.socrata.com/api/catalog/v1?q=budget` |

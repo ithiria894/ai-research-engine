@@ -297,7 +297,7 @@ check "skilldock.io skills"     "https://api.skilldock.io/v1/skills"
 check "Otterly OpenAPI spec"    "https://data.otterly.ai/v1/openapi.json"
 
 # ── Round 13 new zero-key sources (verified 2026-05-31) ───────────────
-check "OpenReview"              "https://api2.openreview.net/notes?content.venue=ICLR%202025&limit=2"
+# OpenReview: plain curl gets 403 ChallengeRequiredError since 2026-10; probed via the browser section below.
 check "CourtListener v4"        "https://www.courtlistener.com/api/rest/v4/search/?q=copyright&type=o"
 check "SEC EFTS full-text"      "https://efts.sec.gov/LATEST/search-index?q=%22AI%22&forms=10-K"
 check "Socrata Discovery"       "https://api.us.socrata.com/api/catalog/v1?q=budget&limit=2"
@@ -575,6 +575,29 @@ else
         *)    bact "⚠️ | login: $site | — | $lc";;
       esac
     done
+    fi
+
+    # OpenReview API answers plain HTTP with 403 ChallengeRequiredError (2026-10-30);
+    # a browser tab passes the challenge itself, so probe that route.
+    if source_selected openreview; then
+    tmpb=$(mktemp)
+    if timeout "$SOURCE_TIMEOUT" python3 "$SOCIAL" openreview /notes "content.venue=ICLR 2025 Oral" limit=2 \
+        >"$tmpb" 2>/dev/null; then
+      n=$(jq -r '.count' "$tmpb" 2>/dev/null || echo 0)
+      if [[ "${n:-0}" -ge 1 ]]; then
+        bact "✅ | OpenReview via browser tab | 200 | $n notes"
+      else
+        bact "❌ | OpenReview via browser tab | 200 | 0 notes for a venue that has hundreds"
+        act "❌|OpenReview 返 0 篇|試 \`social-research.py openreview /notes 'content.venue=ICLR 2025 Oral' limit=2\`，睇 venue 名有冇改"
+      fi
+    else
+      bact "❌ | OpenReview via browser tab | — | fetch FAILED"
+      act "❌|OpenReview browser 路線失敗|睇 stderr 嘅 \`[reason]\`；blocked = challenge 過唔到"
+    fi
+    rm -f "$tmpb"
+    ccode=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
+      'https://api2.openreview.net/notes?content.venue=ICLR%202025%20Oral&limit=2' 2>/dev/null)
+    bact "ℹ️ | OpenReview via plain curl (control) | ${ccode:-000} | 403 係預期 — 證明 browser 路線係必需"
     fi
 
     # XHS has no honest cookie-name-only whoami. Probe the actual native search

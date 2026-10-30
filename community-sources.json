@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "updated_at": "2026-10-13",
+  "updated_at": "2026-10-30",
   "routing_policy": {
     "mode": "llm_selected_phonebook",
     "rule": "The LLM reads the question and proposes every source that may contain useful or unexpected information. Nicole can add or remove sources before collection.",
@@ -11,40 +11,121 @@
     {
       "id": "reddit",
       "name": "Reddit",
-      "domains": ["reddit.com"],
-      "topic_tags": ["cross-domain", "pain-points", "lived-experience", "admissions", "careers", "technology", "products", "local"],
-      "region_tags": ["global"],
-      "languages": ["en", "zh", "multilingual"],
-      "source_kinds": ["community", "discussion", "user-experience"],
-      "routing_keywords": ["reddit", "review", "experience", "pain point", "what people say", "admission", "transfer", "career", "layoff"],
+      "domains": [
+        "reddit.com"
+      ],
+      "topic_tags": [
+        "cross-domain",
+        "pain-points",
+        "lived-experience",
+        "admissions",
+        "careers",
+        "technology",
+        "products",
+        "local"
+      ],
+      "region_tags": [
+        "global"
+      ],
+      "languages": [
+        "en",
+        "zh",
+        "multilingual"
+      ],
+      "source_kinds": [
+        "community",
+        "discussion",
+        "user-experience"
+      ],
+      "routing_keywords": [
+        "reddit",
+        "review",
+        "experience",
+        "pain point",
+        "what people say",
+        "admission",
+        "transfer",
+        "career",
+        "layoff"
+      ],
       "access": {
         "read": "browser_session",
-        "search": "browser_session_json_and_arctic_shift",
+        "search": "browser_session_shreddit_and_arctic_shift",
         "account": "existing_session",
         "credential_ref": "gopass://chrome/social/www-reddit-com",
         "session_profile": "agent-chrome"
       },
       "routes": {
-        "discovery": ["Reddit search JSON through Agent Chrome", "Arctic Shift search"],
-        "search": ["agent-chrome.py fetch https://www.reddit.com/search.json?...", "Arctic Shift posts/comments APIs"],
-        "thread": ["agent-chrome.py fetch https://www.reddit.com/r/{sub}/comments/{id}/.json?limit=500", "Arctic Shift comment tree"]
+        "discovery": [
+          "social-research.py reddit-search (shreddit search partial via Agent Chrome)",
+          "Arctic Shift search"
+        ],
+        "search": [
+          "social-research.py reddit-search QUERY [--subreddit S] [--type posts|comments]",
+          "Arctic Shift posts/comments APIs"
+        ],
+        "thread": [
+          "agent-chrome.py fetch https://www.reddit.com/r/{sub}/comments/{id}/.json?limit=500",
+          "Arctic Shift comment tree"
+        ]
       },
       "verification": {
-        "date": "2026-10-13",
+        "date": "2026-10-30",
         "status": "working",
-        "evidence": "Existing logged-in Agent Chrome route and Arctic Shift fallback are documented and health-checked."
+        "evidence": "search.json returns 403 even in-session (2026-10-30); shreddit route returns results, health-checked as \"Reddit search via browser\"."
       },
       "bias_notes": "Self-selected communities; useful for experiences and leads, not population rates."
     },
     {
       "id": "onepoint3acres",
       "name": "1Point3Acres",
-      "domains": ["1point3acres.com", "trpc.1point3acres.com", "api.1point3acres.com"],
-      "topic_tags": ["cross-domain", "north-america", "chinese-diaspora", "admissions", "courses", "past-papers", "careers", "immigration", "housing", "technology"],
-      "region_tags": ["north-america", "us", "canada", "china"],
-      "languages": ["zh-CN", "en"],
-      "source_kinds": ["community", "discussion", "resource-library", "attachments"],
-      "routing_keywords": ["一亩三分地", "一畝三分地", "北美", "华人", "留学", "转学", "选课", "教授", "真题", "面经", "找工", "签证"],
+      "domains": [
+        "1point3acres.com",
+        "trpc.1point3acres.com",
+        "api.1point3acres.com"
+      ],
+      "topic_tags": [
+        "cross-domain",
+        "north-america",
+        "chinese-diaspora",
+        "admissions",
+        "courses",
+        "past-papers",
+        "careers",
+        "immigration",
+        "housing",
+        "technology"
+      ],
+      "region_tags": [
+        "north-america",
+        "us",
+        "canada",
+        "china"
+      ],
+      "languages": [
+        "zh-CN",
+        "en"
+      ],
+      "source_kinds": [
+        "community",
+        "discussion",
+        "resource-library",
+        "attachments"
+      ],
+      "routing_keywords": [
+        "一亩三分地",
+        "一畝三分地",
+        "北美",
+        "华人",
+        "留学",
+        "转学",
+        "选课",
+        "教授",
+        "真题",
+        "面经",
+        "找工",
+        "签证"
+      ],
       "access": {
         "read": "browser_session_api",
         "search": "browser_session_api",
@@ -53,9 +134,15 @@
         "session_profile": "agent-chrome"
       },
       "routes": {
-        "discovery": ["first-party tRPC hybrid search"],
-        "search": ["social-research.py onepoint-search"],
-        "thread": ["social-research.py onepoint-thread"]
+        "discovery": [
+          "first-party tRPC hybrid search"
+        ],
+        "search": [
+          "social-research.py onepoint-search"
+        ],
+        "thread": [
+          "social-research.py onepoint-thread"
+        ]
       },
       "verification": {
         "date": "2026-10-13",
@@ -67,12 +154,38 @@
     {
       "id": "college-confidential",
       "name": "College Confidential",
-      "domains": ["talk.collegeconfidential.com"],
-      "topic_tags": ["admissions", "transfer", "financial-aid", "college-life", "parents", "us-education"],
-      "region_tags": ["us", "international"],
-      "languages": ["en"],
-      "source_kinds": ["community", "discussion", "cohort-thread"],
-      "routing_keywords": ["college confidential", "college admission", "transfer", "financial aid", "chance me", "decision thread", "applicant"],
+      "domains": [
+        "talk.collegeconfidential.com"
+      ],
+      "topic_tags": [
+        "admissions",
+        "transfer",
+        "financial-aid",
+        "college-life",
+        "parents",
+        "us-education"
+      ],
+      "region_tags": [
+        "us",
+        "international"
+      ],
+      "languages": [
+        "en"
+      ],
+      "source_kinds": [
+        "community",
+        "discussion",
+        "cohort-thread"
+      ],
+      "routing_keywords": [
+        "college confidential",
+        "college admission",
+        "transfer",
+        "financial aid",
+        "chance me",
+        "decision thread",
+        "applicant"
+      ],
       "access": {
         "read": "public_json",
         "search": "public_json",
@@ -82,9 +195,15 @@
         "session_profile": null
       },
       "routes": {
-        "discovery": ["Discourse search.json"],
-        "search": ["social-research.py collegeconf-search"],
-        "thread": ["social-research.py collegeconf-thread"]
+        "discovery": [
+          "Discourse search.json"
+        ],
+        "search": [
+          "social-research.py collegeconf-search"
+        ],
+        "thread": [
+          "social-research.py collegeconf-thread"
+        ]
       },
       "verification": {
         "date": "2026-10-13",
@@ -96,12 +215,41 @@
     {
       "id": "the-student-room",
       "name": "The Student Room",
-      "domains": ["thestudentroom.co.uk"],
-      "topic_tags": ["admissions", "courses", "exams", "past-papers", "student-life", "careers", "uk-education"],
-      "region_tags": ["uk", "international"],
-      "languages": ["en"],
-      "source_kinds": ["community", "discussion", "resource-library"],
-      "routing_keywords": ["student room", "ucas", "tmua", "a level", "mature student", "imperial", "oxford", "cambridge", "past paper"],
+      "domains": [
+        "thestudentroom.co.uk"
+      ],
+      "topic_tags": [
+        "admissions",
+        "courses",
+        "exams",
+        "past-papers",
+        "student-life",
+        "careers",
+        "uk-education"
+      ],
+      "region_tags": [
+        "uk",
+        "international"
+      ],
+      "languages": [
+        "en"
+      ],
+      "source_kinds": [
+        "community",
+        "discussion",
+        "resource-library"
+      ],
+      "routing_keywords": [
+        "student room",
+        "ucas",
+        "tmua",
+        "a level",
+        "mature student",
+        "imperial",
+        "oxford",
+        "cambridge",
+        "past paper"
+      ],
       "access": {
         "read": "public_page_via_browser_transport",
         "search": "web_discovery_then_public_thread",
@@ -111,9 +259,15 @@
         "session_profile": "agent-chrome"
       },
       "routes": {
-        "discovery": ["web search: site:thestudentroom.co.uk {query}"],
-        "search": ["External web discovery; internal search is conditionally blocked"],
-        "thread": ["social-research.py studentroom-thread"]
+        "discovery": [
+          "web search: site:thestudentroom.co.uk {query}"
+        ],
+        "search": [
+          "External web discovery; internal search is conditionally blocked"
+        ],
+        "thread": [
+          "social-research.py studentroom-thread"
+        ]
       },
       "verification": {
         "date": "2026-10-13",
@@ -125,12 +279,39 @@
     {
       "id": "bc-transfer-guide",
       "name": "BC Transfer Guide",
-      "domains": ["bctransferguide.ca", "api.bctransferguide.ca"],
-      "topic_tags": ["transfer-credit", "course-equivalency", "institutions", "subjects", "bc-education"],
-      "region_tags": ["canada", "british-columbia"],
-      "languages": ["en"],
-      "source_kinds": ["official", "structured-data", "transfer-agreement"],
-      "routing_keywords": ["bc transfer", "transfer credit", "course equivalency", "ubc", "sfu", "tru", "langara", "british columbia"],
+      "domains": [
+        "bctransferguide.ca",
+        "api.bctransferguide.ca"
+      ],
+      "topic_tags": [
+        "transfer-credit",
+        "course-equivalency",
+        "institutions",
+        "subjects",
+        "bc-education"
+      ],
+      "region_tags": [
+        "canada",
+        "british-columbia"
+      ],
+      "languages": [
+        "en"
+      ],
+      "source_kinds": [
+        "official",
+        "structured-data",
+        "transfer-agreement"
+      ],
+      "routing_keywords": [
+        "bc transfer",
+        "transfer credit",
+        "course equivalency",
+        "ubc",
+        "sfu",
+        "tru",
+        "langara",
+        "british columbia"
+      ],
       "access": {
         "read": "public_api",
         "search": "public_api_and_site_form",
@@ -139,8 +320,15 @@
         "session_profile": null
       },
       "routes": {
-        "discovery": ["public API metadata", "official course-to-course search"],
-        "search": ["social-research.py bctransfer-institutions", "social-research.py bctransfer-subjects", "official course-to-course search page"],
+        "discovery": [
+          "public API metadata",
+          "official course-to-course search"
+        ],
+        "search": [
+          "social-research.py bctransfer-institutions",
+          "social-research.py bctransfer-subjects",
+          "official course-to-course search page"
+        ],
         "thread": []
       },
       "verification": {
@@ -153,12 +341,42 @@
     {
       "id": "grapevine",
       "name": "Grapevine",
-      "domains": ["grapevine.in", "apis.gvine.app"],
-      "topic_tags": ["careers", "compensation", "layoffs", "interviews", "companies", "india", "technology"],
-      "region_tags": ["india", "global-tech"],
-      "languages": ["en", "hi", "multilingual"],
-      "source_kinds": ["community", "discussion", "workplace"],
-      "routing_keywords": ["grapevine", "india tech", "salary", "compensation", "layoff", "company culture", "interview"],
+      "domains": [
+        "grapevine.in",
+        "apis.gvine.app"
+      ],
+      "topic_tags": [
+        "careers",
+        "compensation",
+        "layoffs",
+        "interviews",
+        "companies",
+        "india",
+        "technology"
+      ],
+      "region_tags": [
+        "india",
+        "global-tech"
+      ],
+      "languages": [
+        "en",
+        "hi",
+        "multilingual"
+      ],
+      "source_kinds": [
+        "community",
+        "discussion",
+        "workplace"
+      ],
+      "routing_keywords": [
+        "grapevine",
+        "india tech",
+        "salary",
+        "compensation",
+        "layoff",
+        "company culture",
+        "interview"
+      ],
       "access": {
         "read": "browser_origin_public_api",
         "search": "browser_origin_public_api",
@@ -168,9 +386,15 @@
         "session_profile": "agent-chrome"
       },
       "routes": {
-        "discovery": ["first-party unauthorized search API"],
-        "search": ["social-research.py grapevine-search"],
-        "thread": ["social-research.py grapevine-thread"]
+        "discovery": [
+          "first-party unauthorized search API"
+        ],
+        "search": [
+          "social-research.py grapevine-search"
+        ],
+        "thread": [
+          "social-research.py grapevine-thread"
+        ]
       },
       "verification": {
         "date": "2026-10-13",
@@ -182,12 +406,40 @@
     {
       "id": "blind",
       "name": "Blind",
-      "domains": ["teamblind.com"],
-      "topic_tags": ["careers", "compensation", "layoffs", "interviews", "companies", "technology"],
-      "region_tags": ["global-tech", "us", "india"],
-      "languages": ["en", "ko"],
-      "source_kinds": ["community", "discussion", "workplace"],
-      "routing_keywords": ["blind", "salary", "total compensation", "layoff", "company culture", "interview", "offer"],
+      "domains": [
+        "teamblind.com"
+      ],
+      "topic_tags": [
+        "careers",
+        "compensation",
+        "layoffs",
+        "interviews",
+        "companies",
+        "technology"
+      ],
+      "region_tags": [
+        "global-tech",
+        "us",
+        "india"
+      ],
+      "languages": [
+        "en",
+        "ko"
+      ],
+      "source_kinds": [
+        "community",
+        "discussion",
+        "workplace"
+      ],
+      "routing_keywords": [
+        "blind",
+        "salary",
+        "total compensation",
+        "layoff",
+        "company culture",
+        "interview",
+        "offer"
+      ],
       "access": {
         "read": "authenticated_browser_page; structured adapter_not_yet_pinned",
         "search": "web_discovery_or_authenticated_browser; structured adapter_not_yet_pinned",
@@ -197,9 +449,16 @@
         "session_profile": "agent-chrome"
       },
       "routes": {
-        "discovery": ["public site search", "web search: site:teamblind.com {query}"],
-        "search": ["public search pages or first-party Next/RSC payload"],
-        "thread": ["public post page or first-party Next/RSC payload"]
+        "discovery": [
+          "public site search",
+          "web search: site:teamblind.com {query}"
+        ],
+        "search": [
+          "public search pages or first-party Next/RSC payload"
+        ],
+        "thread": [
+          "public post page or first-party Next/RSC payload"
+        ]
       },
       "verification": {
         "date": "2026-10-13",
@@ -211,12 +470,44 @@
     {
       "id": "xiaohongshu",
       "name": "Xiaohongshu / RedNote",
-      "domains": ["xiaohongshu.com"],
-      "topic_tags": ["cross-domain", "reviews", "shopping", "travel", "beauty", "education", "careers", "local"],
-      "region_tags": ["china", "east-asia", "global-chinese"],
-      "languages": ["zh-CN"],
-      "source_kinds": ["community", "review", "user-experience", "visual"],
-      "routing_keywords": ["小红书", "小紅書", "rednote", "攻略", "避雷", "测评", "留学", "医美", "旅游"],
+      "domains": [
+        "xiaohongshu.com"
+      ],
+      "topic_tags": [
+        "cross-domain",
+        "reviews",
+        "shopping",
+        "travel",
+        "beauty",
+        "education",
+        "careers",
+        "local"
+      ],
+      "region_tags": [
+        "china",
+        "east-asia",
+        "global-chinese"
+      ],
+      "languages": [
+        "zh-CN"
+      ],
+      "source_kinds": [
+        "community",
+        "review",
+        "user-experience",
+        "visual"
+      ],
+      "routing_keywords": [
+        "小红书",
+        "小紅書",
+        "rednote",
+        "攻略",
+        "避雷",
+        "测评",
+        "留学",
+        "医美",
+        "旅游"
+      ],
       "access": {
         "read": "browser_session_or_paid_api",
         "search": "browser_session_or_paid_api",
@@ -225,9 +516,16 @@
         "session_profile": "agent-chrome"
       },
       "routes": {
-        "discovery": ["native search through Agent Chrome", "TikHub when configured"],
-        "search": ["social-research.py xhs-search"],
-        "thread": ["bounded browser extraction when required"]
+        "discovery": [
+          "native search through Agent Chrome",
+          "TikHub when configured"
+        ],
+        "search": [
+          "social-research.py xhs-search"
+        ],
+        "thread": [
+          "bounded browser extraction when required"
+        ]
       },
       "verification": {
         "date": "2026-10-13",
@@ -235,6 +533,65 @@
         "evidence": "Native search adapter and optional TikHub route are installed; availability depends on session/API health."
       },
       "bias_notes": "Highly recommendation-driven and commercialized; search positive, negative and neutral terms separately."
+    },
+    {
+      "id": "openreview",
+      "name": "OpenReview",
+      "domains": [
+        "openreview.net",
+        "api2.openreview.net"
+      ],
+      "topic_tags": [
+        "academic",
+        "peer-review",
+        "machine-learning",
+        "ai-safety"
+      ],
+      "region_tags": [
+        "global"
+      ],
+      "languages": [
+        "en"
+      ],
+      "source_kinds": [
+        "peer-review",
+        "discussion"
+      ],
+      "routing_keywords": [
+        "openreview",
+        "peer review",
+        "reviewer",
+        "ICLR",
+        "NeurIPS",
+        "ICML",
+        "rebuttal",
+        "accept",
+        "reject"
+      ],
+      "access": {
+        "read": "browser_origin_api",
+        "search": "browser_origin_api",
+        "account": "none",
+        "credential_ref": null,
+        "session_profile": "agent-chrome"
+      },
+      "routes": {
+        "search": [
+          "social-research.py openreview /notes/search term=Q type=terms source=forum limit=N"
+        ],
+        "discovery": [
+          "social-research.py openreview /notes content.venue='ICLR 2025 Oral' limit=N"
+        ],
+        "thread": [
+          "social-research.py openreview /notes forum=FORUM_ID (paper + reviews + rebuttals)"
+        ]
+      },
+      "verification": {
+        "date": "2026-10-30",
+        "status": "working",
+        "evidence": "Plain curl gets 403 ChallengeRequiredError; the openreview.net origin passes the challenge itself (clearance cookie lasts minutes). Cold-tab test returned notes on attempt 1."
+      },
+      "bias_notes": "Only venues that use OpenReview (mostly ML); reviews are public only where the venue publishes them."
     }
   ]
 }

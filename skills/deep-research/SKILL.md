@@ -470,7 +470,11 @@ OpenAlex  — https://api.openalex.org/works?search=Q
 Semantic Scholar — https://api.semanticscholar.org/graph/v1/paper/search?query=Q&fields=title,year,citationCount
 arXiv     — https://export.arxiv.org/api/query?search_query=all:Q
 Crossref / DBLP / DOAJ / Zenodo / PubMed / Europe PMC / OpenCitations / bioRxiv — 全部 zero key
-（10-30 health-check --full 全部 ✅；OpenReview 403 ❌；CORE 冇 key）
+OpenReview（peer review、rebuttal、accept/reject 理由）— plain curl 返 403 ChallengeRequiredError，要行 agent Chrome：
+  python3 ~/MyGithub/ai-research-engine/social-research.py openreview /notes/search term=Q type=terms source=forum limit=25
+  python3 ~/MyGithub/ai-research-engine/social-research.py openreview /notes content.venue='ICLR 2025 Oral' limit=50
+  python3 ~/MyGithub/ai-research-engine/social-research.py openreview /notes forum=FORUM_ID   # paper + reviews + 留言
+（10-30 health-check --full 全部 ✅；OpenReview 行上面 browser 路線 ✅；CORE 冇 key）
 ```
 
 ### Academic Papers — 唔再裝 MCP
