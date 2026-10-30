@@ -58,7 +58,7 @@ endpoint／auth／parser 壞 = `FAILED`，今次 ledger 如實報告並繼續其
 - **Reddit 官方 API**：reddit.com/wiki/api 寫明新 Data API app 只畀 "valid moderation use case"，要經
   support.reddithelp.com 申請；research 用途唔會批，所以繼續用 browser session。
 - **小紅書 note detail**：`social-research.py xhs-note`（由 `xhs_mcp_server.py` 搬過嚟，順手修咗「唔存在嘅 note
-  返 status ok」bug）。Codex 個 `xiaohongshu` MCP 而家只係 call 呢個 CLI。
+  返 status ok」bug）。舊 `xhs_mcp_server.py` 從來冇喺 Codex configure（10-30 `codex mcp list` 核實），已封存去 `archive/`。
 - 唔使登入就用得：微博（先開 `m.weibo.cn` tab 再同源 fetch）、PTT（`-b over18=1`）、Discourse `search.json`、
   Mastodon tag timeline。要 Nicole 手動登入：小紅書（session 過期）、知乎、X。
 

@@ -1,7 +1,7 @@
 ---
 name: deep-research
 description: Unified entry point for ANY search — deep research, buying a product / finding a gift (Shopping mode), product competitive analysis, AI-security tracking, academic papers, news, social/forum discussion, crypto, gov/legal data. Auto-detects mode + routes the query to the right research-engine cluster. Use for any "find me / research / compare / where to buy / what to gift / what are people saying about X" task.
-allowed-tools: [Bash, Read, Write, WebSearch, WebFetch, Agent, mcp__tavily__tavily_search, mcp__tavily__tavily_extract, mcp__tavily__tavily_research, mcp__tavily__tavily_crawl, mcp__tavily__tavily_map, mcp__exa__web_search_exa, mcp__exa__get_code_context_exa, mcp__exa__crawling_exa, mcp__firecrawl__firecrawl_search, mcp__firecrawl__firecrawl_scrape, mcp__firecrawl__firecrawl_crawl, mcp__firecrawl__firecrawl_map, mcp__context7__query-docs, mcp__context7__resolve-library-id, mcp__paper-search__*, mcp__arxiv__*, mcp__semantic-scholar__*, mcp__scholar-mcp__*, mcp__youtube-transcript__*, mcp__open-websearch__*, mcp__paper-distill__*, mcp__apify__*, mcp__dialog-mcp__*, mcp__chrome-devtools__*, mcp__gmail__*, mcp__teams__*, mcp__reddit__*, mcp__discourse__*, mcp__hackernews__*, mcp__stackoverflow__*, mcp__xiaohongshu__*, mcp__trend-pulse__*, mcp__activitypub__*, mcp__weibo__*, mcp__ptt__*, mcp__zhihu__*]
+allowed-tools: [Bash, Read, Write, WebSearch, WebFetch, Agent]
 ---
 
 # Research — Unified Deep Research + Product Analysis
@@ -63,10 +63,11 @@ fetch。
 | 學術/論文/研究 | 📚 Academic：arXiv·OpenAlex·S2·OpenReview + paper-search/arxiv MCP |
 | **升學／admissions／transfer／獎學金** | 🎓 Admissions：官方 program/admissions/faculty/registrar/financial-aid pages + Common Data Set／institutional research／FOI/ATI／Wayback；1Point3Acres + Reddit + College Confidential + The Student Room + school-specific communities 深挖 cohort、interview、exceptions、comparable profiles。呢條只係升學題目嘅候選 route，唔係全域預設。 |
 | 新聞/時事 | 📰 News：GDELT（curl 零 key）·google-trends·RSS curl（`curl FEED_URL` 直讀 XML）。⚠️ newsmcp 服務 2026-06 永久關閉 |
-| 社群嘅自己友資源／最近傾乜 | 💬 Social：Reddit (`agent-chrome.py` + Arctic Shift)·**1Point3Acres browser-session API（北美華人跨領域 knowledge commons：學校、transfer、課程、教授、past papers、考經、簽證、生活、求職；同 Reddit 等優先）**·Grapevine·Blind India·TakeUForward·RedBus2US·Yocket·Indian Reddit communities·HN·Bluesky·Mastodon·Lemmy·last30days |
+| 社群嘅自己友資源／最近傾乜 | 💬 Social：Reddit (`agent-chrome.py` + Arctic Shift)·**1Point3Acres browser-session API（北美華人跨領域 knowledge commons：學校、transfer、課程、教授、past papers、考經、簽證、生活、求職；同 Reddit 等優先）**·Grapevine·Blind India·TakeUForward·RedBus2US·Yocket·Indian Reddit communities·Facebook·Instagram·小紅書（已裝 read-only MCP + `xiaohongshu-research`）·HN·Bluesky·Mastodon·Lemmy·V2EX·Bilibili |
 | dev/package | 📦 Dev：npm·PyPI·HuggingFace·libraries.io·GitHub GraphQL |
 | 政府/經濟/法律 | 🏛️⚖️ Gov/Legal：FRED✅·Census✅·OpenStates✅·CourtListener·Congress |
-| 公司/金融/制裁 | 🏢 Company：SEC·FMP✅·OpenSanctions✅·Finnhub |
+| 公司/金融/制裁 | 🏢 Company：SEC·FMP✅·OpenSanctions✅·Finnhub；中國投資者討論可試雪球（只限已有登入嘅 Agent Chrome route） |
+| 影片／podcast | 🎧 Media：YouTube `yt-dlp`·Bilibili public search API·小宇宙頁面直取 audio URL，再按需要做轉錄 |
 | AI security/safety | 🛡️ AI-Sec：Simon Willison·Embrace The Red·tldr;sec·LessWrong GraphQL·arXiv cs.CR |
 | crypto/區塊鏈 | ⛓️ Chain：DeFiLlama·DexScreener·Dune·Polymarket·CoinGecko |
 | LLM/model/benchmark | 🧬 AI-meta：OpenRouter·Ollama·leaderboards |
@@ -94,6 +95,7 @@ lanes 分派出去；main thread 永遠保留 integration、contradiction checki
 ### Source 優先順序
 
 #### Tier 1: Naver API（已有，25K/日）
+> `source ~/.config/research-engine/keys.env` 就有 `NAVER_CLIENT_ID`／`NAVER_CLIENT_SECRET`（2026-10-30 先由 gopass 搬入；之前個 env 冇呢兩個值，所以呢段 curl 一直靜靜雞失敗）。10-30 實測 blog search 200，「콧볼축소 후기」返 21,599 篇。
 最重要嘅 source。韓國人嘅真實後記 90% 喺 Naver 生態圈。
 ```bash
 # Blog 後記（最多真人分享）
@@ -141,7 +143,7 @@ curl -s -X POST "https://openapi.naver.com/v1/datalab/search" \
 | 平台 | 內容 | 點搵 |
 |------|------|------|
 | **Dcard 醫美板** | 台灣人去韓國整容後記 | `site:dcard.tw 醫美 韓國 QUERY` |
-| **小紅書** | 中國人去韓國整容後記 | Chrome DevTools 搜索 / RedNote MCP |
+| **小紅書** | 中國人去韓國整容後記 | `social-research.py xhs-search 'QUERY' --route auto`（TikHub key 或 Agent Chrome）；見 `references/facebook-instagram-xhs.md` |
 | **RealSelf** | 英文 review + 國際患者經驗 | `site:realself.com korea QUERY` |
 
 ### 常用韓文搜索詞
@@ -175,6 +177,9 @@ curl -s -X POST "https://openapi.naver.com/v1/datalab/search" \
 5. Naver Blog 搜「醫生名 부작용 실패」→ 負面搜索
 6. `site:dcinside.com 醫生名` → 匿名真話（DC Inside 最毒舌但最真）
 
+### 私人背景（唔公開）
+
+如果 `~/.config/research-engine/private-context.md` 存在，做韓國醫美或者健康相關 research 之前先讀佢。嗰個檔唔入任何 repo；入面嘅個人資料唔准寫入公開檔案或報告以外嘅地方。
 
 ---
 
@@ -182,21 +187,51 @@ curl -s -X POST "https://openapi.naver.com/v1/datalab/search" \
 
 Launch as many searches as possible simultaneously. Don't do them one by one.
 
-### Web Search (use ALL of these)
+**Direct-route first:** 如果網站已有經 health-check 驗證嘅 public API、一次性 CLI、
+`r.jina.ai` 或 Agent Chrome route，直接用嗰條路。唔好為一個 thin wrapper 安裝或啟動
+MCP。MCP 只限已經配置、當前 cwd 真係可用，而且提供 direct route 做唔到嘅額外覆蓋；
+否則 ledger 記 `FAILED`／`SKIPPED`，唔好即場安裝。
+
+Facebook、Instagram 或小紅書係 relevant source 時，必須讀
+`references/facebook-instagram-xhs.md`。小紅書仲要載入
+`~/.codex/skills/xiaohongshu-research/SKILL.md`，並用 `social-research.py` CLI
+（`xhs-search`；note detail／comments 用 `tikhub` 或 browser route）做 native search、
+note detail 同 initial comments，唔經 MCP。各平台都要分開
+web discovery、native structured retrieval 同 comment expansion。唔可以因為
+search engine 有幾條 hit 就當已經搜過平台。
+
+### Web Search (use ALL of these) — 官方 REST，唔經 MCP（2026-10-30 逐條實測）
+```bash
+source ~/.config/research-engine/keys.env   # TAVILY_API_KEY / EXA_API_KEY / FIRECRAWL_API_KEY
+# Tavily — LLM-optimized search。Researcher plan 1000/月（10-30 用咗 306）；免費查額度：GET https://api.tavily.com/usage
+curl -s -X POST https://api.tavily.com/search -H "Authorization: Bearer $TAVILY_API_KEY" \
+  -H 'Content-Type: application/json' -d '{"query":"Q","max_results":10,"search_depth":"advanced"}'
+# Exa — semantic search（"pages similar to X"）；加 "contents":{"text":true} 連全文
+curl -s -X POST https://api.exa.ai/search -H "x-api-key: $EXA_API_KEY" \
+  -H 'Content-Type: application/json' -d '{"query":"Q","numResults":10}'
+# Firecrawl v2 search — 食 credit（10-30 剩 807/1000）；免費查額度：GET https://api.firecrawl.dev/v2/team/credit-usage
+curl -s -X POST https://api.firecrawl.dev/v2/search -H "Authorization: Bearer $FIRECRAWL_API_KEY" \
+  -H 'Content-Type: application/json' -d '{"query":"Q","limit":10}'
+# Bing RSS — zero key，但 CJK 質素差（10-30 實測 10 條得 1 條相關），只做補充
+curl -s -A "Mozilla/5.0" "https://www.bing.com/search?q=Q&format=rss&count=20"
+# WebSearch — Claude built-in；Codex 用自己嘅 web search
+# Parallel — 免費、唔使 key、唔使帳戶（10-30 ✅ 10 條；韓文 query 都準）。MCP-over-HTTP，curl 兩步，唔使裝嘢：
+E=https://search.parallel.ai/mcp; H=(-H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream')
+SID=$(curl -s -D - -o /dev/null "${H[@]}" -X POST $E -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"re","version":"1"}}}' | grep -i '^mcp-session-id:' | awk '{print $2}' | tr -d '\r')
+curl -s "${H[@]}" -H "Mcp-Session-Id: $SID" -X POST $E -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"web_search","arguments":{"objective":"WHAT YOU WANT","search_queries":["Q"],"session_id":"re-1"}}}' \
+  | jq -r '.result.content[0].text' | jq '.results[] | {title,url}'
+#   同一個 endpoint 有 web_fetch（{"urls":["URL"],"full_content":true}）做全文抽取
 ```
-mcp__tavily__tavily_search — LLM-optimized search (best for factual queries)
-mcp__exa__web_search_exa — semantic search (best for "find pages similar to X")
-mcp__open-websearch__* — 8 engines (Bing/Baidu/DDG/Brave/Exa/GitHub/Juejin/CSDN), zero API keys
-mcp__firecrawl__firecrawl_search — another web search source
-WebSearch — built-in web search
-```
+❌ 用唔到（10-30 實測，ledger 記 `FAILED`，唔好當 `EMPTY`）：Serper `balance:-10`（嗰 2500 係一次性
+試用，唔會每月 reset）；SerpAPI 冇 key；DDG html 返 bot challenge；`s.jina.ai` 要 key。
 
 ### Content Extraction (when you find a good URL)
 ```
-mcp__tavily__tavily_extract — extract clean content from URLs
-mcp__exa__crawling_exa — crawl and extract from URLs
-mcp__firecrawl__firecrawl_scrape — scrape single page
-curl -s "https://r.jina.ai/ARTICLE_URL" — extract article text as markdown (free readability API; replaced rss-reader MCP)
+curl -s "https://r.jina.ai/ARTICLE_URL" — zero key，10-30 ✅，首選
+Tavily extract — POST https://api.tavily.com/extract  {"urls":["URL"]}
+Exa contents   — POST https://api.exa.ai/contents     {"urls":["URL"],"text":true}
+Firecrawl      — POST https://api.firecrawl.dev/v2/scrape {"url":"URL","formats":["markdown"]}（食 credit）
+curl -s "https://r.jina.ai/https://www.linkedin.com/in/USERNAME/" — LinkedIn public profile/posts fallback only; use Agent Chrome for logged-in/full visibility
 ```
 
 ### Platform-Specific
@@ -246,10 +281,14 @@ curl -s --compressed "https://api.stackexchange.com/2.3/search/excerpts?order=de
 # DEV.to — public articles (zero auth)
 curl "https://dev.to/api/articles?tag=TOPIC&per_page=30"
 
-# Reddit — ⛔ raw curl .json returns 403 here (verified 2026-08-11). Use the logged-in
-#   browser instead. This is Bash, works from any cwd, needs no MCP:
-agent-chrome.py fetch 'https://www.reddit.com/r/SUB/search.json?q=TOPIC&restrict_sr=on&sort=top&limit=25'
+# Reddit — logged-in Agent Chrome session。raw curl .json = 403；2026-10-30 起 /search.json
+#   喺已登入 session 都 403（"blocked by network security"），但 comment tree .json 仲得。
+#   Search 用 shreddit route（social-research.py 已包好，輸出 JSON）：
+python3 ~/MyGithub/ai-research-engine/social-research.py reddit-search 'TOPIC' --subreddit SUB --limit 50
+python3 ~/MyGithub/ai-research-engine/social-research.py reddit-search 'TOPIC' --type comments --sort top --t year
 agent-chrome.py fetch 'https://www.reddit.com/r/SUB/comments/POST_ID/.json?limit=500'   # full comment tree
+#   ⚠️ Reddit search 係語意＋跨語言：搵唔到字面就塞「相關」post（搜「香港」返晒英文 Hong Kong post）。
+#   每條有 query_terms_in_text；status=no_lexical_match = 字面冇命中，唔可以當「有人討論」。
 #   (`agent-chrome.py` = ~/.local/bin/agent-chrome.py, on PATH. See the HARD RULE below.)
 ```
 
@@ -260,6 +299,8 @@ agent-chrome.py fetch 'https://www.reddit.com/r/SUB/comments/POST_ID/.json?limit
 # Bilibili 哔哩哔哩 (中國影片平台, 真人測評最多) — 🟢 免 login
 curl -s "https://api.bilibili.com/x/web-interface/search/all/v2?keyword=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("TOPIC_ZH"))')&page=1" -H "User-Agent: Mozilla/5.0"
 # 高信號：搵 "真实测评"、"翻车"、"半年后" 過濾廣告
+# 若 JSON code 非 0／HTTP 412，先 GET bilibili.com 暖一個臨時 cookie jar，再帶
+# cookie + Referer 重試；唔需要 bili-cli 或 MCP 先做到 search。
 
 # 百度貼吧 (中國論壇) — 🟢 免 login (mobile API 更穩定)
 curl -s "https://tieba.baidu.com/mo/q/search/thread?word=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("TOPIC_ZH"))')&pn=0&rn=20" -H "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)"
@@ -267,8 +308,34 @@ curl -s "https://tieba.baidu.com/mo/q/search/thread?word=$(python3 -c 'import ur
 curl "https://tieba.baidu.com/f/search/res?qw=TOPIC_ZH&ie=utf-8"
 
 # V2EX (中國 Tech 論壇) — 🟢 免 login
-curl -s "https://www.v2ex.com/api/topics/hot.json"
-# Search via web: site:v2ex.com TOPIC
+curl -s "https://www.v2ex.com/api/topics/hot.json" -H "User-Agent: research-engine/1.0"
+curl -s "https://www.v2ex.com/api/topics/show.json?node_name=python&page=1" -H "User-Agent: research-engine/1.0"
+curl -s "https://www.v2ex.com/api/topics/show.json?id=TOPIC_ID" -H "User-Agent: research-engine/1.0"
+curl -s "https://www.v2ex.com/api/replies/show.json?topic_id=TOPIC_ID&page=1" -H "User-Agent: research-engine/1.0"
+curl -s "https://www.v2ex.com/api/members/show.json?username=USERNAME" -H "User-Agent: research-engine/1.0"
+# Public API 冇 full-text search endpoint：discovery 用 site:v2ex.com TOPIC；搵到 ID 後
+# 一定再 call topic + replies，唔好只引 search snippet/title。
+
+# 小紅書 — 直接 CLI，唔經 MCP。auto = 有 TikHub key 用 REST，否則重用 Agent Chrome
+# ❌ 2026-10-30：Agent Chrome 個 XHS session 過咗期（"XHS requires login"），要 Nicole 手動登入一次
+python3 ~/MyGithub/ai-research-engine/social-research.py xhs-search 'TOPIC_ZH' --route auto
+python3 ~/MyGithub/ai-research-engine/social-research.py xhs-note NOTE_ID XSEC_TOKEN --comment-limit 20
+#   xhs-note exit≠0 = note 刪咗／私密／token 過期／要登入 → ledger 記 FAILED，唔係 EMPTY
+# 詳細路由、價格、pagination、Meta/Facebook/Instagram 路線：
+# references/facebook-instagram-xhs.md
+
+# 雪球 Xueqiu（中國股票行情 + 投資者討論）— 🟡 必須已有登入 session
+# plain curl 即使先暖首頁 cookie，2026-09-11 實測四類 endpoint 都係 HTTP 400/400016。
+# 已在 Agent Chrome 登入雪球先可直接 fetch；唔好裝 Agent Reach/MCP，亦唔好匯出 cookie：
+agent-chrome.py fetch 'https://stock.xueqiu.com/v5/stock/quote.json?symbol=SH601138&extend=detail'
+agent-chrome.py fetch 'https://xueqiu.com/stock/search.json?code=QUERY&size=10'
+agent-chrome.py fetch 'https://xueqiu.com/v4/statuses/public_timeline_by_category.json?since_id=-1&max_id=-1&count=20&category=-1'
+agent-chrome.py fetch 'https://stock.xueqiu.com/v5/stock/hot_stock/list.json?size=10&type=10'
+
+# 小宇宙 podcast — 🟢 公開 episode 頁面；直取 media.xyzcdn.net 音頻，毋須 MCP
+curl -sSL 'https://www.xiaoyuzhoufm.com/episode/EPISODE_ID' -o /tmp/xiaoyuzhou.html
+perl -ne 'while (/(https:\/\/media\.xyzcdn\.net\/[^"]*\.(?:m4a|mp3))/gi) { print "$1\n" }' /tmp/xiaoyuzhou.html | head -1
+# 只在研究問題需要逐字內容時先下載/轉錄；長音頻有時間及 Groq/OpenAI 成本。
 
 # Dcard (台灣, 18-30歲) — unofficial API, may break
 curl "https://www.dcard.tw/service/api/v2/search/posts?query=TOPIC_ZH&limit=20"
@@ -316,30 +383,45 @@ curl -s "https://b.hatena.ne.jp/search/text?q=$(python3 -c 'import urllib.parse;
 # site:shopping.naver.com TOPIC_KO "후기" (reviews)
 ```
 
-#### Tier 3: MCP Servers (📦 install for richer access)
+#### Tier 3: 其他平台嘅直接 route（取代舊 MCP，2026-10-30 實測）
 ```
-mcp__reddit__*           — Reddit read/search (uvx reddit-no-auth-mcp-server OR npx -y reddit-mcp-buddy)
-mcp__discourse__*        — Any Discourse forum (npx @discourse/mcp@latest) — official
-mcp__hackernews__*       — HN stories/comments (npx mcp-server-hackernews)
-mcp__stackoverflow__*    — Stack Overflow official (npx mcp-remote mcp.stackoverflow.com)
-mcp__xiaohongshu__*      — 小紅書 notes/comments (needs XHS cookie) ⭐13.6K
-mcp__zhihu__*            — 知乎 Q&A (needs cookie)
-mcp__weibo__*            — 微博 feeds/hot search (uvx mcp-server-weibo, needs cookie)
-mcp__ptt__*              — PTT BBS (Docker, needs PTT account)
-mcp__activitypub__*      — Mastodon/Lemmy/Misskey/Pixelfed (npx @iflow-mcp/cameronrye-activitypub-mcp)
-mcp__trend-pulse__*      — 37 sources: Reddit/HN/Mastodon/Bluesky/PTT/Dcard/Weibo/XHS (uvx trend-pulse, FREE)
+招聘（公司請緊乜人）— 全部 zero key，10-30 ✅：
+                    curl -s https://boards-api.greenhouse.io/v1/boards/COMPANY/jobs
+                    curl -s "https://api.lever.co/v0/postings/COMPANY?mode=json"
+                    curl -s https://api.ashbyhq.com/posting-api/job-board/COMPANY
+                    （SmartRecruiters /v1/companies/X/postings、Workable /api/v3/accounts/X/jobs 未測）
+X 單條 tweet／profile — curl -s https://api.fxtwitter.com/USER/status/ID ｜ https://api.fxtwitter.com/USER   ✅ zero key
+                    （X「搜尋」仍要帳戶：Bird GraphQL 用 auth_token+ct0 cookie，見 last30days）
+Telegram 公開頻道 — curl -s https://t.me/s/CHANNEL   ✅ HTML 預覽，唔使登入
+掘金 (juejin)      — POST https://api.juejin.cn/search_api/v1/search?aid=2608&uuid=1&spider=0
+                    {"key_word":"Q","id_type":0,"cursor":"0","limit":20,"search_type":0,"sort_type":0,"version":1}  ✅
+DCInside (韓)      — curl -s -A "Mozilla/5.0 …Chrome/130" https://search.dcinside.com/combine/q/URLENCODED_Q   ✅ HTML
+❌ 10-30 擋咗（Cloudflare）：StockTwits、Trustpilot、Dcard（curl 同 Agent Chrome fetch 都 403）
+Discourse 任何論壇 — curl -s "https://FORUM/search.json?q=Q"            ✅ meta.discourse.org 200
+Hacker News       — curl -s "https://hn.algolia.com/api/v1/search?query=Q" ✅
+StackExchange     — curl -s --compressed "https://api.stackexchange.com/2.3/search/excerpts?q=Q&site=SITE" ✅
+微博              — agent-chrome.py open https://m.weibo.cn/ 先（同源），再
+                    agent-chrome.py fetch 'https://m.weibo.cn/api/container/getIndex?containerid=100103type%3D1%26q%3DQ&page_type=searchall'
+                    ✅ 唔使登入；直接 curl = 302
+PTT               — curl -s -b over18=1 "https://www.ptt.cc/bbs/BOARD/search?q=Q"   ✅ 20 條
+Mastodon          — curl -s "https://mastodon.social/api/v1/timelines/tag/TAG"     ✅
+                    （/api/v2/search 未登入一律返空，唔係 EMPTY，係要 auth）
+Lemmy / Bluesky   — /api/v3/search、app.bsky.feed.searchPosts ✅（health-check）
+知乎              — ❌ 未登入 403 need_login；Agent Chrome 要 Nicole 手動登入
+                    （credential: gopass chrome/social/www-zhihu-com）
+X / Twitter       — ❌ 冇 working route：twitterapi.io 從未 work、guest API 403、Agent Chrome 未登入
 ```
 
 #### Tier 4: Chrome CDP Fallback (for logged-in sessions)
 ```
-When curl APIs fail or rate-limit, use Chrome DevTools MCP to browse forums
-with the user's logged-in session. Best for:
-- Reddit (when .json is rate-limited)
+When curl APIs fail or rate-limit, use the logged-in Agent Chrome (`agent-chrome.py`) — Bash,
+works from any cwd, no MCP. Best for:
+- Reddit (search via `social-research.py reddit-search`; trees via `.json`)
 - 小紅書 (when cookie expires)
 - LIHKG (when headers change)
 - Any forum requiring login
 
-Tools: mcp__chrome-devtools__navigate_page, evaluate_script, take_snapshot, click, fill, press_key
+Commands: agent-chrome.py fetch / open / eval / login-check / click / type / press / shot
 ```
 
 #### Forum Selection Guide (which forums for which topics)
@@ -364,30 +446,29 @@ Science/Academic    → StackExchange (multiple sites), Reddit r/askscience
 
 ### Technical/Code
 ```
-mcp__context7__query-docs — latest library documentation
-mcp__exa__get_code_context_exa — code examples and docs (82.8% completeness vs 59.8% for WebFetch)
+curl -s "https://context7.com/api/v2/libs/search?query=LIB"   — 搵 libraryId（zero key，10-30 ✅）
+curl -s "https://context7.com/api/v2/context?libraryId=/org/repo&query=Q&type=txt&tokens=5000" — 最新 docs
+gh search code 'QUERY' --language LANG                          — GitHub code examples（GITHUB_TOKEN ✅）
+Exa REST search（見上）                                           — code examples / docs pages
 ```
 
 ### Academic Papers (use ALL for comprehensive literature search)
 ```
-mcp__paper-search__* — search 20+ academic platforms (arXiv, S2, OpenAlex, Crossref, CORE, dblp, DOAJ, Zenodo) ⭐919
-mcp__arxiv__* — arXiv semantic search + citation analysis + trend analysis ⭐2.4K
-mcp__semantic-scholar__* — Full S2 API: citation networks, recommendations, batch ops
-mcp__scholar-mcp__* — ~97% peer-reviewed coverage, 6 sources, download + READ paper PDFs ⭐NEW
-mcp__paper-distill__* — 11-source parallel academic search with weighted ranking ⭐53
+OpenAlex  — https://api.openalex.org/works?search=Q
+Semantic Scholar — https://api.semanticscholar.org/graph/v1/paper/search?query=Q&fields=title,year,citationCount
+arXiv     — https://export.arxiv.org/api/query?search_query=all:Q
+Crossref / DBLP / DOAJ / Zenodo / PubMed / Europe PMC / OpenCitations / bioRxiv — 全部 zero key
+（10-30 health-check --full 全部 ✅；OpenReview 403 ❌；CORE 冇 key）
 ```
 
-### Academic Papers — Worth Installing (not yet installed, need Python ≥3.12 or clone)
-```
-academia_mcp — ArXiv + ACL Anthology + HF Datasets + Semantic Scholar ⭐78 (needs Python ≥3.12)
-openalex-mcp — 250M papers via free OpenAlex API ⭐15 (needs git clone)
-PaperMCP — ArXiv/HF/Google Scholar/OpenReview/DBLP/PapersWithCode, 32 tools (github.com/ScienceAIHub/PaperMCP)
-research-paper-mcp — autonomous arXiv + S2 ingestion, memory storage (playbooks.com/mcp/marc-shade/research-paper-mcp)
+### Academic Papers — 唔再裝 MCP
+上面每個 MCP 都只係包住同一批 public API；直接打 API，唔使裝。
 ```
 
 ### Video/Transcript
 ```
-mcp__youtube-transcript__* — YouTube video transcripts + metadata (free, no key)
+yt-dlp --skip-download --write-auto-subs --sub-langs en,zh-Hant,zh-Hans --sub-format vtt URL — 字幕（10-30 ✅）
+冇字幕 → yt-dlp 抽音頻 + Groq 轉錄（見 memory：YouTube → Always Groq Transcribe）
 ```
 
 ### Prediction Markets (Round 9)
@@ -465,7 +546,7 @@ Hashnode GraphQL — ⚠️ moved to PAID tier (2026-05-13), no free endpoint; n
 Discourse API — {instance}/search.json (free, most instances zero auth)
 StackExchange API — 170+ sites beyond SO (free key, 10K req/day)
 Truth Social API — Mastodon-compatible, US political discourse (needs bearer token)
-小紅書 (Xiaohongshu) — Chinese lifestyle/consumer platform (via xiaohongshu-mcp or ScrapeCreators)
+小紅書 (Xiaohongshu) — TikHub direct REST（keyed/paid）或 local Agent Chrome adapter；ScrapeCreators 不支援 XHS
 ```
 
 ### Package Registries & Dev Ecosystem (Round 9)
@@ -548,10 +629,9 @@ Wikidata SPARQL — structured entity queries (free, zero key, 60s timeout)
 
 ### Site Discovery
 ```
-mcp__tavily__tavily_map — find all URLs on a domain
-mcp__firecrawl__firecrawl_map — same, different source
-mcp__tavily__tavily_crawl — crawl entire site sections
-mcp__firecrawl__firecrawl_crawl — same, different source
+curl -s https://DOMAIN/sitemap.xml                         — 免費，先試
+Tavily map/crawl — POST https://api.tavily.com/map | /crawl {"url":"https://DOMAIN"}（食 plan quota）
+Firecrawl        — POST https://api.firecrawl.dev/v2/map | /v2/crawl {"url":"https://DOMAIN"}（食 credit）
 ```
 
 ### Deep Research Agents (use for comprehensive multi-source research)
@@ -705,6 +785,8 @@ or probed is `UNUSED`/`SKIPPED`, not healthy by assumption.
 ```bash
 agent-chrome.py status                                  # Chrome up? which sites have cookies?
 agent-chrome.py login-check https://www.reddit.com/     # exit 0 = logged in
+# only when XHS is in scope:
+python3 ~/MyGithub/ai-research-engine/social-research.py xhs-search '測試' --route browser
 ```
 
 Do not run these commands inside the live research run. Record the retrieval as `FAILED`,
@@ -855,15 +937,16 @@ agent prompt.
 > **The command is one line of Bash. It needs no MCP server and works from any cwd:**
 >
 > ```bash
-> agent-chrome.py fetch 'https://www.reddit.com/r/LocalLLaMA/search.json?q=TOPIC&restrict_sr=on&sort=top&limit=25'
+> python3 ~/MyGithub/ai-research-engine/social-research.py reddit-search 'TOPIC' --subreddit LocalLLaMA --limit 50
+>   # /search.json is 403 even in-session since 2026-10-30; this wraps the shreddit search the web UI uses
 > agent-chrome.py fetch 'https://www.reddit.com/r/LocalLLaMA/comments/POST_ID/.json?limit=500'   # full tree
 > ```
 >
-> **⛔ Do NOT reach for `mcp__chrome-devtools__*` or `mcp__dialog-mcp__*` first.** Those are project-scoped MCP servers: `chrome-devtools` only loads when Claude's cwd is `~/.claude`, and `dialog-mcp` is not configured at all. A default session started in `~` has neither. That mismatch is exactly why forum research kept coming back empty — the agent tried a tool that did not exist, got nothing, and moved on.
+> **⛔ Do NOT reach for any `mcp__*` tool (2026-10-30: none of the research MCPs are configured for Claude; use the REST/CLI routes in this file).** Historically: Those are project-scoped MCP servers: `chrome-devtools` only loads when Claude's cwd is `~/.claude`, and `dialog-mcp` is not configured at all. A default session started in `~` has neither. That mismatch is exactly why forum research kept coming back empty — the agent tried a tool that did not exist, got nothing, and moved on.
 >
 > - **1Point3Acres → API route only, cross-domain coverage:** `python3 ~/MyGithub/ai-research-engine/social-research.py onepoint-search 'QUERY_IN_SIMPLIFIED_CHINESE' --limit 40`, then `onepoint-thread THREAD_ID --max-replies 100`. Do not reduce it to job/interview research. For schools and courses, search exact school name + abbreviation + course code + professor, across `选校/定位/录取/拒信/转学/先修课/转学分/学分转换/课程匹配/选课/教授/难度/给分/作业/syllabus/真题/往年题/历年卷/题库/考经/回忆题/past paper/midterm/final`, plus career and immigration terms as relevant. **Run those as separate query families and merge/deduplicate results; never concatenate school, course, professor, exam-resource, career and visa terms into one hybrid query.** Open full threads, replies and attachment metadata; title-only search is incomplete. Report to Nicole in Hong Kong Cantonese/Traditional Chinese, preserving direct quotations.
 > - **Indian stack → route by function:** Grapevine + Blind India for workplace/comp; TakeUForward + LeetCode Discuss India + AmbitionBox for interviews; Yocket + Indian-study subreddits for admissions; University Updates + Education Observer + university-specific communities for school/course material; GATEOverflow + Doc Sansar for PYQs/exam resources; PaGaLGuY for MBA admissions/exams; RedBus2US Discourse JSON for diaspora immigration. No single source is a complete Indian equivalent of 1Point3Acres. Grapevine has API-only commands: `social-research.py grapevine-search 'QUERY' --limit 40` and `grapevine-thread POST_UUID_OR_URL --max-comments 100`. Prefer each site's API or Next/RSC payload. Use at least two source types for consequential conclusions.
-> - **Other login-gated forums** → use the site's own JSON/tRPC/GraphQL/Next-RSC endpoint inside Agent Chrome. Check the session first. DOM extraction is a last resort, not the normal collection loop.
+> - **Facebook/Instagram/小紅書 → read `references/facebook-instagram-xhs.md` first.** For XHS also load `~/.codex/skills/xiaohongshu-research/SKILL.md`, then use its read-only route. Other login-gated forums use first-party browser-session APIs. The real retrieval verifies the route; record failures for a later maintenance pass.
 > - **`curl` is allowed ONLY for genuinely deep zero-auth APIs:** HN Algolia (full-text all history), Lobste.rs `.json`, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to. These are not rate-starved and return real depth.
 > - **Separate `EMPTY` from `FAILED`.** A successful query with no relevant result is `EMPTY`; an endpoint/auth/parser error is `FAILED`. If a tool failed, say "tool X failed with <error>" and set it aside for this run—never report its silence as "nothing found on this topic".
 
@@ -911,13 +994,17 @@ STEP 1 — confirm the session before you search (10 seconds, do not skip):
          >/tmp/agent-chrome.log 2>&1 &
 
 STEP 2 — search each subreddit ({SUBREDDITS}), save to a file:
-   agent-chrome.py fetch \
-     'https://www.reddit.com/r/{SUBREDDIT}/search.json?q={TOPIC}&restrict_sr=on&sort=top&t=year&limit=25' \
-     --out /tmp/r_{SUBREDDIT}.json
-   jq -r '.data.children[].data | "\(.score)\t\(.num_comments)\t\(.id)\t\(.title)"' /tmp/r_{SUBREDDIT}.json
+   python3 ~/MyGithub/ai-research-engine/social-research.py reddit-search '{TOPIC}' \
+     --subreddit {SUBREDDIT} --sort relevance --t year --limit 50 > /tmp/r_{SUBREDDIT}.json
+   jq -r '.status, (.items[] | "\(.score)\t\(.num_comments)\t\(.id)\t\(.query_terms_in_text)\t\(.title)")' /tmp/r_{SUBREDDIT}.json
+   # comments instead of posts: add --type comments（每條有 author/body/score/permalink）
 
-   Site-wide instead of one sub (drop restrict_sr):
-   agent-chrome.py fetch 'https://www.reddit.com/search.json?q={TOPIC}&sort=top&t=year&limit=50'
+   Site-wide instead of one sub (drop --subreddit):
+   python3 ~/MyGithub/ai-research-engine/social-research.py reddit-search '{TOPIC}' --sort relevance --t year --limit 50
+
+   ⚠️ status 讀法：ok = 有字面命中；no_lexical_match = Reddit 搵唔到字面，塞咗語意相關 post
+   （跨語言：搜「香港」返英文 "Hong Kong" post）→ 要換英文／同義詞再搜，唔可以寫成「有人討論」；
+   empty = 真係冇結果。（/search.json 2026-10-30 起 in-session 都 403，唔好再用。）
 
    ⚠️ GOTCHA — `sort=top` ignores your query in big general subs. Measured on
    r/buildapc, q="local LLM", t=year, limit=10 (2026-08-11):
@@ -1000,12 +1087,12 @@ curl -s "https://lihkg.com/api_v2/thread/search?q={TOPIC_ZH}&page=1&count=20" \
 # 百度貼吧
 curl -s "https://tieba.baidu.com/f/search/res?qw={TOPIC_ZH}&ie=utf-8"
 
-## Tier 3: MCP servers (if installed)
-- mcp__reddit__* for deeper Reddit search
-- mcp__xiaohongshu__* for 小紅書
-- mcp__zhihu__* for 知乎
-- mcp__discourse__* for Discourse forums
-- mcp__weibo__* for 微博
+## Tier 3: 直接 route（見上面 Tier 3 表）
+- Reddit: `social-research.py reddit-search` + comment tree `.json`
+- Facebook/Instagram/ScrapeCreators and Xiaohongshu/TikHub-or-browser routes from `references/facebook-instagram-xhs.md`
+- 知乎: Agent Chrome（要登入）
+- Discourse: `{forum}/search.json`
+- 微博: Agent Chrome 同源 `m.weibo.cn/api/container/getIndex`
 
 ## Tier 4: Chrome CDP fallback
 If any curl API fails or rate-limits, use Chrome DevTools MCP to browse with the user's logged-in session.
@@ -1021,7 +1108,7 @@ appear here, or the orchestrator cannot tell "nobody discussed it" apart from
 
 | Source | Exact command / endpoint | Status | Items | Evidence |
 |---|---|---|---|---|
-| Reddit r/LocalLLaMA | agent-chrome.py fetch .../search.json?q=... | ✅ GOT DATA | 23 posts, 6 trees | HTTP 200, 446KB |
+| Reddit r/LocalLLaMA | social-research.py reddit-search ... | ✅ GOT DATA | 23 posts, 6 trees | HTTP 200, 446KB |
 | Hacker News Algolia | curl hn.algolia.com/api/v1/search?query=... | ⬜ EMPTY | 0 | HTTP 200 but hits:[] |
 | Lemmy lemmy.world | curl .../api/v3/search?q=... | ❌ FAILED | — | HTTP 503 |
 | 小紅書 | (not attempted) | ⏭️ SKIPPED | — | no session; topic is EN-only |
@@ -1163,7 +1250,7 @@ Date: [today]
 
 | Source | What was queried | Items | Evidence |
 |---|---|---|---|
-| Reddit r/X, r/Y | search.json + 6 full comment trees | 23 posts, 412 comments | HTTP 200, 446KB |
+| Reddit r/X, r/Y | reddit-search + 6 full comment trees | 23 posts, 412 comments | HTTP 200, 446KB |
 | Hacker News | Algolia full-text, stories + comments | 31 hits | HTTP 200 |
 
 **⬜ Searched, genuinely nothing there (N)** — this is a real finding
@@ -1238,13 +1325,13 @@ Save to `OUTPUT_DIR/[topic-slug]-[date].md`.
 ### Step 2 — 並行收 data（用 verified stack）
 ```bash
 source ~/.config/research-engine/keys.env 2>/dev/null
-# ⭐ Serper Shopping = Google Shopping，跨店真價，繞過 anti-bot（primary）
+# ⚠️ Serper Shopping = Google Shopping，跨店真價 —— ❌ 10-30 balance -10，要 top-up 先用得
 curl -s -X POST "https://google.serper.dev/shopping" -H "X-API-KEY: $SERPER_API_KEY" \
   -H "Content-Type: application/json" -d '{"q":"<product + key spec>","gl":"ca"}' | jq '.shopping[:10]'
 ```
-- **Apify MCP**（`mcp__apify__*`）攞硬 site 深度數據（review/variants/sold-history）：actor `junglee/Amazon-crawler`、`piotrv1001/temu-listings-scraper`、`sian.agency/taobao-tmall-product-scraper`、`zen-studio/1688-wholesale-scraper`、`piotrv1001/aliexpress-listings-scraper`、`e-commerce/walmart-product-detail-scraper`、`caffein.dev/ebay-sold-listings`、`automation-lab/etsy-scraper`。
+- **Apify REST**（`https://api.apify.com/v2/acts/ACTOR/run-sync-get-dataset-items?token=$APIFY_TOKEN`；❌ 10-30 `APIFY_TOKEN` 係空）攞硬 site 深度數據（review/variants/sold-history）：actor `junglee/Amazon-crawler`、`piotrv1001/temu-listings-scraper`、`sian.agency/taobao-tmall-product-scraper`、`zen-studio/1688-wholesale-scraper`、`piotrv1001/aliexpress-listings-scraper`、`e-commerce/walmart-product-detail-scraper`、`caffein.dev/ebay-sold-listings`、`automation-lab/etsy-scraper`。
 - ⭐ **Reddit — 按產品揀 sub，唔係淨係 gift sub**：先用產品品類/Serper/Arctic Shift 搵真實社群，喺嗰度攞用家真實推薦/避雷。買廚具→r/cookware·r/Cooking·r/castiron·r/BuyItForLife；耳機→r/headphones·r/HeadphoneAdvice；monitor→r/Monitors；床褥→r/Mattress… 任何品類都 discover 返佢自己嘅 sub。**只有當明確係「送禮」**先額外睇 r/giftideas·r/Gifts。Posts/comment trees 用 `agent-chrome.py fetch`；Arctic Shift 做 archive/cross-check；raw `.json` curl 403。
-- **專業評測**：Firecrawl/Tavily Extract 抓 Wirecutter·RTINGS·NYT/Strategist gift guide。
+- **專業評測**：r.jina.ai／Tavily extract／Firecrawl scrape（REST）抓 Wirecutter·RTINGS·NYT/Strategist gift guide。
 - **superprecio MCP**：grocery/食品先用。
 - ⚠️ 唔好叫 `mcp__amazon__*` / `mcp__agora__*`（已移除，係廢的）。
 
@@ -1301,11 +1388,11 @@ scopes.
 
 #### Agent B: User Pain Points — FREE
 ```
-→ Reddit pain points → `agent-chrome.py fetch` live logged-in search + full trees; Arctic Shift archive/cross-check — NEVER raw curl reddit.com .json
+→ Reddit pain points → `social-research.py reddit-search` live logged-in search + `.json` full trees; Arctic Shift archive/cross-check — NEVER raw curl reddit.com .json
 → StackExchange API (170+ sites — tagged questions volume + answers)
 → Discourse API (OSS community forums: Rust/React/OpenAI/Julia)
 → Bluesky AT Protocol + Mastodon API (tech discourse)
-→ Twitter search (mcp__twitter__search_tweets)
+→ X/Twitter — ❌ 冇 working route（10-30），ledger 記 FAILED
 → Hashnode + DEV.to (developer blog posts about the problem)
 → Lobste.rs JSON (high-signal tech community)
 → WebSearch ("{category} problems frustrations")
@@ -1445,6 +1532,7 @@ Save findings to `OUTPUT_DIR/[product]-[date].md`.
 0. **No health-check gate or in-run repair** — never run or consult a health check before an ordinary search. Execute the selected source directly. Use `MATERIAL`; set `EMPTY` aside for that question; report `FAILED`, set the source aside for that run, and continue. Do not run `--source ID` inside live research. Reproduce accumulated failures later during batched maintenance; `--community`/`--full` are also manual maintenance. A failed endpoint's silence is never "found nothing".
 1. **Read research-engine.md FIRST** — every time, no exceptions
 1b. **🚨 FORUMS = `agent-chrome.py` OR VERIFIED ZERO-AUTH API, NEVER RAW REDDIT CURL.** Reddit live research MUST use `agent-chrome.py fetch` through the logged-in browser session for search + FULL comment trees. Arctic Shift is the zero-key Reddit archive/search fallback and cross-check. MCPs are allowed only when the tool is actually visible in the current harness. Raw `curl reddit.com/*.json` is 403/surface-starved here and must not be reported as absence. `curl` is allowed for genuinely deep zero-auth APIs (Arctic Shift, HN Algolia, Lobste.rs, Bluesky, Mastodon, Lemmy, StackExchange, DEV.to). Fetch FULL comment trees, not just titles.
+1c. **Public API/CLI/browser before MCP.** Never install or start an MCP merely to reach a site when a verified direct route exists. Reuse the one-shot curl/CLI or the existing Agent Chrome session; MCP is justified only by material extra coverage, not by wrapping the same HTTP call.
 2. **Use every selected relevant free source** — source selection is broad and LLM-led, but do not query unrelated sources merely because they exist in the inventory.
 3. **Parallelize safe independent requests** — batching reduces round trips; it does not reduce breadth or evidence quality.
 3b. **Delegation is opt-in** — use sub-agents only when Nicole explicitly requests them. Give each a bounded, non-overlapping scope and the shared ledger so they do not repeat searches.
@@ -1459,3 +1547,64 @@ Save findings to `OUTPUT_DIR/[product]-[date].md`.
 8. **Cross-reference** — if only one source says something, flag it as unverified
 9. **Exa Code Context > Claude WebFetch** for code docs (WebCode benchmark: 82.8% vs 59.8% completeness)
 10. **Be brutally honest** — in product mode, if our product is worse, say so
+
+---8<--- (原 rules/source-coverage-ledger.md) ---8<---
+
+# Source Coverage Ledger — 每次 research 都要講清楚實際搵咗邊度
+
+Applies to ALL research, search, competitive scans, market/product research, literature reviews,
+and any multi-source investigation — not just the `deep-research` skill.
+
+## The Rule
+
+**Every research deliverable opens with a ledger of what was ACTUALLY searched.** Findings come
+second. The ledger lists every source that was attempted, and every source that was not, with
+counts and evidence.
+
+Four statuses. They are not interchangeable:
+
+| | Meaning | Is it a finding? |
+|---|---|---|
+| ✅ **GOT DATA** | Call succeeded AND returned on-topic items. State the count. | yes |
+| ⬜ **EMPTY** | Call succeeded (HTTP 200) but the result set was genuinely empty. | **yes** — the topic really isn't discussed there |
+| ❌ **FAILED** | Tool broke: non-200, timeout, auth wall, exception. Paste the real error. | **no** — this is a dead tool |
+| ⏭️ **SKIPPED** | Never attempted. Say why in one clause. | no |
+
+## Three hard rules
+
+1. **Never collapse ❌ FAILED into ⬜ EMPTY.** A broken tool and a quiet topic produce identical
+   findings sections and mean opposite things. Conflating them is the core defect this rule exists
+   to prevent.
+2. **List what you never tried, and why.** The dangerous line in a research report is the one that
+   isn't there. ⏭️ SKIPPED rows are the entire point — they are what stops the reader assuming the
+   whole searchable web was covered.
+3. **Counts and evidence, not adjectives.** "23 posts / 6 comment trees / 446KB, HTTP 200" — never
+   "good coverage" or "searched thoroughly".
+
+## Also required
+
+- **One-sentence coverage-honesty statement** naming the single biggest blind spot in plain
+  language. e.g. "This is English-language web and forum data only — no Chinese, Korean or
+  Japanese source was reachable, so it is not a global picture."
+- **When delegating to subagents**, put the ledger requirement in every agent prompt, and aggregate
+  their ledgers into one table at the top of the final report. An agent that returns findings
+  without a ledger has returned an unusable result — ask it again.
+- **Periodic/diagnostic health check, ledger on every research run.** If a source was already
+  known-dead from a maintenance check, it still gets a ❌ row. Silent omission is the failure mode.
+
+## Why
+
+Nicole, 2026-08-11 (deep-research engine sanity check): *"每次research完出嚟都要講我哋實際真係
+research咗邊個網站，或者乜嘢source係確認攞得到嘢返嚟嘅。畀個list我啦，有啲咩確認攞唔到嘅，全部都要
+report。如果唔係下次我哋research完，以為搵晒所有網上搵得到嘅source，我點知原來skip咗大部分嘅。咁咪
+GG囉。"*
+
+The concrete failure that prompted it: the deep-research skill instructed agents to reach Reddit via
+`mcp__dialog-mcp__*` (never configured) or `mcp__chrome-devtools__*` (project-scoped, absent from a
+default `~` session). Both were unavailable, raw curl 403'd, and the working Bash path was itself
+broken (`Runtime.evaluate` without `awaitPromise` returned `{}` for every async fetch). Agents got
+nothing and reported nothing — indistinguishable, in the final report, from "Reddit had no
+discussion of this topic".
+
+Related: `~/.claude/rules/no-claims-without-evidence.md` (a dead endpoint's silence is not evidence
+of absence), `~/.claude/rules/agents-gather-you-analyze.md`, `~/.claude/rules/self-audit-before-delivering.md`.

@@ -97,10 +97,18 @@ social-research.py          One-shot adapters (no MCP, no cookie export)
 health-check.sh             Maintenance probes; writes health-check-report.md
 qa/                         End-to-end QA scripts
 source-scans/               Reproducible prior-art and source sweeps
-skills/deep-research/       Skill copy (see note below)
+skills/deep-research/       The skill itself (single source of truth)
+archive/                    Retired code kept for reference
 ```
 
-The live skill is installed at `~/.claude/skills/deep-research/`. The copy in this repo is older and is being reconciled.
+This repo is the only copy of the skill. Install it with a symlink so edits land here:
+
+```bash
+ln -s ~/MyGithub/ai-research-engine/skills/deep-research ~/.claude/skills/deep-research
+ln -s ~/.claude/skills/deep-research ~/.codex/skills/deep-research   # Codex follows the same file
+```
+
+Personal context the skill may need lives in `~/.config/research-engine/private-context.md`, outside any repo.
 
 ## Quick start
 
