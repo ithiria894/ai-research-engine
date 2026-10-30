@@ -1155,20 +1155,17 @@ Ledger file values (`research_run.py ledger`): ✅ = `MATERIAL`, ⬜ = `EMPTY`, 
 Only `EMPTY` may support "nobody discusses this". A rate-limited, blocked or need-login source says nothing about
 the topic.
 
-### PART B — findings
+### PART B — raw material (collector does NOT judge)
 
-For each source that returned data:
-- Forum name + URL
-- Number of relevant results found
-- Top 3-5 most relevant posts/comments with:
-  - Author (username)
-  - Direct quote (paste key quotes verbatim)
-  - Vote count / engagement
-  - URL
-- CONFIDENCE: 1-5 how well this forum covered the topic
-- GAPS: what this forum didn't cover
+You are a COLLECTOR. You make no judgments; the main session reads everything and analyses later.
+For each source that returned data, save the raw response into the run folder
+(`research_run.py add $RUN --source NAME --url URL --ext json|html|md`) and list:
+- Source name + URL + evidence id
+- Every result returned (not a "top N"): author, verbatim text, engagement numbers, URL
+- Any exclusion / negative / dissenting text, verbatim (over-collecting is correct)
+- `gaps`: queries you ran that returned nothing, or sources you could not reach (with the ledger reason)
 
-Report in the user's language. Cite every finding with source URL.
+No relevance ranking, no confidence score, no summary, no recommendation. A paraphrase is a failed result.
 ```
 
 **Forum selection by topic type:**
@@ -1192,14 +1189,18 @@ families, retries and exclusions are traceable and deduplicated.
 
 Every collection lane MUST:
 - The specific tools/APIs from its cluster (copy from the table above)
-- "Report raw findings with URLs. Do NOT synthesize or draw conclusions."
-- "Use tables and structured formats. Paste key quotes directly."
-- "Cite every finding with a source URL."
+- "YOU ARE A COLLECTOR. YOU MAKE NO JUDGMENTS. The main session analyses your output later."
+- "Save every raw response with `research_run.py add` and log one `research_run.py ledger` row per source."
+- "Copy text verbatim. A paraphrase or summary is a FAILED result. Long verbatim text is correct and wanted."
+- "Collect the negative text too: dissent, complaints, exclusion clauses. Over-collecting is correct."
+- "Record the source URL on every item."
 - 🚨 **"START your report with a SOURCE COVERAGE LEDGER: one row per source you attempted, with the exact command, and status ✅ GOT DATA (with counts) / ⬜ EMPTY (200 but no results) / ❌ FAILED (paste the real error) / ⏭️ SKIPPED (say why). Never report a ❌ as a ⬜ — a broken tool is not evidence that nothing exists. If you could not run something, say so plainly rather than omitting the row."** — without this, the orchestrator cannot tell coverage from silence, and the final report will overstate how much of the web was actually searched.
-- "At the END of your report, add a CONFIDENCE section: rate your confidence 1-5 that you found comprehensive data, and list any GAPS — topics you searched for but found little/nothing on."
+- "At the END, list `gaps`: queries that returned nothing and sources you could not reach, with the ledger reason. Never fill a gap from memory."
 
-Collection first returns RAW DATA — lists of papers, URLs, quotes and numbers — plus a
-confidence rating and gap list. Synthesis comes later.
+Collection returns RAW DATA only (saved evidence ids, URLs, verbatim quotes, numbers) plus the gap list. No
+confidence rating, no relevance ranking: those are judgments, and judging is the main session's job
+(`~/.claude/rules/agents-gather-you-analyze.md`). The main session then reads every item with
+`research_run.py show $RUN` and does all analysis and synthesis itself.
 
 **Content Extraction (second wave):**
 After the first wave, deepen specific URLs with an appropriate extractor. Paid or
