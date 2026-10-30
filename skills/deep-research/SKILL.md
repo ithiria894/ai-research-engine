@@ -722,6 +722,7 @@ agents. The evidence contract stays the same in either execution mode.
 8. **出報告前**：寫 `$RUN/report.md`（要有 `## 唔同睇法`），跑 `research_run.py independence $RUN`，
    「N 個 source 都話」嘅 N 用 cluster 數；然後 `research_run.py check $RUN` **一定要 PASS 先交**。
    引號（“”「」『』""）只可以包住 source 嘅原文；搜尋字、術語、自己嘅話用 backtick，否則 `check` 會當引文核對而 fail。
+   報告入面由 source 抄嘅數字（有逗號、小數、%、貨幣或 ≥ 100）要喺 `evidence/` 搵到同一個數值；自己計嘅數用 backtick 包住。
    交完 `python3 ~/MyGithub/ai-research-engine/library.py index`。
 
 Run folder 預設喺 `~/MyGithub/research-runs/`（唔入 public repo，因為入面有私人題目同原文）。
@@ -1258,7 +1259,7 @@ Contradictions between your own sources are a finding to reconcile at the source
 **Gate before synthesis (Run protocol step 8):** `research_run.py check $RUN` must print `PASS`. It fails when
 `plan.md` has < 3 perspectives or no `## 唔同睇法嘅 source`, the ledger has an unknown status/reason, a FAILED row without a
 reason, MATERIAL without evidence, or no `role=adversarial` search, the report lacks `## 唔同睇法`, or **any quoted
-span in the report is not found verbatim in `evidence/`** (a paraphrase inside quote marks fails). Fix the cause;
+span in the report is not found verbatim in `evidence/`**, or a copied number has no matching value in `evidence/` (a paraphrase inside quote marks fails). Fix the cause;
 never weaken the report to pass.
 
 > This step is based on VMAO (ICLR 2026) which improved answer completeness from 3.1 → 4.2/5.

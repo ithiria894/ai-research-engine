@@ -78,7 +78,7 @@ Every research job gets a run folder (default `~/MyGithub/research-runs/`, outsi
 RUN=$(python3 research_run.py init my-topic --query "the exact question")
 curl -s "https://hn.algolia.com/api/v1/search?query=x" | python3 research_run.py add "$RUN" --source hn --ext json
 python3 research_run.py ledger "$RUN" --source hn --status MATERIAL --items 3 --evidence 0001
-python3 research_run.py check "$RUN"   # fails on missing perspectives, adversarial search, or any quote not found verbatim
+python3 research_run.py check "$RUN"   # fails on missing perspectives, adversarial search, a quote not found verbatim, or an untraced number
 python3 library.py index               # make the run searchable next time
 ```
 
@@ -102,7 +102,7 @@ QA suites:
 bash qa/agent-chrome-qa.sh       # browser transport, Reddit search, XHS failure paths (19 checks)
 bash qa/community-sources-qa.sh  # phonebook and community adapters (13 checks)
 bash qa/health-check-qa.sh       # health-check behaviour (14 checks)
-bash qa/research-run-qa.sh       # run folder, ledger, quote integrity, gates (39 checks)
+bash qa/research-run-qa.sh       # run folder, ledger, quote and number integrity, gates (45 checks)
 bash qa/scholar-qa.sh            # merged scholarly search, retractions, full text (11 checks)
 bash qa/library-qa.sh            # past-run search in English, Chinese, Korean (13 checks)
 bash qa/failure-reasons-qa.sh    # every adapter failure names a ledger reason (5 checks)

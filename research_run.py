@@ -11,6 +11,7 @@ Commands:
                     [--evidence ID ...] [--role ROLE] [--command CMD] [--note TEXT]
   research_run.py show RUN [ID ...]                        evidence wrapped as untrusted data
   research_run.py quotes RUN [--report PATH]               quote-integrity gate
+  research_run.py numbers RUN [--report PATH]              numeric-consistency gate
   research_run.py independence RUN                         cluster syndicated copies
   research_run.py check RUN                                every gate; exit 1 on any failure
 
@@ -240,6 +241,82 @@ def cmd_quotes(run: Path, report: Path) -> int:
     return 1 if missing else 0
 
 
+# ---------------------------------------------------------------- numeric consistency (spec 9)
+
+NUM_RE = re.compile(
+    r"(?P<cur>US\$|HK\$|CA\$|C\$|NT\$|\$|€|£|¥|￥|₩)?\s?"
+    r"(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+    r"\s?(?P<suf>[KkMmBb](?![a-zA-Z])|萬|万|億|亿|%)?")
+SUFFIX = {"k": 1e3, "m": 1e6, "b": 1e9, "萬": 1e4, "万": 1e4, "億": 1e8, "亿": 1e8}
+DATE_RE = re.compile(r"\b\d{4}-\d{2}(?:-\d{2})?\b|\b\d{1,2}-\d{1,2}\b|\b\d{1,2}/\d{1,2}(?:/\d{2,4})?\b")
+
+
+def number_values(match: re.Match) -> set[float]:
+    """Every value a source might have written for this number (raw, scaled, percent as fraction)."""
+    raw = float(match.group("num").replace(",", ""))
+    suf = (match.group("suf") or "").lower()
+    values = {raw}
+    if suf in SUFFIX:
+        values.add(raw * SUFFIX[suf])
+    if suf == "%":
+        values.add(round(raw / 100, 6))
+    return {round(v, 6) for v in values}
+
+
+def needs_trace(match: re.Match) -> bool:
+    """Spec 9: thousands separators, decimals, %, currency, or >= 100. Small bare counts are skipped."""
+    num = match.group("num")
+    if match.group("cur") or match.group("suf") or "," in num or "." in num:
+        return True
+    return float(num) >= 100
+
+
+def report_numbers(report: str) -> list[tuple[str, set[float]]]:
+    body = re.sub(r"```.*?```", " ", report, flags=re.S)
+    body = re.sub(r"`[^`\n]*`", " ", body)                       # backticks: own calculations, queries
+    for pattern in QUOTE_PATTERNS:                                # quotes: checked verbatim by spec 2
+        body = re.sub(pattern, " ", body)
+    body = "\n".join(l for l in body.splitlines() if not l.startswith(">"))
+    body = re.sub(r"\]\([^)]*\)|https?://\S+", " ", body)        # URLs and link targets
+    body = DATE_RE.sub(" ", body)
+    body = re.sub(r"^\s*(?:\d+\.|[-*])\s", " ", body, flags=re.M)  # list markers
+    found = []
+    for m in NUM_RE.finditer(body):
+        if needs_trace(m):
+            found.append((m.group(0).strip(), number_values(m)))
+    return found
+
+
+def evidence_numbers(run: Path) -> dict[str, set[float]]:
+    out = {}
+    for meta_path in (run / "evidence").glob("[0-9][0-9][0-9][0-9].meta.json"):
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        text = normalize(evidence_text(run / "evidence" / f"{meta['id']}.{meta['ext']}"))
+        vals: set[float] = set()
+        for m in NUM_RE.finditer(text):
+            vals |= number_values(m)
+        out[meta["id"]] = vals
+    return out
+
+
+def number_check(run: Path, report_path: Path) -> list[tuple[str, str | None]]:
+    corpus = evidence_numbers(run)
+    results = []
+    for token, values in report_numbers(report_path.read_text(encoding="utf-8")):
+        hit = next((eid for eid, vals in corpus.items() if values & vals), None)
+        results.append((token, hit))
+    return results
+
+
+def cmd_numbers(run: Path, report: Path) -> int:
+    results = number_check(run, report)
+    for token, eid in results:
+        print(f"{'OK ' + eid if eid else 'UNTRACED'}\t{token}")
+    missing = sum(1 for _, eid in results if eid is None)
+    log("decision", command="numbers", total=len(results), untraced=missing)
+    return 1 if missing else 0
+
+
 # ---------------------------------------------------------------- independence
 
 def shingles(text: str) -> set[str]:
@@ -328,6 +405,9 @@ def cmd_check(run: Path) -> int:
         for quote, eid in quote_check(run, report_path):
             if eid is None:
                 failures.append(f"quote not found verbatim in evidence: {quote[:100]}")
+        for token, eid in number_check(run, report_path):
+            if eid is None:
+                failures.append(f"number not found in evidence (wrap own calculations in backticks): {token}")
 
     for f in failures:
         print(f"FAIL\t{f}")
@@ -355,6 +435,7 @@ def main() -> None:
     p.add_argument("--command"); p.add_argument("--note")
     p = sub.add_parser("show"); p.add_argument("run"); p.add_argument("ids", nargs="*")
     p = sub.add_parser("quotes"); p.add_argument("run"); p.add_argument("--report")
+    p = sub.add_parser("numbers"); p.add_argument("run"); p.add_argument("--report")
     p = sub.add_parser("independence"); p.add_argument("run")
     p = sub.add_parser("check"); p.add_argument("run")
     args = parser.parse_args()
@@ -372,6 +453,8 @@ def main() -> None:
         cmd_show(run, args.ids)
     elif args.cmd == "quotes":
         raise SystemExit(cmd_quotes(run, Path(args.report) if args.report else run / "report.md"))
+    elif args.cmd == "numbers":
+        raise SystemExit(cmd_numbers(run, Path(args.report) if args.report else run / "report.md"))
     elif args.cmd == "independence":
         cmd_independence(run)
     elif args.cmd == "check":

@@ -117,5 +117,29 @@ sed -i 's/^## Findings$/## 唔同睇法/' "$RUN/report.md"
 echo '{broken json' >> "$RUN/ledger.jsonl"
 expect_fail "corrupt ledger line fails" $RR check "$RUN"
 
+echo "T8 numeric consistency"
+N=$($RR init numbers-check --query "numbers" 2>/dev/null)
+printf 'Naver blog search total: 21599 posts. Wallets earned $787,000 on average. Accuracy 0.70 overall. 2.5萬 views. Price 3.5 USD.' | $RR add "$N" --source a >/dev/null 2>&1
+cat > "$N/report.md" <<'R'
+# Numbers
+Naver returned 21,599 posts. Average earnings were $787K and accuracy was 70%.
+The video had 25,000 views and costs 3.5 dollars.
+We used 3 perspectives and 12 sources on 2026-10-30 (10-30 run).
+Own sum: `21,599 + 1 = 21,600`. Link https://example.com/page/123456 is not data.
+1. First list item
+She said “earnings hit 999,999 dollars” (quote, checked separately).
+R
+out=$($RR numbers "$N" 2>/dev/null); rc=$?
+[[ $rc == 0 ]] && ok "comma, K suffix, percent-as-fraction, 萬 suffix and decimals all traced" || bad "numbers trace" "$out"
+grep -qE "^(OK|UNTRACED).*\b(3|12)\b$" <<<"$out" && bad "small counts checked" "$out" || ok "small bare counts (3, 12) skipped"
+grep -qE "2026|10-30|123456|21,600|999,999" <<<"$out" && bad "dates/URLs/backticks/quotes leaked" "$out" || ok "dates, URLs, backticks and quoted numbers skipped"
+n=$(grep -c "^OK" <<<"$out"); [[ $n -ge 5 ]] && ok "numbers were actually checked ($n), not a vacuous pass" || bad "extraction" "only $n"
+printf '\nA fabricated figure: 48,213 users.\n' >> "$N/report.md"
+out=$($RR numbers "$N" 2>/dev/null); rc=$?
+[[ $rc == 1 ]] && grep -q "UNTRACED.*48,213" <<<"$out" && ok "fabricated number caught (exit 1)" || bad "fabricated number" "rc=$rc $out"
+sed -i '$d' "$N/report.md"; sed -i '$d' "$N/report.md"
+printf '\nTypo: 21,598 posts.\n' >> "$N/report.md"
+expect_fail "off-by-one copy error caught" $RR numbers "$N"
+
 echo; echo "RESULT: $PASS passed, $FAIL failed"
 [[ $FAIL == 0 ]]
