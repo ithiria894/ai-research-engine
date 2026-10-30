@@ -418,6 +418,9 @@ if [[ "$MODE" == "full" ]]; then
   echo "Probing keyed APIs with real keys..."
   kcheck "FRED"          FRED_API_KEY          "observations" "https://api.stlouisfed.org/fred/series/observations?series_id=GDP&api_key=${FRED_API_KEY:-}&file_type=json&limit=1"
   kcheck "US Census"     CENSUS_API_KEY        "NAME"         "https://api.census.gov/data/2021/acs/acs5?get=NAME&for=state:06&key=${CENSUS_API_KEY:-}"
+  kcheck "CanLII"        CANLII_API_KEY        "caseDatabases" "https://api.canlii.org/v1/caseBrowse/en/?api_key=${CANLII_API_KEY:-}"
+  # Naver: OFFICIAL Search API only. Never drive naver.com with a browser (permanent account ban).
+  kcheck "Naver Search"  NAVER_CLIENT_ID       "\"items\""    "https://openapi.naver.com/v1/search/blog.json?query=test&display=1" -H "X-Naver-Client-Id: ${NAVER_CLIENT_ID:-}" -H "X-Naver-Client-Secret: ${NAVER_CLIENT_SECRET:-}"
   kcheck "Open PageRank" OPENPAGERANK_API_KEY  "page_rank"    "https://openpagerank.com/api/v1.0/getPageRank?domains%5B%5D=google.com" -H "API-OPR: ${OPENPAGERANK_API_KEY:-}"
   kcheck "FMP"           FMP_API_KEY           "symbol"       "https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=${FMP_API_KEY:-}"
   kcheck "OpenStates"    OPENSTATES_API_KEY    "results"      "https://v3.openstates.org/jurisdictions?per_page=1" -H "X-API-Key: ${OPENSTATES_API_KEY:-}"
