@@ -409,6 +409,13 @@ Mastodon          — curl -s "https://mastodon.social/api/v1/timelines/tag/TAG"
 Lemmy / Bluesky   — /api/v3/search、app.bsky.feed.searchPosts ✅（health-check）
 知乎              — ❌ 未登入 403 need_login；Agent Chrome 要 Nicole 手動登入
                     （credential: gopass chrome/social/www-zhihu-com）
+SearXNG（本機）   — ~/MyGithub/ai-research-engine/tools/searxng.sh search 'Q' [engines]    ✅ 10-30：35 條（Brave + Google CSE），自己開自己關
+                    （DuckDuckGo 一樣畀 CAPTCHA；用 engines=brave,google,bing,mojeek,wikipedia 揀）
+RSSHub（本機）    — ~/MyGithub/ai-research-engine/tools/rsshub.sh get /namespace/route    ✅ 10-30：V2EX、36氪、虎撲、掘金、Threads 有資料；Dcard 503
+                    route 清單：~/.local/share/research-engine/tools/RSSHub/lib/routes/<namespace>/
+MediaCrawler      — ~/MyGithub/ai-research-engine/tools/mediacrawler.sh PLATFORM search 'kw1,kw2' OUT_DIR --crawler_max_notes_count N
+                    PLATFORM = xhs dy ks bili wb tieba zhihu；用 agent Chrome :9223（script 每次強制，唔會掂 9222）
+                    ❌ 10-30：每個平台都要帳戶 + 手機掃 QR 登入一次（B站實測停喺「Waiting for scan code login」）
 X / Twitter       — ✅ 搜尋、讀 thread、睇 profile：官方 `@steipete/bird` CLI + @ithiria894 嘅 session cookie（10-30 實測）
                     set -a; source ~/.config/research-engine/keys.env; set +a      # AUTH_TOKEN / CT0
                     bird search 'Q' -n 50 --json ｜ bird read URL --json ｜ bird thread URL --json

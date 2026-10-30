@@ -2030,3 +2030,14 @@ participant-count、volunteer-hour 同 gaming-record 條文。新增 official dy
   `dev/research-engine/x-auth-token`、`x-ct0`，keys.env `AUTH_TOKEN`／`CT0`。
 - 10-30 實測 `bird search` 返真 tweet；`bird whoami` 壞咗（"Could not parse settings page"），唔影響搜尋。
 - 只准用讀取指令。Bird 有 tweet／reply／follow 等寫入指令，自動化絕對唔用。health-check `--full` 有 read-only probe。
+
+### Round 52（2026-10-30）— 自己架 SearXNG、RSSHub、MediaCrawler（用先開、用完即關）
+
+- 裝喺 `~/.local/share/research-engine/tools/`（SearXNG 1cd13d9 uv venv py3.11；RSSHub 705f55d Node 24 + pnpm build；
+  MediaCrawler 68d9ef1 uv + Playwright Chromium）。設定喺 `~/.config/research-engine/searxng/settings.yml`，secret 喺 gopass
+  `dev/research-engine/searxng-secret`。
+- `tools/searxng.sh search` 3.4 秒返 35 條（Brave 25、Google CSE 20），DDG CAPTCHA。`tools/rsshub.sh get`：V2EX 9、36氪 20、
+  虎撲 50、掘金 20、Threads 10，Dcard 503。兩個都係 search/get 完自己關；第一版 stop 殺錯 subshell pid，已修。
+- MediaCrawler 預設 `CDP_DEBUG_PORT=9222` + `CDP_CONNECT_EXISTING=True` = 連 Nicole 自己個 Chrome。`tools/mediacrawler.sh`
+  每次開跑前強制改做 9223，改唔到就拒絕跑。B站實測連啱 agent Chrome，但要掃 QR 登入；所有平台都要帳戶。
+- 見到 5 日前嘅 `playwright-mcp` process（連 9222）仲行緊，未殺，等 Nicole 決定。

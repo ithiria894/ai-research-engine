@@ -320,6 +320,16 @@ check "DCInside search"         "https://search.dcinside.com/combine/q/%EC%84%B1
 check "Wikimedia Pageviews"     "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/2026/05/01"
 drain_checks
 
+# On-demand self-hosted tools (2026-10-30): each probe starts the server, queries once, stops it.
+if [[ "$MODE" == "full" ]]; then
+  sx=$(timeout 120 "$SCRIPT_DIR/tools/searxng.sh" search "anthropic" 2>/dev/null | jq '.results | length' 2>/dev/null)
+  if [[ "${sx:-0}" -ge 1 ]]; then results+=("✅ | SearXNG (local, on demand) | 200 | $sx results"); ((PASS++))
+  else results+=("❌ | SearXNG (local, on demand) | — | results=${sx:-none}"); ((FAIL++)); fi
+  rh=$(timeout 150 "$SCRIPT_DIR/tools/rsshub.sh" get /v2ex/topics/hot 2>/dev/null | jq '.items | length' 2>/dev/null)
+  if [[ "${rh:-0}" -ge 1 ]]; then results+=("✅ | RSSHub (local, on demand) /v2ex/topics/hot | 200 | $rh items"); ((PASS++))
+  else results+=("❌ | RSSHub (local, on demand) /v2ex/topics/hot | — | items=${rh:-none}"); ((FAIL++)); fi
+fi
+
 # Parallel keyless web search (search.parallel.ai/mcp). Plain HTTP JSON-RPC, no key, no
 # resident MCP: initialize -> session id -> tools/call web_search. Added 2026-10-30.
 if [[ "$MODE" == "full" ]]; then

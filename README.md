@@ -40,6 +40,7 @@ Most of the useful data sits in specialized databases and community sites. Many 
 | Packages & code | npm, PyPI, crates.io, Packagist, RubyGems, Homebrew, Docker Hub, Hugging Face, libraries.io, OSV, GitHub API, context7 docs |
 | Markets | Polymarket, CoinGecko, DeFiLlama, DexScreener, FMP, Twelve Data, Alpha Vantage |
 | Reference | Wikipedia, Wikidata SPARQL, Open Library, Internet Archive, Wayback |
+| Self-hosted (on demand) | SearXNG metasearch (252 engines), RSSHub (1,995 site namespaces), MediaCrawler (Xiaohongshu, Douyin, Kuaishou, Bilibili, Weibo, Tieba, Zhihu; needs a login per platform). Started per query by `tools/*.sh`, stopped after |
 
 Known gaps as of 2026-10-30: Serper's one-time trial is used up, SerpAPI has no key, DuckDuckGo and Startpage HTML return bot challenges from this machine, Zhihu needs an account, and Open PageRank, OpenSanctions, Finnhub, OpenReview, CourtListener and WHO GHO failed their probes.
 
@@ -118,6 +119,7 @@ scholar.py                  Scholarly search across 5 sources, merged by DOI, wi
 library.py                  Full-text search over past runs (SQLite FTS5, rebuildable)
 docs/                       research-workflow-spec.md: the rules the tools and skill enforce
 health-check.sh             Maintenance probes; writes health-check-report.md
+tools/                      On-demand launchers: searxng.sh, rsshub.sh, mediacrawler.sh
 qa/                         End-to-end QA scripts
 source-scans/               Reproducible prior-art and source sweeps
 skills/deep-research/       The skill itself (single source of truth)
