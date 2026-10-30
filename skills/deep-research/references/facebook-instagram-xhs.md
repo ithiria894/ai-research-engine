@@ -212,8 +212,8 @@ python3 $SR xhs-note NOTE_ID XSEC_TOKEN --route auto --comment-limit 20
 `xhs-note` exits non-zero (no stdout) when XHS redirects away from the note: deleted or
 private note, expired `xsec_token`, or login needed. Never record that as an empty note.
 2026-10-30: Agent Chrome's XHS session had expired ("XHS requires login"); Nicole has to
-log in once by hand before the browser route works. Codex reaches the same code through the `xiaohongshu` server in the 1mcp gateway
-(`~/.config/1mcp/mcp.json`, behind Codex's `shared` MCP); `xhs_mcp_server.py` now just calls this CLI.
+log in once by hand before the browser route works. Codex uses the same CLI (its `xiaohongshu-research` skill was rewritten 2026-10-30). The old gateway
+MCP wrapper was removed from `~/.config/1mcp/mcp.json` and archived as `archive/xhs_mcp_server.py`.
 
 Search with materially different Simplified-Chinese variants: the core subject,
 `攻略`, `教程`, `真实体验`, and adverse terms such as `避雷`, `翻车`, `缺点`,

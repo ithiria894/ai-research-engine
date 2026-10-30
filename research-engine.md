@@ -58,7 +58,7 @@ endpoint／auth／parser 壞 = `FAILED`，今次 ledger 如實報告並繼續其
 - **Reddit 官方 API**：reddit.com/wiki/api 寫明新 Data API app 只畀 "valid moderation use case"，要經
   support.reddithelp.com 申請；research 用途唔會批，所以繼續用 browser session。
 - **小紅書 note detail**：`social-research.py xhs-note`（由 `xhs_mcp_server.py` 搬過嚟，順手修咗「唔存在嘅 note
-  返 status ok」bug）。`xhs_mcp_server.py` 經 1mcp gateway（Codex 嘅 `shared` MCP）畀 Codex 用緊，而家只係 call 呢個 CLI。（10-30 更正：之前淨睇 `codex mcp list` 第一層，誤以為冇 configure，仲搬咗去 archive，整壞咗 gateway 路徑，已搬返。）
+  返 status ok」bug）。Codex 嘅 `xiaohongshu-research` skill 亦改咗用呢個 CLI；gateway 個 XHS MCP 已剷，`xhs_mcp_server.py` 封存喺 `archive/`。
 - 唔使登入就用得：微博（先開 `m.weibo.cn` tab 再同源 fetch）、PTT（`-b over18=1`）、Discourse `search.json`、
   Mastodon tag timeline。要 Nicole 手動登入：小紅書（session 過期）、知乎、X。
 
@@ -2041,3 +2041,14 @@ participant-count、volunteer-hour 同 gaming-record 條文。新增 official dy
 - MediaCrawler 預設 `CDP_DEBUG_PORT=9222` + `CDP_CONNECT_EXISTING=True` = 連 Nicole 自己個 Chrome。`tools/mediacrawler.sh`
   每次開跑前強制改做 9223，改唔到就拒絕跑。B站實測連啱 agent Chrome，但要掃 QR 登入；所有平台都要帳戶。
 - 見到 5 日前嘅 `playwright-mcp` process（連 9222）仲行緊，未殺，等 Nicole 決定。
+
+### Round 53（2026-10-30）— 1mcp gateway 剷走 15 個 research MCP
+
+- Codex 嘅 `shared` MCP 其實係 1mcp gateway（`~/.config/1mcp/mcp.json`，systemd `1mcp.service`，port 3050）。
+  入面仲有 17 個 MCP，同早前「最終剩 google-workspace」嘅記錄唔一致：早前淨睇 `codex mcp list` 第一層。
+- Nicole：「有 REST 或者 CLI 嘅話就剷走啦。」剷：playwright、playwright-chrome、chrome-devtools（→ agent-chrome.py）、
+  firecrawl（REST）、newsmcp（死，→ GDELT）、rss-reader（curl + jina）、arxiv／paper-distill／scholar-mcp／paper-search
+  （→ scholar.py + REST）、reddit（→ reddit-search + Arctic Shift）、devto（REST）、twitter（→ bird）、superprecio（REST，
+  10-30 實測 200）、xiaohongshu（→ social-research.py）。留：deja、clarity-bewater（冇驗證過嘅 REST，亦唔係 research）。
+- 重啟後 gateway 只出 7 個 tool（deja + clarity-bewater），研究 MCP process 0 個（包括連住 9222 嘅兩個 playwright）。
+  Backup：`~/.config/1mcp/mcp.json.bak-before-mcp-removal-2026-10-30`。
