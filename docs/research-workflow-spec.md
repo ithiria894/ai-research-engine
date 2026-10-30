@@ -111,4 +111,6 @@ agent 可以直接抄入 ledger。
   「原文存在、冇改字」，唔驗佢支持乜。判斷留返畀用嘅人。
 
 - 唔加 model 分工、唔加 subagent roster：Nicole 規定預設由 main agent 做。
+- 唔做強制逐步執行（hyperresearch 每步獨立載入）同多份草稿加 critic 修補：Nicole 2026-10-30 否決，`check` 喺最後攔住已經夠。
+- 唔向 GitHub Support 申請清舊 SHA：Nicole 2026-10-30「是但啦都冇人睇」。
 - 唔加 budget 上限：冇真金白銀成本，source 全部免費。
