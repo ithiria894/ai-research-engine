@@ -33,7 +33,7 @@ Most of the useful data sits in specialized databases and community sites. Many 
 | Other forums | Hacker News (Algolia), Lobste.rs, StackExchange, any Discourse forum, Lemmy, Bluesky, Mastodon tag timelines, DEV.to, V2EX, PTT, Weibo (browser), 1Point3Acres, Grapevine, College Confidential, The Student Room |
 | Korean | Naver official Search API (blog, cafe, kin, local, datalab) |
 | Chinese | Bilibili, V2EX, Weibo, Xiaohongshu (browser session or TikHub), 1Point3Acres |
-| X / Twitter | FxTwitter for single tweets and profiles (zero key). Search needs a logged-in account |
+| X / Twitter | Search, threads and timelines through the official `@steipete/bird` CLI with a logged-in account's session cookies; FxTwitter for single tweets with no account |
 | Video | yt-dlp subtitles; Groq transcription when there are none |
 | Legal | CanLII (keyed), Federal Register |
 | Government & economic | FRED, Census, Congress.gov, govinfo, OpenFEC, OpenStates, World Bank, openFDA, USASpending, SEC EDGAR |
@@ -41,7 +41,7 @@ Most of the useful data sits in specialized databases and community sites. Many 
 | Markets | Polymarket, CoinGecko, DeFiLlama, DexScreener, FMP, Twelve Data, Alpha Vantage |
 | Reference | Wikipedia, Wikidata SPARQL, Open Library, Internet Archive, Wayback |
 
-Known gaps as of 2026-10-30: Serper's one-time trial is used up, SerpAPI has no key, DuckDuckGo and Startpage HTML return bot challenges from this machine, Zhihu and X search need accounts, and Open PageRank, OpenSanctions, Finnhub, OpenReview, CourtListener and WHO GHO failed their probes.
+Known gaps as of 2026-10-30: Serper's one-time trial is used up, SerpAPI has no key, DuckDuckGo and Startpage HTML return bot challenges from this machine, Zhihu needs an account, and Open PageRank, OpenSanctions, Finnhub, OpenReview, CourtListener and WHO GHO failed their probes.
 
 ## How it works
 

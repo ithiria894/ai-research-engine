@@ -391,7 +391,7 @@ curl -s "https://b.hatena.ne.jp/search/text?q=$(python3 -c 'import urllib.parse;
                     curl -s https://api.ashbyhq.com/posting-api/job-board/COMPANY
                     （SmartRecruiters /v1/companies/X/postings、Workable /api/v3/accounts/X/jobs 未測）
 X 單條 tweet／profile — curl -s https://api.fxtwitter.com/USER/status/ID ｜ https://api.fxtwitter.com/USER   ✅ zero key
-                    （X「搜尋」仍要帳戶：Bird GraphQL 用 auth_token+ct0 cookie，見 last30days）
+                    （X 搜尋用 Bird，見下面 Tier 3 表）
 Telegram 公開頻道 — curl -s https://t.me/s/CHANNEL   ✅ HTML 預覽，唔使登入
 掘金 (juejin)      — POST https://api.juejin.cn/search_api/v1/search?aid=2608&uuid=1&spider=0
                     {"key_word":"Q","id_type":0,"cursor":"0","limit":20,"search_type":0,"sort_type":0,"version":1}  ✅
@@ -409,7 +409,12 @@ Mastodon          — curl -s "https://mastodon.social/api/v1/timelines/tag/TAG"
 Lemmy / Bluesky   — /api/v3/search、app.bsky.feed.searchPosts ✅（health-check）
 知乎              — ❌ 未登入 403 need_login；Agent Chrome 要 Nicole 手動登入
                     （credential: gopass chrome/social/www-zhihu-com）
-X / Twitter       — ❌ 冇 working route：twitterapi.io 從未 work、guest API 403、Agent Chrome 未登入
+X / Twitter       — ✅ 搜尋、讀 thread、睇 profile：官方 `@steipete/bird` CLI + @ithiria894 嘅 session cookie（10-30 實測）
+                    set -a; source ~/.config/research-engine/keys.env; set +a      # AUTH_TOKEN / CT0
+                    bird search 'Q' -n 50 --json ｜ bird read URL --json ｜ bird thread URL --json
+                    bird replies URL --json ｜ bird user-tweets HANDLE --json ｜ bird news --json
+                    ⛔ 絕對唔好用 tweet / reply / follow / unfollow / unbookmark（會用 Nicole 個帳戶發文或者改嘢）
+                    session 過期：喺 agent Chrome「Profile 1」重新登入 X，再用 browser_cookie3 抽 auth_token/ct0 入 gopass + keys.env
 ```
 
 #### Tier 4: Chrome CDP Fallback (for logged-in sessions)
@@ -1313,7 +1318,7 @@ Date: [today]
 | Source | Why not |
 |---|---|
 | Naver / DC Inside | topic has no Korean-market angle |
-| X/Twitter | no API key; would need paid gateway |
+| X/Twitter | topic has no X angle (search works via `bird search`) |
 
 **Coverage honesty statement:** one sentence naming the biggest blind spot in this
 report, in plain language. Example: "Everything below is English-language web and
@@ -1435,7 +1440,7 @@ scopes.
 → StackExchange API (170+ sites — tagged questions volume + answers)
 → Discourse API (OSS community forums: Rust/React/OpenAI/Julia)
 → Bluesky AT Protocol + Mastodon API (tech discourse)
-→ X/Twitter — ❌ 冇 working route（10-30），ledger 記 FAILED
+→ X/Twitter → `bird search 'Q' -n 50 --json`（read-only，見 Tier 3 表）
 → Hashnode + DEV.to (developer blog posts about the problem)
 → Lobste.rs JSON (high-signal tech community)
 → WebSearch ("{category} problems frustrations")

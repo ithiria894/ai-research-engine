@@ -2022,3 +2022,11 @@ participant-count、volunteer-hour 同 gaming-record 條文。新增 official dy
   Telegram `t.me/s/` 公開頻道、掘金 search API、DCInside search。
 - ❌ 試過唔得：DDG html、Startpage（bot challenge）、nitter.net（空殼）、StockTwits／Trustpilot／Dcard（Cloudflare，連 Agent
   Chrome fetch 都 403）。X search 要帳戶（Bird GraphQL + `auth_token`/`ct0`）。
+
+### Round 51（2026-10-30）— X 搜尋用官方 Bird CLI + 帳戶 cookie
+
+- `npm i -g @steipete/bird@0.8.0`（官方 package，唔用 last30days 嘅 vendored copy）。cookie 由 agent Chrome
+  「Profile 1」（nicole@alltrue.ai）用 browser_cookie3 解密，帳戶係 **@ithiria894**；存 gopass
+  `dev/research-engine/x-auth-token`、`x-ct0`，keys.env `AUTH_TOKEN`／`CT0`。
+- 10-30 實測 `bird search` 返真 tweet；`bird whoami` 壞咗（"Could not parse settings page"），唔影響搜尋。
+- 只准用讀取指令。Bird 有 tweet／reply／follow 等寫入指令，自動化絕對唔用。health-check `--full` 有 read-only probe。

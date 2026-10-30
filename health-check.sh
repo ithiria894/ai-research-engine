@@ -450,6 +450,13 @@ if [[ "$MODE" == "full" ]]; then
   kcheck "FRED"          FRED_API_KEY          "observations" "https://api.stlouisfed.org/fred/series/observations?series_id=GDP&api_key=${FRED_API_KEY:-}&file_type=json&limit=1"
   kcheck "US Census"     CENSUS_API_KEY        "NAME"         "https://api.census.gov/data/2021/acs/acs5?get=NAME&for=state:06&key=${CENSUS_API_KEY:-}"
   kcheck "CanLII"        CANLII_API_KEY        "caseDatabases" "https://api.canlii.org/v1/caseBrowse/en/?api_key=${CANLII_API_KEY:-}"
+  # X search via the official @steipete/bird CLI and the @ithiria894 session cookies (AUTH_TOKEN/CT0).
+  # Read-only: search -n 1. Never call tweet/reply/follow/unfollow/unbookmark from automation.
+  if command -v bird >/dev/null && [[ -n "${AUTH_TOKEN:-}" && -n "${CT0:-}" ]]; then
+    bn=$(timeout "$SOURCE_TIMEOUT" bird search "anthropic" -n 1 --json 2>/dev/null | jq 'if type=="array" then length else (.tweets // .data // []) | length end' 2>/dev/null)
+    if [[ "${bn:-0}" -ge 1 ]]; then keyed+=("✅ | X search (bird) | 200 | $bn tweet")
+    else keyed+=("❌ | X search (bird) | — | no tweets (session expired? re-extract cookies)"); act "❌|X search (bird) 失敗|session 可能過期：喺 agent Chrome Profile 1 重新登入 X，再用 browser_cookie3 抽 auth_token/ct0 入 gopass + keys.env"; fi
+  else keyed+=("🔑 | X search (bird) | — | bird CLI or AUTH_TOKEN/CT0 missing"); fi
   # Naver: OFFICIAL Search API only. Never drive naver.com with a browser (permanent account ban).
   kcheck "Naver Search"  NAVER_CLIENT_ID       "\"items\""    "https://openapi.naver.com/v1/search/blog.json?query=test&display=1" -H "X-Naver-Client-Id: ${NAVER_CLIENT_ID:-}" -H "X-Naver-Client-Secret: ${NAVER_CLIENT_SECRET:-}"
   kcheck "Open PageRank" OPENPAGERANK_API_KEY  "page_rank"    "https://openpagerank.com/api/v1.0/getPageRank?domains%5B%5D=google.com" -H "API-OPR: ${OPENPAGERANK_API_KEY:-}"
