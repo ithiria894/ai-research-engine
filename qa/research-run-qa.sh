@@ -63,7 +63,7 @@ Run `curl "https://example.com/not a quote at all"` to reproduce.
 Short "ok" words are not quotes.
 > the outer incision left a   visible line for a year — [dcinside](https://gall.dcinside.com/3)
 
-## 反方證據
+## 唔同睇法
 DCInside 有人後悔外切。
 EOF
 expect_ok "verbatim quotes across HTML, ellipsis, whitespace and blockquote all found" $RR quotes "$RUN"
@@ -92,7 +92,7 @@ echo "T7 check gates"
 out=$($RR check "$RUN" 2>/dev/null); rc=$?
 [[ $rc == 1 ]] && ok "incomplete run fails" || bad "incomplete run passed" "$out"
 grep -q '視角' <<<"$out" && ok "flags missing perspectives" || bad "perspective gate" "$out"
-grep -q '會推翻' <<<"$out" && ok "flags missing overturn sources" || bad "overturn gate" "$out"
+grep -q '唔同睇法嘅 source' <<<"$out" && ok "flags missing overturn sources" || bad "overturn gate" "$out"
 grep -q 'adversarial' <<<"$out" && ok "flags missing adversarial search" || bad "adversarial gate" "$out"
 cat > "$RUN/plan.md" <<'EOF'
 # Plan
@@ -103,7 +103,7 @@ cat > "$RUN/plan.md" <<'EOF'
   - query：alar base scar revision technique
 - 視角：監管／投訴
   - query：성형외과 부작용 신고
-## 會推翻結論嘅 source
+## 唔同睇法嘅 source
 - 醫療事故判例：如果有大量外切疤痕訴訟，結論要改
 ## 反方 query
 - 콧볼축소 후회
@@ -111,9 +111,9 @@ EOF
 $RR ledger "$RUN" --source dcinside --status MATERIAL --items 1 --evidence "$E3" --role adversarial 2>/dev/null
 out=$($RR check "$RUN" 2>/dev/null); rc=$?
 [[ $rc == 0 ]] && ok "complete run passes every gate" || bad "complete run failed" "$out"
-sed -i 's/^## 反方證據$/## Findings/' "$RUN/report.md"
-expect_fail "report without 反方證據 fails" $RR check "$RUN"
-sed -i 's/^## Findings$/## 反方證據/' "$RUN/report.md"
+sed -i 's/^## 唔同睇法$/## Findings/' "$RUN/report.md"
+expect_fail "report without 唔同睇法 fails" $RR check "$RUN"
+sed -i 's/^## Findings$/## 唔同睇法/' "$RUN/report.md"
 echo '{broken json' >> "$RUN/ledger.jsonl"
 expect_fail "corrupt ledger line fails" $RR check "$RUN"
 

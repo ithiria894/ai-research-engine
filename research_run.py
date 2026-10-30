@@ -76,7 +76,7 @@ def cmd_init(slug: str, query: str) -> None:
     (path / "evidence").mkdir(parents=True)
     (path / "query.md").write_text(query.rstrip("\n") + "\n", encoding="utf-8")
     (path / "plan.md").write_text(
-        "# Plan\n\n## 視角\n\n- 視角：\n  - query：\n\n## 會推翻結論嘅 source\n\n- \n\n## 反方 query\n\n- \n",
+        "# Plan\n\n## 視角\n\n- 視角：\n  - query：\n\n## 唔同睇法嘅 source\n\n- \n\n## 反方 query\n\n- \n",
         encoding="utf-8")
     (path / "ledger.jsonl").touch()
     log("state_change", created=str(path))
@@ -301,9 +301,9 @@ def cmd_check(run: Path) -> int:
     named = [m for m in re.findall(r"^-\s*視角[:：]\s*(\S.*)$", persp, re.M)]
     if len(named) < 3:
         failures.append(f"plan.md 「## 視角」 needs >= 3 named perspectives (found {len(named)})")
-    overturn = section(plan, "會推翻結論嘅 source") or ""
+    overturn = section(plan, "唔同睇法嘅 source") or ""
     if not re.search(r"^-\s*\S", overturn, re.M):
-        failures.append("plan.md 「## 會推翻結論嘅 source」 is empty")
+        failures.append("plan.md 「## 唔同睇法嘅 source」 is empty")
 
     known = known_evidence(run)
     rows = read_ledger(run)
@@ -323,8 +323,8 @@ def cmd_check(run: Path) -> int:
         failures.append("report.md is missing")
     else:
         report = report_path.read_text(encoding="utf-8")
-        if section(report, "反方證據") is None:
-            failures.append("report.md has no 「## 反方證據」 section")
+        if section(report, "唔同睇法") is None:
+            failures.append("report.md has no 「## 唔同睇法」 section")
         for quote, eid in quote_check(run, report_path):
             if eid is None:
                 failures.append(f"quote not found verbatim in evidence: {quote[:100]}")
