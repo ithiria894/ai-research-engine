@@ -123,7 +123,6 @@ tools/                      On-demand launchers: searxng.sh, rsshub.sh, mediacra
 qa/                         End-to-end QA scripts
 source-scans/               Reproducible prior-art and source sweeps
 skills/deep-research/       The skill itself (single source of truth)
-archive/                    Retired code kept for reference
 ```
 
 This repo is the only copy of the skill. Install it with a symlink so edits land here:
