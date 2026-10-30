@@ -7,6 +7,7 @@ Commands:
   social-research.py tikhub PATH [KEY=VALUE ...]
   social-research.py xhs-search QUERY [--route auto|tikhub|browser]
                                 [--page N] [--sort VALUE] [--note-type VALUE]
+  social-research.py xhs-note NOTE_ID XSEC_TOKEN [--route auto|tikhub|browser] [--comment-limit N]
   social-research.py onepoint-search QUERY [--limit N]
   social-research.py onepoint-thread THREAD_ID_OR_URL
   social-research.py grapevine-search QUERY [--limit N]
@@ -14,6 +15,8 @@ Commands:
   social-research.py collegeconf-search QUERY [--limit N]
   social-research.py collegeconf-thread THREAD_ID_OR_URL [--max-posts N]
   social-research.py studentroom-thread THREAD_ID_OR_URL [--max-posts N]
+  social-research.py reddit-search QUERY [--subreddit SUB] [--type posts|comments]
+                                [--sort relevance|top|new|comments|hot] [--t all|year|...] [--limit N]
   social-research.py bctransfer-institutions [--query TEXT] [--limit N]
   social-research.py bctransfer-subjects INSTITUTION_ID [--sending true|false]
 
@@ -345,6 +348,160 @@ def studentroom_thread(value: str, max_posts: int) -> None:
     )
 
 
+REDDIT_BASE = "https://www.reddit.com"
+
+
+def reddit_page(url: str) -> str:
+    """Fetch one Reddit page through the logged-in Agent Chrome session."""
+    if not AGENT_CHROME.exists():
+        die(f"agent Chrome helper is missing: {AGENT_CHROME}")
+    log_event("external_call", route="agent_chrome_fetch", url=url)
+    process = subprocess.run(
+        [str(AGENT_CHROME), "fetch", url],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    if process.returncode != 0:
+        error = process.stderr.strip() or process.stdout.strip() or "unknown browser error"
+        log_event("external_error", route="agent_chrome_fetch", url=url, exit_code=process.returncode)
+        if "blocked by network security" in process.stdout:
+            die("Reddit returned its 'blocked by network security' page; check login with: "
+                "agent-chrome.py login-check https://www.reddit.com/")
+        die(f"Reddit browser fetch failed: {error[-2000:]}")
+    return process.stdout
+
+
+def reddit_search(query: str, subreddit: str | None, kind: str, sort: str, period: str, limit: int) -> None:
+    """Search Reddit posts or comments via the shreddit search partial.
+
+    The legacy /search.json endpoint answers 403 even inside the logged-in
+    session (verified 2026-10-30), while the HTML partial the web UI itself
+    loads still works, so we parse that.
+    """
+    log_event("entry", command="reddit-search", query=query, subreddit=subreddit, type=kind,
+              sort=sort, t=period, limit=limit)
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        die("BeautifulSoup is required: install beautifulsoup4")
+    scope = f"/r/{subreddit}" if subreddit else ""
+    params = {"q": query, "type": kind, "sort": sort}
+    if period != "all":
+        params["t"] = period
+    url = f"{REDDIT_BASE}/svc/shreddit{scope}/search/?" + urllib.parse.urlencode(params)
+    terms = [t for t in re.split(r"\s+", query.replace('"', " ").lower()) if t]
+    items: list[dict[str, object]] = []
+    seen: set[str] = set()
+    pages = 0
+    next_url: str | None = url
+    while next_url and len(items) < limit:
+        page = reddit_page(next_url)
+        pages += 1
+        soup = BeautifulSoup(page, "lxml")
+        before = len(items)
+        if kind == "posts":
+            units = soup.select('[data-testid="search-sdui-post"]')
+        else:
+            units = soup.select('[data-testid="search-sdui-comment-unit"]')
+        for unit in units:
+            holder = unit if unit.has_attr("data-faceplate-tracking-context") else unit.find_parent(
+                attrs={"data-faceplate-tracking-context": True})
+            try:
+                context = json.loads(holder["data-faceplate-tracking-context"]) if holder else {}
+            except (KeyError, json.JSONDecodeError):
+                log_event("schema_error", route="reddit_search", detail="tracking context unreadable")
+                context = {}
+            post = context.get("post", {})
+            if kind == "posts":
+                item_id = post.get("id")
+                title_link = unit.select_one('a[data-testid="post-title"]')
+                numbers = [n.get("number") for n in unit.select("faceplate-number")]
+                stamp = unit.select_one("faceplate-timeago")
+                item = {
+                    "id": item_id,
+                    "title": post.get("title"),
+                    "subreddit": context.get("subreddit", {}).get("name"),
+                    "author": context.get("profile", {}).get("name"),
+                    "score": int(numbers[0]) if len(numbers) > 0 and numbers[0] else None,
+                    "num_comments": int(numbers[1]) if len(numbers) > 1 and numbers[1] else None,
+                    "created_at": stamp.get("ts") if stamp else None,
+                    "permalink": REDDIT_BASE + title_link["href"] if title_link and title_link.get("href") else None,
+                }
+            else:
+                comment = context.get("comment", {})
+                item_id = comment.get("id")
+                content = unit.select_one('[data-testid="search-comment-content"]')
+                body = content.select_one('[id$="-post-rtjson-content"]') if content else None
+                score = content.select_one("faceplate-number") if content else None
+                stamp = content.select_one("faceplate-timeago") if content else None
+                counters = unit.select_one('[data-testid="search-counter-row"]')
+                post_numbers = [n.get("number") for n in counters.select("faceplate-number")] if counters else []
+                text = content.get_text(" ", strip=True) if content else ""
+                bare_id = (item_id or "").removeprefix("t1_")
+                link = next((a["href"] for a in unit.select("a[href]") if bare_id and a["href"].rstrip("/").endswith(bare_id)), None)
+                item = {
+                    "id": item_id,
+                    "post_id": comment.get("post_id") or post.get("id"),
+                    "post_title": post.get("title"),
+                    "subreddit": context.get("subreddit", {}).get("name"),
+                    "author": text.split(" · ", 1)[0] if " · " in text else None,
+                    "body": body.get_text("\n", strip=True) if body else None,
+                    "score": int(score["number"]) if score and score.get("number") else None,
+                    "created_at": stamp.get("ts") if stamp else None,
+                    "post_score": int(post_numbers[0]) if len(post_numbers) > 0 and post_numbers[0] else None,
+                    "post_num_comments": int(post_numbers[1]) if len(post_numbers) > 1 and post_numbers[1] else None,
+                    "permalink": REDDIT_BASE + link if link else None,
+                }
+            if not item_id or item_id in seen:
+                continue
+            # Reddit pads weak or no-match queries with loosely related posts, so
+            # record whether the query words literally appear instead of trusting rank.
+            haystack = " ".join(str(item.get(k) or "") for k in ("title", "post_title", "body")).lower()
+            item["query_terms_in_text"] = all(term in haystack for term in terms)
+            seen.add(item_id)
+            items.append(item)
+            if len(items) >= limit:
+                break
+        cursor = re.search(r'src="(/svc/shreddit/[^"]*search/[^"]*cursor=[^"]*)"', page)
+        next_url = REDDIT_BASE + cursor.group(1).replace("&amp;", "&") if cursor else None
+        log_event("page_result", route="reddit_search", page=pages, units=len(units),
+                  new_items=len(items) - before, has_next=bool(next_url))
+        if len(items) == before:
+            # A page that adds nothing would loop forever on a repeated cursor.
+            log_event("decision", route="reddit_search", reason="page added no new items; stop paging")
+            break
+    lexical = sum(1 for item in items if item["query_terms_in_text"])
+    if not items:
+        status = "empty"
+    elif lexical == 0:
+        status = "no_lexical_match"
+    else:
+        status = "ok"
+    log_event("decision", route="reddit_search", status=status, items=len(items), lexical_matches=lexical)
+    print(
+        json.dumps(
+            {
+                "status": status,
+                "route": "reddit-shreddit-search-via-agent-chrome",
+                "query": query,
+                "subreddit": subreddit,
+                "type": kind,
+                "sort": sort,
+                "t": period,
+                "pages_fetched": pages,
+                "count": len(items),
+                "lexical_match_count": lexical,
+                "has_more": bool(next_url) and len(items) >= limit,
+                "items": items,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+
+
 def bctransfer_institutions(query: str | None, country_id: int, internal_only: bool, limit: int) -> None:
     """List institutions from the BC Transfer Guide's official public API."""
     log_event(
@@ -530,6 +687,114 @@ def xhs_browser_search(query: str) -> None:
             body = tab.evaluate("document.body ? document.body.innerText.slice(0, 300) : ''")
             die(f"XHS search state did not load (title={title!r}, body={body!r})")
         print(json.dumps({"route": "agent-chrome", "query": query, "count": len(result), "data": result}, ensure_ascii=False, indent=2))
+    finally:
+        tab.close()
+        ac.http_text(f"/json/close/{target_id}")
+
+
+XHS_NOTE_EXPRESSION = r"""
+(() => {
+  const body = document.body?.innerText || '';
+  if (body.includes('登录后查看') || body.includes('登录后发现更多精彩内容'))
+    return {status: 'login_required'};
+  // A missing note, bad xsec_token or blocked view redirects away from /explore/<id>;
+  // without this check an empty placeholder entry was reported as status ok.
+  if (location.href === 'about:blank' || document.readyState === 'loading') return {status: 'loading'};
+  if (!location.pathname.includes(NOTE_ID_RAW)) return {status: 'redirected', url: location.href};
+  const mapBox = window.__INITIAL_STATE__?.note?.noteDetailMap;
+  const map = mapBox ? (mapBox.value ?? mapBox._value ?? mapBox) : null;
+  if (!map || typeof map !== 'object') return {status: 'loading'};
+  const entry = map[NOTE_ID_JSON];
+  if (!entry?.note?.noteId) return {status: 'loading'};
+  const note = entry.note;
+  const commentsBox = entry.comments;
+  const comments = commentsBox ? (commentsBox.list ?? commentsBox.value?.list ?? []) : [];
+  const cleanUser = u => u ? {
+    user_id: u.userId || null,
+    nickname: u.nickname || u.nickName || null,
+    avatar: u.avatar || null
+  } : null;
+  const cleanComment = c => c ? {
+    id: c.id || null,
+    content: c.content || null,
+    time: c.createTime || c.time || null,
+    ip_location: c.ipLocation || null,
+    like_count: c.likeCount ?? null,
+    user: cleanUser(c.userInfo || c.user),
+    sub_comments: (c.subComments || []).slice(0, 10).map(sc => ({
+      id: sc.id || null,
+      content: sc.content || null,
+      time: sc.createTime || sc.time || null,
+      ip_location: sc.ipLocation || null,
+      like_count: sc.likeCount ?? null,
+      user: cleanUser(sc.userInfo || sc.user)
+    }))
+  } : null;
+  return {
+    status: 'ok',
+    url: location.href,
+    note: {
+      note_id: note.noteId || NOTE_ID_JSON,
+      title: note.title || null,
+      description: note.desc || null,
+      type: note.type || null,
+      time: note.time || null,
+      ip_location: note.ipLocation || null,
+      user: cleanUser(note.user),
+      interact_info: note.interactInfo || {},
+      images: (note.imageList || []).map(i => i.urlDefault || i.urlPre).filter(Boolean)
+    },
+    comments: comments.slice(0, COMMENT_LIMIT).map(cleanComment),
+    comments_returned: Math.min(comments.length, COMMENT_LIMIT),
+    comments_available_in_initial_state: comments.length,
+    comments_has_more: Boolean(commentsBox?.hasMore),
+    comments_cursor: commentsBox?.cursor || null
+  };
+})()
+"""
+
+
+def xhs_browser_note(note_id: str, xsec_token: str, comment_limit: int) -> None:
+    """Read one XHS note body, engagement and initial comments from its rendered state.
+
+    Moved here from xhs_mcp_server.py so Claude, Codex and the MCP wrapper all
+    run the same code instead of keeping two copies.
+    """
+    log_event("entry", command="xhs-note", route="browser", note_id=note_id, comment_limit=comment_limit)
+    ac = load_agent_chrome()
+    if not ac.try_http_json("/json/version", timeout=2):
+        die("Agent Chrome is not running; start it with: agent-chrome.py start", 2)
+    url = (
+        f"https://www.xiaohongshu.com/explore/{urllib.parse.quote(note_id, safe='')}?"
+        + urllib.parse.urlencode({"xsec_token": xsec_token, "xsec_source": "pc_feed"})
+    )
+    expression = (XHS_NOTE_EXPRESSION
+                  .replace("NOTE_ID_JSON", json.dumps(note_id))
+                  .replace("NOTE_ID_RAW", json.dumps(urllib.parse.quote(note_id, safe='')))
+                  .replace("COMMENT_LIMIT", str(max(0, min(comment_limit, 100)))))
+    log_event("external_call", route="agent_chrome_tab", url=url.split("?")[0])
+    tab = ac.open_tab(url, wait=True)
+    target_id = tab.info["id"]
+    try:
+        deadline = time.time() + 60
+        last: object = None
+        while time.time() < deadline:
+            last = tab.evaluate(expression)
+            if isinstance(last, dict) and last.get("status") == "login_required":
+                log_event("external_error", route="agent_chrome_tab", reason="login_required")
+                die("XHS requires login in Agent Chrome; log in manually and rerun")
+            if isinstance(last, dict) and last.get("status") == "redirected":
+                log_event("external_error", route="agent_chrome_tab", reason="redirected", url=last.get("url"))
+                die(f"XHS redirected away from the note (to {last.get('url')}): note deleted/private, "
+                    "xsec_token expired, or login required. Re-run xhs-search for a fresh token.")
+            if isinstance(last, dict) and last.get("status") == "ok":
+                log_event("external_result", route="agent_chrome_tab", comments=last.get("comments_returned"))
+                print(json.dumps({"route": "agent-chrome", **last}, ensure_ascii=False, indent=2))
+                return
+            time.sleep(0.5)
+        title = tab.evaluate("document.title")
+        log_event("external_error", route="agent_chrome_tab", reason="state_not_loaded", title=title)
+        die(f"XHS note state did not load (title={title!r}, state={last!r})")
     finally:
         tab.close()
         ac.http_text(f"/json/close/{target_id}")
@@ -928,6 +1193,12 @@ def main() -> None:
     p.add_argument("--sort", default="general")
     p.add_argument("--note-type", default="不限")
 
+    p = sub.add_parser("xhs-note")
+    p.add_argument("note_id")
+    p.add_argument("xsec_token")
+    p.add_argument("--route", choices=("auto", "tikhub", "browser"), default="auto")
+    p.add_argument("--comment-limit", type=int, default=20)
+
     p = sub.add_parser("onepoint-search")
     p.add_argument("query")
     p.add_argument("--limit", type=int, default=25)
@@ -955,6 +1226,14 @@ def main() -> None:
     p = sub.add_parser("studentroom-thread")
     p.add_argument("thread")
     p.add_argument("--max-posts", type=int, default=100)
+
+    p = sub.add_parser("reddit-search")
+    p.add_argument("query")
+    p.add_argument("--subreddit")
+    p.add_argument("--type", dest="kind", choices=("posts", "comments"), default="posts")
+    p.add_argument("--sort", choices=("relevance", "top", "new", "comments", "hot"), default="relevance")
+    p.add_argument("--t", dest="period", choices=("all", "year", "month", "week", "day", "hour"), default="all")
+    p.add_argument("--limit", type=int, default=25)
 
     p = sub.add_parser("bctransfer-institutions")
     p.add_argument("--query")
@@ -1004,6 +1283,17 @@ def main() -> None:
             print(json.dumps(data, ensure_ascii=False, indent=2))
         else:
             xhs_browser_search(args.query)
+    elif args.command == "xhs-note":
+        note_id, token = args.note_id.strip(), args.xsec_token.strip()
+        if not note_id or not token:
+            die("note_id and xsec_token are required (both come from xhs-search results)")
+        use_tikhub = args.route == "tikhub" or (args.route == "auto" and load_key("TIKHUB_API_KEY"))
+        log_event("decision", command="xhs-note", route="tikhub" if use_tikhub else "browser")
+        if use_tikhub:
+            api_get(TIKHUB_BASE, "/api/v1/xiaohongshu/web_v3/fetch_note_detail", "TIKHUB_API_KEY",
+                    "Authorization", {"note_id": note_id, "xsec_token": token})
+        else:
+            xhs_browser_note(note_id, token, args.comment_limit)
     elif args.command == "onepoint-search":
         if not 1 <= args.limit <= 100:
             die("--limit must be between 1 and 100")
@@ -1032,6 +1322,13 @@ def main() -> None:
         if not 1 <= args.max_posts <= 500:
             die("--max-posts must be between 1 and 500")
         studentroom_thread(args.thread, args.max_posts)
+    elif args.command == "reddit-search":
+        if not 1 <= args.limit <= 250:
+            die("--limit must be between 1 and 250")
+        subreddit = args.subreddit.removeprefix("r/") if args.subreddit else None
+        if subreddit is not None and not re.fullmatch(r"[A-Za-z0-9_]{2,21}", subreddit):
+            die(f"--subreddit is not a valid subreddit name: {args.subreddit!r}")
+        reddit_search(args.query, subreddit, args.kind, args.sort, args.period, args.limit)
     elif args.command == "bctransfer-institutions":
         if not 1 <= args.limit <= 1000:
             die("--limit must be between 1 and 1000")

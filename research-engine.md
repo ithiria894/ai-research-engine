@@ -1,6 +1,6 @@
 # Research Engine — 資料搜集工具 Inventory
 
-> 最後更新：2026-10-13（Round 44: LLM-selected source phonebook + API access routes）。
+> 最後更新：2026-10-30（Round 49: 全部 MCP route 轉官方 REST／CLI + Reddit shreddit search）。
 > 呢個 file 係 research 工具嘅 master list。定期更新（搵新 API、MCP、data source）。
 > Skill: `/market-research` 會 reference 呢個 file。
 >
@@ -46,7 +46,23 @@ endpoint／auth／parser 壞 = `FAILED`，今次 ledger 如實報告並繼續其
 
 ---
 
-## 🛑 先讀呢段 — 2026-08-11 sanity check 嘅更正（覆蓋下面所有過時 MCP 引用）
+## 🛑 先讀呢段 — 2026-10-30：一律打官方 REST／CLI，唔經 MCP
+
+- **Web search key 全部喺 `keys.env`**：`TAVILY_API_KEY`、`EXA_API_KEY`、`FIRECRAWL_API_KEY`（之前只收埋喺
+  `~/.codex/config.toml` 個 MCP URL，Claude 用唔到）。gopass 備份：`dev/research-engine/{tavily,exa,firecrawl}`。
+  10-30 實測：Tavily REST 200（306/1000）、Exa REST 200、Firecrawl v2 200（807 credits）。
+- **Serper 死咗**：`/account` 返 `balance:-10`。嗰 2,500 係一次性試用，唔係每月 reset。SerpAPI 冇 key。
+- **Reddit search**：`/search.json` 喺已登入 Agent Chrome 都 403（"blocked by network security"）；comment tree
+  `.json` 仲得。Search 改用 `social-research.py reddit-search`（包住 web UI 自己用嘅 `/svc/shreddit/.../search/`）。
+  Reddit search 係語意＋跨語言，字面冇命中會塞相關 post；輸出 `query_terms_in_text`／`status=no_lexical_match`。
+- **Reddit 官方 API**：reddit.com/wiki/api 寫明新 Data API app 只畀 "valid moderation use case"，要經
+  support.reddithelp.com 申請；research 用途唔會批，所以繼續用 browser session。
+- **小紅書 note detail**：`social-research.py xhs-note`（由 `xhs_mcp_server.py` 搬過嚟，順手修咗「唔存在嘅 note
+  返 status ok」bug）。Codex 個 `xiaohongshu` MCP 而家只係 call 呢個 CLI。
+- 唔使登入就用得：微博（先開 `m.weibo.cn` tab 再同源 fetch）、PTT（`-b over18=1`）、Discourse `search.json`、
+  Mastodon tag timeline。要 Nicole 手動登入：小紅書（session 過期）、知乎、X。
+
+## 🛑 2026-08-11 sanity check 嘅更正（覆蓋下面所有過時 MCP 引用）
 
 呢份 doc 好多地方叫你 call `mcp__tavily__*`、`mcp__firecrawl__*`、`mcp__context7__*`、
 `dialog-mcp`。**逐個 config file 查證過（2026-08-11）：呢啲一個都冇 configure，任何 cwd 都冇。**
@@ -71,9 +87,9 @@ DEPENDS ON CWD」表。**有 Bash 版本就用 Bash** — cwd 無關、零常駐
 
 ```bash
 agent-chrome.py login-check https://www.reddit.com/     # exit 0 = 已登入（問網站自己 whoami）
-agent-chrome.py fetch 'https://www.reddit.com/r/SUB/search.json?q=Q&restrict_sr=on&sort=top&limit=25'
+python3 social-research.py reddit-search 'Q' --subreddit SUB --limit 50   # search.json 10-30 起 in-session 403
+python3 social-research.py reddit-search 'Q' --subreddit SUB --type comments
 agent-chrome.py fetch 'https://www.reddit.com/r/SUB/comments/ID/.json?limit=500'    # 完整 comment tree
-# Reddit JSON search 主要係 posts；搜 comments 要開 logged-in UI，再用 DOM 抽結果
 agent-chrome.py open 'https://www.reddit.com/search/?q=QUERY&type=comments'
 ```
 其他登入牆網站先找佢本身喺 browser 內用緊嘅 JSON API、tRPC、GraphQL 或
@@ -224,27 +240,27 @@ Program 太窄、直接 posts 太少時，唔可以停喺「冇資料」。要�
 
 ### Deep Research
 
-| Tool | 做咩用 | 成本 | MCP Tool |
+| Tool | 做咩用 | 成本 | 點 call（官方 REST） |
 |------|--------|------|----------|
-| **Tavily Research** | 多源 synthesis + citations | 1000 credits/mo free | `mcp__tavily__tavily_research` |
-| **Tavily Search** | LLM-optimized search | included | `mcp__tavily__tavily_search` |
-| **Tavily Extract** | 抓指定 URL content | included | `mcp__tavily__tavily_extract` |
-| **Tavily Crawl** | 抓成個 site | included | `mcp__tavily__tavily_crawl` |
-| **Tavily Map** | 搵 domain 上所有 URL | included | `mcp__tavily__tavily_map` |
+| **Tavily Research** | 多源 synthesis + citations | 1000 credits/mo free | REST `POST api.tavily.com/research` |
+| **Tavily Search** | LLM-optimized search | included | REST `POST api.tavily.com/search` ✅ 10-30 |
+| **Tavily Extract** | 抓指定 URL content | included | REST `POST api.tavily.com/extract` |
+| **Tavily Crawl** | 抓成個 site | included | REST `POST api.tavily.com/crawl` |
+| **Tavily Map** | 搵 domain 上所有 URL | included | REST `POST api.tavily.com/map` |
 
 ### Semantic & Code Search
 
-| Tool | 做咩用 | 成本 | MCP Tool |
+| Tool | 做咩用 | 成本 | 點 call（官方 REST） |
 |------|--------|------|----------|
-| **Exa Search** | Semantic search，搵 conceptually similar content | $10 free | `mcp__exa__web_search_exa` |
-| **Exa Code Context** | 搵 code examples、docs | included | `mcp__exa__get_code_context_exa` |
-| **Context7** | 最新 library documentation | 免費 | `mcp__context7__*` |
+| **Exa Search** | Semantic search，搵 conceptually similar content | $10 free | REST `POST api.exa.ai/search` ✅ 10-30 |
+| **Exa Code Context** | 搵 code examples、docs | included | REST `POST api.exa.ai/search` + `/contents` |
+| **Context7** | 最新 library documentation | 免費 | REST `context7.com/api/v2/libs/search`、`/api/v2/context` ✅ 10-30 |
 
 ### Web Scraping
 
-| Tool | 做咩用 | 成本 | MCP Tool |
+| Tool | 做咩用 | 成本 | 點 call（官方 REST） |
 |------|--------|------|----------|
-| **Firecrawl Scrape/Crawl/Map/Search/Extract** | 抓網頁 → clean markdown | **1000 credits/月**（2026-05-31 verified：plan_credits 1000，月度 reset，唔再係舊 500 lifetime） | `mcp__firecrawl__*` |
+| **Firecrawl Scrape/Crawl/Map/Search/Extract** | 抓網頁 → clean markdown | **1000 credits/月**（2026-05-31 verified：plan_credits 1000，月度 reset，唔再係舊 500 lifetime） | REST `api.firecrawl.dev/v2/{scrape,search,map,crawl}` ✅ 10-30 |
 
 ### Product Validation & Competitive Intelligence（Round 1 新增）
 
@@ -414,7 +430,7 @@ Program 太窄、直接 posts 太少時，唔可以停喺「冇資料」。要�
 | **Wayback CDX** | URL snapshot history + timestamps | `curl "http://web.archive.org/cdx/search/cdx?url=example.com&output=json"` | 免費，零 key |
 | **Common Crawl CDX** | Web-scale crawl index（607M domains） | ⚠️ **唔好 hardcode index 日期**（2026-05-31：`CC-MAIN-2026-13` 已 roll over，404）。先攞最新：`curl "https://index.commoncrawl.org/collinfo.json"` → 用 `[0].id`（而家係 `CC-MAIN-2026-21`）→ `curl "https://index.commoncrawl.org/CC-MAIN-2026-21-index?url=example.com&output=json"` | 免費，零 key |
 | **Cloudflare Radar** | DNS-based domain popularity ranking | Cloudflare API | 免費 CF key |
-| **Serper.dev** | Google SERP JSON（最慷慨 free tier） | REST API | 免費 2,500 searches/mo |
+| **Serper.dev** | Google SERP JSON | REST API | ❌ 2,500 係一次性試用，10-30 `balance:-10`；要 top-up |
 
 **新 API（Round 11 新增 — GEO / AI Answer-Engine Visibility）：**
 
@@ -550,7 +566,7 @@ Program 太窄、直接 posts 太少時，唔可以停喺「冇資料」。要�
 | Source | 做咩 | 點用 / 狀態 |
 |--------|------|------------|
 | ⭐ **`/shop` skill** | 主力入口：理解需求 → 並行 agent 跨店搜 → 比 specs/價/review/availability | Skill（用 amazon/agora/superprecio/scrapegraph/tavily/exa/firecrawl） |
-| ⭐ **Serper Shopping** | **Google Shopping** — 任何產品→真價+邊間店賣（gift 必備） | ✅ `POST google.serper.dev/shopping` `{"q":"gift for mom"}`（用 SERPER key，已攞，200 verified） |
+| ⭐ **Serper Shopping** | **Google Shopping** — 任何產品→真價+邊間店賣（gift 必備） | ❌ 10-30 Serper `balance:-10`，要 top-up 先用得；`POST google.serper.dev/shopping` `{"q":"gift for mom"}` |
 | ⭐ **Apify MCP** | **scrape 硬 site 嘅最佳解** — Amazon/Temu/Taobao/1688/AliExpress/eBay/Walmart/Etsy 都有維護好 anti-bot 嘅 actor（`junglee/Amazon-crawler`、`piotrv1001/temu-listings-scraper`、`sian.agency/taobao-tmall-product-scraper`、`zen-studio/1688-wholesale-scraper`…） | remote MCP `https://mcp.apify.com`（OAuth）或 `@apify/actors-mcp-server` + `APIFY_TOKEN`。$5 free/mo，無 card。**要裝** |
 | ⭐ **Canopy API** | 免費結構化 Amazon（product/review/deals by ASIN，GraphQL） | `POST https://graphql.canopyapi.co/`（401 verified）。free Hobby 100 req/mo，canopyapi.co 攞 key |
 | ⭐ **SerpApi official MCP + Amazon engine** | AI agent 直接搜 Amazon search results；返 ASIN、價錢、rating/review、Prime/delivery 同 clean product link；支援 `amazon.ca` | Hosted MCP `https://mcp.serpapi.com/.../mcp` 或 self-host `github.com/serpapi/serpapi-mcp`；`engine=amazon` + `amazon_domain=amazon.ca` + `k=QUERY`。Free plan 250 searches/mo（2026-09-10 official docs verified） |
@@ -559,7 +575,7 @@ Program 太窄、直接 posts 太少時，唔可以停喺「冇資料」。要�
 | **Amazon.ca consumer AI（官方、非 MCP）** | Rufus（2026-05 改名 Alexa for Shopping）已在加拿大 Amazon app/desktop；Alexa+ 在加拿大可經 Alexa app / Alexa.com shop Amazon | 最低 setup，但係 Amazon 自家界面；截至 2026-09-10 未找到 Amazon 宣布供普通 retail account 給第三方 AI 用的 public Shopping MCP/account API |
 | **Existing Serper Shopping fallback** | Google Shopping structured results，`gl=ca` 可 filter `source="Amazon CA"`，毋須 Amazon login/cookie | 2026-09-10 live test：`wireless earbuds` 返 40 CA offers，其中 13 Amazon CA；有 price/rating/count，但 link 係 Google Shopping redirect，shortlist 要再 resolve direct Amazon URL |
 | **SerpApi engines** | dedicated `engine=amazon`/`walmart`/`ebay`/`google_shopping`（比 parse Google Shopping 乾淨） | `serpapi.com`；free 250/mo。Amazon path 同 official MCP 見上面（2026-09-10 refreshed；本機 `SERPAPI_KEY` 仍未配置） |
-| **superprecio MCP** | 價格比較 / deals / shopping list | `mcp__superprecio__*`（已裝） |
+| **superprecio** | 價格比較 / deals / shopping list | curl superprecio.ar API（見下面「superprecio → superprecio.ar API」） |
 | ~~**amazon-mcp**~~ ❌ | **廢的** — verified：21 行 no-op stub，0 tool / 0 HTTP call，乜都唔做。`/shop` skill 叫 `mcp__amazon__*` 其實攞唔到嘢 → 改用 Apify/Canopy | uninstall（drama-fm/amazon-mcp） |
 | ~~**rigwild/mcp-server-amazon**~~ ⚠️ | 真係會 scrape Amazon search/cart/orders，但要將完整 Amazon session cookies export 去本地 JSON；DOM selector 易壞，repo 個 purchase tool 只係 mock。私人 account 風險太高 | **唔裝**；search-only 用 SerpApi MCP / Serper，登入後 price/delivery 才用受控 read-only Agent Chrome |
 | ~~**agora-mcp**~~ ❌ | **裝錯** — npm `agora-mcp` 係 Agora **chat** bot（WIP「will not work」），唔係 shopping。真 shopping Agora（Fewsats/SearchAgora）個 API host 已死（000）→ 唔好追 | uninstall |
@@ -568,7 +584,7 @@ Program 太窄、直接 posts 太少時，唔可以停喺「冇資料」。要�
 | **Product Hunt · idea-reality** | 新奇 / 獨特產品 | idea-reality MCP（已裝） |
 | 要 free key（未攞） | **eBay Browse API**（二手/罕有 gift）· **Etsy API**（handmade/personalised gift） | 入「Key Activation Checklist」，eBay/Etsy 要 dev signup |
 
-> **送禮 workflow**：① 問清收禮人（關係/興趣/年齡/budget）→ ② Reddit（`agent-chrome.py fetch` 打 `/r/SUB/search.json` + 完整 comment tree）按產品品類搵真人推薦（送禮先加 gift sub） → ③ Serper Shopping + Amazon/agora 搵實物+價 → ④ Firecrawl 抓 gift guide 對證 → ⑤ 出 3-5 個推薦連價+買邊度。直接用 `/shop "送 [描述] 嘅禮物，budget $X"` 一條龍。
+> **送禮 workflow**：① 問清收禮人（關係/興趣/年齡/budget）→ ② Reddit（`social-research.py reddit-search` + `.json` 完整 comment tree）按產品品類搵真人推薦（送禮先加 gift sub） → ③ Serper Shopping + Amazon/agora 搵實物+價 → ④ Firecrawl 抓 gift guide 對證 → ⑤ 出 3-5 個推薦連價+買邊度。直接用 `/shop "送 [描述] 嘅禮物，budget $X"` 一條龍。
 
 **新 cluster（Round 14 — 2026-05-31）— 🛡️ AI Security / AI Safety tracking（全部 curl verified）：**
 
@@ -1946,3 +1962,51 @@ participant-count、volunteer-hour 同 gaming-record 條文。新增 official dy
 - 每次 research 開始前列 proposed 同 unused/optional sources，保留 human in the loop；完成後列實際 `USED／UNUSED／EMPTY／FAILED／SKIPPED`。
 - 新增 College Confidential public Discourse JSON、The Student Room public thread browser route、BC Transfer Guide official public API adapters；連同既有 Reddit、1Point3Acres、Grapevine、Blind、Xiaohongshu routes 記入電話簿。
 - Account 只喺 public route 唔夠而且 gated evidence 真係有獨特價值時先開。Secret 放 gopass 或既有 browser session；Git registry 只放 reference，唔放 credential value。
+
+### Round 45（2026-10-14）— Canada student-telecom offer verification
+
+- 加拿大學生電訊優惠先以 Student Beans、UNiDAYS、SPC 類別頁作 discovery，再逐條回到 carrier 官方頁核對價錢、地區、期限、學生證明、合併限制同開線條件；`student-friendly`／`back-to-school` 唔等於需要或接受學生資格。
+- 申請路徑要分三類：①只寄 eligibility passcode／驗證學生身份；②建立免費驗證平台帳戶；③必須同時新開 mobile line、選 plan、信用審查或付款。只有前兩類可先獨立登記；第三類係實際服務訂單，唔當普通優惠帳戶預先開。
+- 2026-10-14 live coverage：Student Beans Canada `Mobile Contracts` 有 TELUS 同 kini mobile 學生專屬入口；UNiDAYS Canada `Mobile` 類別未見加拿大 domestic carrier；SPC 有 Rogers RPP，但普通會員 $11.99/年並自動續期（合資格 CIBC student/youth 客戶可有免費 SPC+）。Freedom 學生 credit 要喺參與門市新開一人帳戶時同時出示在讀證明及合資格校園電郵，冇獨立預先登記。
+
+### Round 46（2026-10-15）— MCP existence research要先鎖定 execution locus
+
+- 研究「有冇現成 MCP」前先問清 execution locus：local Codex host、ChatGPT web／cloud dot、定公開 plugin。`stdio` package 即使功能完整、測試充足，亦唔等於雲端可用；cloud host 要 stable public HTTPS + Streamable HTTP。
+- 候選分類至少分三層：① first-party connector；②第三方 hosted MCP；③可 self-host remote transport 嘅開源 server。唔可以用 GitHub stars 或 registry listing 代替 transport、OAuth、persistence 同 hosting readiness 核對。
+- Personal cloud connector 要分兩重授權：MCP client 對 remote server 嘅 OAuth，同 remote server 對 Google API 嘅 OAuth。production readiness 要核對 protected-resource metadata、PKCE、DCR／CIMD、token refresh、persistent state、account isolation 同 destructive-tool approval。
+- 本機安全 audit 同 cloud suitability 係兩條獨立 evidence lane。`npm audit=0` 只支持當前 dependency resolution，唔會將 stdio server 變成 remote MCP；同樣，hosted service 容易接駁亦唔代表冇第三方 token／logging privacy trade-off。
+
+### Round 47（2026-10-16）— Agent-harness product research 要查 protocol/schema 同 desktop absorption
+
+- 研究 coding-agent product gap，唔可以只睇 marketing feature list。每個主要 harness 要同時查：官方 UI/commands、SDK、local protocol/schema、telemetry、session storage、external-agent/import capability，同埋 current issues。真正可整合嘅 usage/context field 往往先出現喺 app-server schema、SDK type 或 OTel contract。
+- Capability matrix 必須分開 `pre-launch admission`、`active context now`、`per request/turn`、`per tool/MCP`、`session total`、`cross-session history`、`cross-harness discovery` 同 `action/rollback`。見到一個 token number 唔代表其他層已解決。
+- Threat review 要特別查 desktop/IDE 會否 discover 外部 sessions 或 host external agents。VS Code Agents Window、Zed ACP threads、Codex app 同 Devin Desktop 已將 generic session list／command center 商品化；產品唔應以一個 session dashboard 當護城河。
+- Token research 先鎖定 ontology：active context occupancy、cumulative processed input、fresh input、cache read/write、output、reasoning、quota、credits、API-equivalent cost、actual bill 全部分開。Tool-result bytes、request association 同 exact marginal tool tokens亦要分開；冇 public field 就明確記 `EMPTY`，唔由相關性反推 exact attribution。
+- Open-source prior art要查 mature adapter/analytics tools、GitHub current activity、licence、counter-validation history同 adverse bug reports。`ccusage` 類 aggregation、fixed-overhead audit、MCP schema budget、session replay同 CPU/RAM dashboard 已經係 prior art；真正 gap要建立喺未被組合嘅 workflow，而唔係重畫同一張 chart。
+- 報告應保存一份 source-coverage ledger，同時將產品結論落返 feature plan：每個獨立 user outcome 一份 Living Plan，每份有非目標、未知值、source confidence、QA reconciliation同 stop criteria。Protocol/schema research只係需求證據，唔自動授權 implementation。
+
+### Round 48（2026-10-18）— Public research priority 要分 content、identity、time 同 public access
+
+- Git author／committer／annotated-tag dates係提交者可自行設定，唔可以當獨立 priority clock。GitHub repository `created_at` 係較強嘅 server trace，但只證明 repo container 存在，唔證明當時已包含而家見到嘅方法或檔案。
+- 公開 priority evidence 要拆四層：① exact bytes/content hash；②作者／build identity；③第三方或去中心化時間證明；④當時任何人可讀嘅 enabling disclosure。單一 Git commit、signature、hash、blockchain receipt 或 DOI metadata field 都唔包晒四層。
+- 免費而強嘅 release stack：deterministic bundle + SHA-256 manifest → GitHub/Sigstore attestation → RFC 3161 signed timestamp + OpenTimestamps Bitcoin anchor → frozen public OSF registration → Zenodo/DataCite DOI → GitHub immutable release → Software Heritage SWHID。所有 surface 用同一 version/hash 雙向 cross-link。
+- Rekor v1 `integratedTime` 唔可以單獨當可信時間：Sigstore 自己寫明佢來自 Rekor internal clock，而且 time 唔係 Merkle node 一部分；優先用 Rekor v2／獨立 RFC 3161 TSA。OpenTimestamps只證明 bytes 喺 Bitcoin anchor 前存在，唔證明作者、真確性或公開披露。
+- DOI `publication_date` 可能係 depositor metadata；爭議時要查 repository server `created` 同 DataCite `created`／`registered`。Zenodo current docs亦容許短期 minor file corrections／deletion同例外後續修改，所以要加 frozen registration同獨立 timestamp，唔寫「DOI＝絕對 immutable」。
+- 公開前先作 patent gate：如果仍想保留跨國專利權，先 filing 後 disclosure。WIPO 指公開可破壞 novelty；加拿大／美國嘅有限 grace period唔係全球 safe harbour；EPO Art.55只有 evident abuse同指定國際展覽兩個窄例外。
+
+### Round 49（2026-10-30）— 全部 MCP route 轉官方 REST／CLI
+
+- Nicole：「佢官網有API用咪用API囉，你用MCP做咩啫，阻住晒。」deep-research skill 列咗 29 個 `mcp__*` tool，Claude
+  一個都冇 configure → 每次都靜靜哋 skip。全部換成 10-30 實測過嘅 REST／CLI（skill 備份喺
+  `~/.claude/skills/_backups/`）。
+- Codex 用得到 web search，因為 `~/.codex/config.toml` 個 MCP URL 入面收埋 Tavily／Exa key；已抽出放入 `keys.env`。
+- `health-check.sh` 之前由 `~/.claude.json` 嘅 MCP config 讀 tavily/exa/firecrawl key → 永遠報 "not configured"。
+  改讀 `keys.env`；Tavily 用免費 `/usage`、Firecrawl 用免費 v2 credit-usage（舊 v1 field 名唔啱）。
+- Reddit：`/search.json` 喺 session 內都 403，但 `/svc/shreddit/.../search/` HTML 仲得 → 新增
+  `social-research.py reddit-search`（posts／comments、cursor 分頁、`query_terms_in_text`）。抽 3 條結果用 `.json`
+  對 title／score／comments／author 全部一致。QA：`qa/agent-chrome-qa.sh` T3／T3b／T4／T5。
+- 小紅書：`xhs-note` 由 MCP 搬入 CLI；修咗 note 唔存在時跳去 `/explore`、`Object.values(map)[0]` 執到空
+  placeholder 報 `status ok` 嘅 bug（舊 MCP 都有）。QA T5b。真 note 嘅 happy path 未測（要先登入）。
+- 仲未解決：Serper 冇 credit、SerpAPI／Apify／CORE／PodcastIndex 冇 key、Open PageRank 301、OpenSanctions 401、
+  Finnhub 401、OpenReview 403、CourtListener 401、WHO GHO 500、Marginalia 000、X 冇 route、知乎／小紅書要登入。
+

@@ -314,28 +314,30 @@ drain_checks
 
 # ── MCP liveness probe (Round 12) ─────────────────────────────────────
 # CONNECTED ≠ WORKING. A configured MCP can be quota-dead. We hit each keyed
-# service's REST endpoint with the REAL key (read from ~/.claude.json) so the
-# report shows ACTUAL usability, not just "listed in config".
-#   ⚠️ tavily/exa probes spend ~1 search credit each when quota IS available
-#      (free when already exhausted). Worth it: accurate > free (engine philosophy).
+# service's REST endpoint with the REAL key (read from keys.env since 2026-10-30;
+# these MCPs were removed, and reading ~/.claude.json made the probes report
+# "not configured" forever) so the report shows ACTUAL usability.
+#   Tavily uses the free /usage endpoint; Exa has none, so it spends ~1 search.
+#   Firecrawl uses the free v2 credit-usage endpoint.
 #   OAuth MCPs (dialog-mcp) can't be auth'd from bash — only Claude's stored
 #   token works; we report reachability + tell the agent to confirm in-session.
 mcp_results=()
 if [[ "$MODE" == "full" && -f "$CLAUDE_CFG" ]]; then
-  TKEY=$(jq -r '.mcpServers.tavily.url // ""' "$CLAUDE_CFG" | grep -oP 'tavilyApiKey=\K[^&"]+' || true)
+  TKEY=${TAVILY_API_KEY:-}
   if [[ -n "${TKEY:-}" ]]; then
-    c=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" -o /dev/null -w "%{http_code}" \
-      -X POST "https://api.tavily.com/search" -H "Authorization: Bearer $TKEY" \
-      -H "Content-Type: application/json" -d '{"query":"healthcheck","max_results":1}')
+    tbody=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" -w "\n%{http_code}" \
+      "https://api.tavily.com/usage" -H "Authorization: Bearer $TKEY")
+    c=$(tail -1 <<<"$tbody")
+    tused=$(head -n -1 <<<"$tbody" | jq -r '"\(.account.plan_usage)/\(.account.plan_limit)"' 2>/dev/null)
     case "$c" in
-      2*)  mcp_results+=("✅ | tavily | $c | search OK — quota available");;
+      2*)  mcp_results+=("✅ | tavily | $c | REST OK — plan usage $tused");;
       432) mcp_results+=("❌ | tavily | 432 | QUOTA EXCEEDED — connected but search DEAD");;
       4*)  mcp_results+=("⚠️ | tavily | $c | reachable, auth/plan issue");;
       *)   mcp_results+=("❌ | tavily | ${c:-000} | unreachable");;
     esac
-  else mcp_results+=("⚠️ | tavily | — | not configured / no key in ~/.claude.json"); fi
+  else mcp_results+=("⚠️ | tavily | — | no TAVILY_API_KEY in keys.env"); fi
 
-  EKEY=$(jq -r '.mcpServers.exa.url // ""' "$CLAUDE_CFG" | grep -oP 'exaApiKey=\K[^&"]+' || true)
+  EKEY=${EXA_API_KEY:-}
   if [[ -n "${EKEY:-}" ]]; then
     c=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" -o /dev/null -w "%{http_code}" \
       -X POST "https://api.exa.ai/search" -H "x-api-key: $EKEY" \
@@ -346,16 +348,16 @@ if [[ "$MODE" == "full" && -f "$CLAUDE_CFG" ]]; then
       4*)  mcp_results+=("⚠️ | exa | $c | reachable, auth/plan issue");;
       *)   mcp_results+=("❌ | exa | ${c:-000} | unreachable");;
     esac
-  else mcp_results+=("⚠️ | exa | — | not configured / no key in ~/.claude.json"); fi
+  else mcp_results+=("⚠️ | exa | — | no EXA_API_KEY in keys.env"); fi
 
-  FKEY=$(jq -r '.mcpServers.firecrawl.env.FIRECRAWL_API_KEY // ""' "$CLAUDE_CFG")
+  FKEY=${FIRECRAWL_API_KEY:-}
   if [[ -n "${FKEY:-}" ]]; then
     body=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" \
-      "https://api.firecrawl.dev/v1/team/credit-usage" -H "Authorization: Bearer $FKEY")
-    rem=$(echo "$body" | jq -r '.data.remaining_credits // empty' 2>/dev/null)
+      "https://api.firecrawl.dev/v2/team/credit-usage" -H "Authorization: Bearer $FKEY")
+    rem=$(echo "$body" | jq -r '.data.remainingCredits // empty' 2>/dev/null)
     if [[ -n "$rem" ]]; then mcp_results+=("✅ | firecrawl | 200 | $rem credits remaining");
     else mcp_results+=("❌ | firecrawl | — | credit-usage probe failed (key dead?)"); fi
-  else mcp_results+=("⚠️ | firecrawl | — | no FIRECRAWL_API_KEY in config"); fi
+  else mcp_results+=("⚠️ | firecrawl | — | no FIRECRAWL_API_KEY in keys.env"); fi
 
   # dialog-mcp: OAuth remote MCP — bash can't present Claude's token. initialize
   # without auth returns 401 (= endpoint reachable). True test = Claude calling it.
@@ -490,11 +492,11 @@ else
     # End-to-end Reddit probes run only when selected. Quick mode validates
     # the transport without spending time on unrelated source calls.
     if source_selected reddit; then
+    # /search.json is blocked in-session since 2026-10-30; probe the shreddit route agents use.
     tmpb=$(mktemp)
-    if timeout "$SOURCE_TIMEOUT" python3 "$AC" fetch \
-        'https://www.reddit.com/r/LocalLLaMA/search.json?q=llm&restrict_sr=on&sort=top&limit=3' \
-        --out "$tmpb" >/dev/null 2>&1; then
-      n=$(jq -r '.data.children | length' "$tmpb" 2>/dev/null || echo 0)
+    if timeout "$SOURCE_TIMEOUT" python3 "$SOCIAL" reddit-search llm --subreddit LocalLLaMA --limit 3 \
+        >"$tmpb" 2>/dev/null; then
+      n=$(jq -r '.count' "$tmpb" 2>/dev/null || echo 0)
       if [[ "${n:-0}" -ge 1 ]]; then
         bact "✅ | Reddit search via browser | 200 | $n posts, $(wc -c <"$tmpb") bytes"
       else

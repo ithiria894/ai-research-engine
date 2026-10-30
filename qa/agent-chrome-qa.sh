@@ -41,40 +41,63 @@ else
 fi
 
 head_ "T3 — Reddit search through the logged-in session (the headline use case)"
-if $AC fetch 'https://www.reddit.com/r/LocalLLaMA/search.json?q=quantization&restrict_sr=on&sort=top&limit=5' \
-     --out "$TMP/search.json" 2>"$TMP/search.err"; then
-  n=$(jq -r '.data.children | length' "$TMP/search.json" 2>/dev/null || echo 0)
-  if [[ "${n:-0}" -ge 1 ]]; then
-    ok "search.json returned $n posts (first: $(jq -r '.data.children[0].data.title' "$TMP/search.json" | cut -c1-50))"
+# Since 2026-10-30 Reddit answers /search.json with "blocked by network security"
+# (403) even inside the logged-in session; the shreddit search partial still works.
+SOCIAL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/social-research.py"
+if python3 "$SOCIAL" reddit-search quantization --subreddit LocalLLaMA --limit 10 \
+     >"$TMP/search.json" 2>"$TMP/search.err"; then
+  n=$(jq -r '.count' "$TMP/search.json" 2>/dev/null || echo 0)
+  lex=$(jq -r '.lexical_match_count' "$TMP/search.json" 2>/dev/null || echo 0)
+  nulls=$(jq '[.items[] | select(.id == null or .title == null or .score == null or .permalink == null)] | length' "$TMP/search.json")
+  if [[ "${n:-0}" -ge 10 && "${lex:-0}" -ge 1 && "$nulls" == "0" ]]; then
+    ok "reddit-search returned $n posts over $(jq -r .pages_fetched "$TMP/search.json") pages, $lex literal matches, 0 null core fields"
   else
-    bad "search.json parsed but empty" "$(head -c 200 "$TMP/search.json")"
+    bad "reddit-search result incomplete" "count=$n lexical=$lex null_core_fields=$nulls"
   fi
 else
-  bad "search.json fetch" "$(cat "$TMP/search.err")"
+  bad "reddit-search" "$(tail -3 "$TMP/search.err")"
 fi
 
-head_ "T4 — CONTROL: the same URL via plain curl must still fail"
-# If this ever starts passing, the browser route is no longer load-bearing — good to know.
+if python3 "$SOCIAL" reddit-search quantization --subreddit LocalLLaMA --type comments --limit 5 \
+     >"$TMP/csearch.json" 2>"$TMP/csearch.err"; then
+  nb=$(jq '[.items[] | select(.body == null or .author == null)] | length' "$TMP/csearch.json")
+  [[ "$(jq -r .count "$TMP/csearch.json")" -ge 1 && "$nb" == "0" ]] \
+    && ok "comment search: $(jq -r .count "$TMP/csearch.json") comments with author + body" \
+    || bad "comment search incomplete" "$(head -c 200 "$TMP/csearch.json")"
+else
+  bad "comment search" "$(tail -3 "$TMP/csearch.err")"
+fi
+
+head_ "T3b — a no-match query must NOT look like results"
+python3 "$SOCIAL" reddit-search zqxjvkwpqz9187xq --subreddit LocalLLaMA --limit 5 >"$TMP/nomatch.json" 2>/dev/null
+st=$(jq -r .status "$TMP/nomatch.json" 2>/dev/null)
+[[ "$st" == "empty" || "$st" == "no_lexical_match" ]] \
+  && ok "nonsense query reports status=$st (Reddit's padded results are flagged, not counted)" \
+  || bad "nonsense query" "status=$st — padded semantic results would be read as real hits"
+
+head_ "T4 — CONTROL: legacy search.json is blocked (re-evaluate the route if this flips)"
+if $AC fetch 'https://www.reddit.com/r/LocalLLaMA/search.json?q=quantization&restrict_sr=on&limit=5' >/dev/null 2>&1; then
+  ok "NOTE: search.json works again in the browser session — reddit-search may be simplified"
+else
+  ok "search.json still blocked in-session — reddit-search (shreddit) route is required"
+fi
 code=$(curl -s -o /dev/null -w '%{http_code}' -m 20 \
   'https://www.reddit.com/r/LocalLLaMA/search.json?q=quantization&limit=5')
-if [[ "$code" == "403" || "$code" == "429" || "$code" == "000" ]]; then
-  ok "plain curl blocked (HTTP $code) — browser route is genuinely required"
-else
-  ok "plain curl now returns HTTP $code — NOTE: re-evaluate whether browser is still needed"
-fi
+ok "plain curl search.json: HTTP $code"
 
 head_ "T5 — full comment tree (depth is the whole point)"
-pid=$(jq -r '.data.children[0].data.id' "$TMP/search.json" 2>/dev/null)
-sub=$(jq -r '.data.children[0].data.subreddit' "$TMP/search.json" 2>/dev/null)
+pid=$(jq -r '.items[0].id' "$TMP/search.json" 2>/dev/null | sed 's/^t3_//')
+sub=$(jq -r '.items[0].subreddit' "$TMP/search.json" 2>/dev/null)
 if [[ -n "${pid:-}" && "$pid" != "null" ]]; then
   if $AC fetch "https://www.reddit.com/r/$sub/comments/$pid/.json?limit=200" \
        --out "$TMP/tree.json" 2>"$TMP/tree.err"; then
     c=$(jq -r '.[1].data.children | length' "$TMP/tree.json" 2>/dev/null || echo 0)
     bytes=$(wc -c <"$TMP/tree.json")
-    if [[ "${c:-0}" -ge 1 ]]; then
-      ok "comment tree: $c top-level comments, $bytes bytes"
+    t_search=$(jq -r '.items[0].title' "$TMP/search.json"); t_tree=$(jq -r '.[0].data.children[0].data.title' "$TMP/tree.json")
+    if [[ "${c:-0}" -ge 1 && "$t_search" == "$t_tree" ]]; then
+      ok "comment tree: $c top-level comments, $bytes bytes; title matches search result"
     else
-      bad "comment tree empty" "$(head -c 200 "$TMP/tree.json")"
+      bad "comment tree empty or mismatched" "comments=$c search_title=$t_search tree_title=$t_tree"
     fi
   else
     bad "comment tree fetch" "$(cat "$TMP/tree.err")"
@@ -82,6 +105,19 @@ if [[ -n "${pid:-}" && "$pid" != "null" ]]; then
 else
   bad "comment tree" "no post id from T3 to drill into"
 fi
+
+head_ "T5b — XHS note detail must never report an unreadable note as ok"
+# 2026-10-30 regression: a missing note redirected to /explore and an empty placeholder
+# entry came back as status ok (exit 0). It must now exit non-zero with no stdout.
+python3 "$SOCIAL" xhs-note 000000000000000000000000 faketoken --route browser >"$TMP/xhs.out" 2>"$TMP/xhs.err"
+xc=$?
+if [[ "$xc" != "0" && ! -s "$TMP/xhs.out" ]]; then
+  ok "missing note exits $xc with no data ($(tail -1 "$TMP/xhs.err" | cut -c1-70))"
+else
+  bad "missing note looked like data" "exit=$xc stdout=$(head -c 120 "$TMP/xhs.out")"
+fi
+python3 "$SOCIAL" xhs-note abc ' ' >/dev/null 2>&1 && bad "blank xsec_token accepted" "exit 0" \
+  || ok "blank xsec_token rejected"
 
 head_ "T6 — failures must be LOUD (exit != 0), never a silent empty result"
 if $AC fetch 'https://www.reddit.com/r/thissubdoesnotexist_qa12345/about.json' >/dev/null 2>"$TMP/404.err"; then
