@@ -117,3 +117,8 @@ agent 可以直接抄入 ledger。
 - 唔做強制逐步執行（hyperresearch 每步獨立載入）同多份草稿加 critic 修補：Nicole 2026-10-30 否決，`check` 喺最後攔住已經夠。
 - 唔向 GitHub Support 申請清舊 SHA：Nicole 2026-10-30「是但啦都冇人睇」。
 - 唔加 budget 上限：冇真金白銀成本，source 全部免費。
+
+
+## 2026-10-30 修訂：QA check 改喺做決定嗰陣先跑
+
+Nicole 2026-10-30：出報告前唔跑全文 `check`／`independence`（好浪費 token）。報告先畀 Nicole 睇，佢揀咗要用嘅 finding，先將嗰幾條抄入 `$RUN/decision.md`，用 `quotes`／`numbers --report decision.md` 核對；佢判斷係垃圾嘅部分唔 check。寫入正式／對外文件前先跑全文 `check`。出報告時頂部要寫明 QA 狀態（人手抽查幾多句、全文 check 未跑）。
