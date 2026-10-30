@@ -31,6 +31,22 @@ from typing import Any, NoReturn
 
 UA = "research-engine-scholar/1.0"
 TIMEOUT = 30
+KEYS_FILE = os.path.expanduser("~/.config/research-engine/keys.env")
+
+
+def openalex_key() -> str | None:
+    """OPENALEX_API_KEY from the environment, else from keys.env (spec section 5)."""
+    if os.environ.get("OPENALEX_API_KEY"):
+        return os.environ["OPENALEX_API_KEY"]
+    try:
+        with open(KEYS_FILE, encoding="utf-8") as handle:
+            for line in handle:
+                m = re.match(r"\s*(?:export\s+)?OPENALEX_API_KEY=(.*)", line)
+                if m and m.group(1).strip().strip("'\""):
+                    return m.group(1).strip().strip("'\"")
+    except OSError:
+        pass
+    return None
 
 
 def log(event: str, **details: object) -> None:
@@ -54,13 +70,20 @@ class ProviderError(Exception):
 
 
 def get(url: str, accept_json: bool = True) -> Any:
-    log("external_call", url=url.split("?")[0])
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    headers = {"User-Agent": UA}
+    keyed = False
+    if urllib.parse.urlsplit(url).hostname == "api.openalex.org" and (key := openalex_key()):
+        headers["Authorization"] = f"Bearer {key}"
+        keyed = True
+    log("external_call", url=url.split("?")[0], openalex_key=keyed if "openalex" in url else None)
+    req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             body = resp.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as exc:
-        raise ProviderError(http_reason(exc.code), f"HTTP {exc.code}") from exc
+        detail = exc.read()[:200].decode("utf-8", "replace").strip()
+        log("external_error", url=url.split("?")[0], http_status=exc.code, body=detail)
+        raise ProviderError(http_reason(exc.code), f"HTTP {exc.code}: {detail}" if detail else f"HTTP {exc.code}") from exc
     except TimeoutError as exc:
         raise ProviderError("timeout", str(exc)) from exc
     except OSError as exc:

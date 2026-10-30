@@ -42,7 +42,7 @@ Most of the useful data sits in specialized databases and community sites. Many 
 | Reference | Wikipedia, Wikidata SPARQL, Open Library, Internet Archive, Wayback |
 | Self-hosted (on demand) | SearXNG metasearch (252 engines), RSSHub (1,995 site namespaces), MediaCrawler (Xiaohongshu, Douyin, Kuaishou, Bilibili, Weibo, Tieba, Zhihu; needs a login per platform). Started per query by `tools/*.sh`, stopped after |
 
-Known gaps as of 2026-10-30: Serper's one-time trial is used up, SerpAPI has no key, DuckDuckGo and Startpage HTML return bot challenges from this machine, Zhihu needs an account, and Open PageRank, OpenSanctions, Finnhub, OpenReview, CourtListener and WHO GHO failed their probes.
+Known gaps as of 2026-10-30: Serper's one-time trial is used up, SerpAPI has no key, DuckDuckGo and Startpage HTML return bot challenges from this machine, and Zhihu and Xiaohongshu need accounts. Finnhub rejects our key even from a logged-in browser, CourtListener needs an account that is stuck at an hCaptcha, and WHO GHO (HTTP 500) and Marginalia (no response) failed their probes. OpenReview now goes through Agent Chrome, Open PageRank uses its new Keywords Everywhere endpoint, and OpenSanctions is searched from its free bulk data on this machine (`tools/opensanctions.py`).
 
 ## How it works
 
@@ -99,13 +99,14 @@ bash health-check.sh --full          # everything, including keyed APIs (uses fr
 QA suites:
 
 ```bash
-bash qa/agent-chrome-qa.sh       # browser transport, Reddit search, XHS failure paths (19 checks)
+bash qa/agent-chrome-qa.sh       # browser transport, Reddit search, XHS failure paths, full-URL tabs (20 checks)
 bash qa/community-sources-qa.sh  # phonebook and community adapters (13 checks)
 bash qa/health-check-qa.sh       # health-check behaviour (14 checks)
 bash qa/research-run-qa.sh       # run folder, ledger, quote and number integrity, gates (45 checks)
 bash qa/scholar-qa.sh            # merged scholarly search, retractions, full text (11 checks)
 bash qa/library-qa.sh            # past-run search in English, Chinese, Korean (13 checks)
 bash qa/failure-reasons-qa.sh    # every adapter failure names a ledger reason (5 checks)
+bash qa/opensanctions-qa.sh      # local sanctions/PEP lookup, checksum and schema-drift guards (11 checks)
 ```
 
 ## Files
@@ -119,7 +120,7 @@ scholar.py                  Scholarly search across 5 sources, merged by DOI, wi
 library.py                  Full-text search over past runs (SQLite FTS5, rebuildable)
 docs/                       research-workflow-spec.md: the rules the tools and skill enforce
 health-check.sh             Maintenance probes; writes health-check-report.md
-tools/                      On-demand launchers: searxng.sh, rsshub.sh, mediacrawler.sh
+tools/                      On-demand launchers (searxng.sh, rsshub.sh, mediacrawler.sh) and opensanctions.py (local bulk lookup)
 qa/                         End-to-end QA scripts
 source-scans/               Reproducible prior-art and source sweeps
 skills/deep-research/       The skill itself (single source of truth)

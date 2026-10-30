@@ -70,6 +70,9 @@ agent 可以直接抄入 ledger。
 - `scholar.py fulltext DOI`：依次試 OpenAlex `best_oa_location`、Europe PMC、Unpaywall
   （只係 `RESEARCH_CONTACT_EMAIL` 有設定先用；冇就記 `SKIPPED unconfigured`）。
 - 撤咗稿嘅論文唔准當支持證據；要引就要寫明已撤稿。
+- OpenAlex：有 `OPENALEX_API_KEY`（環境變數或者 `keys.env`）就用 `Authorization: Bearer` 帶上；冇就照舊唔帶。
+  原因（2026-10-30 實測）：冇 key 每日只有大約 US$0.10 額度，QA 跑兩輪就 429；免費 key 每日 US$1。
+  HTTP 錯誤要連 response 頭 200 字記入 note（例如 `key_not_activated`），唔可以淨係得個狀態碼。
 
 **驗證：** QA 用一篇已知撤稿嘅 DOI 測 `is_retracted=true`，用一篇 OA 論文測攞到全文 URL。
 

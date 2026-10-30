@@ -66,7 +66,7 @@ fetch。
 | 社群嘅自己友資源／最近傾乜 | 💬 Social：Reddit (`agent-chrome.py` + Arctic Shift)·**1Point3Acres browser-session API（北美華人跨領域 knowledge commons：學校、transfer、課程、教授、past papers、考經、簽證、生活、求職；同 Reddit 等優先）**·Grapevine·Blind India·TakeUForward·RedBus2US·Yocket·Indian Reddit communities·Facebook·Instagram·小紅書（已裝 read-only MCP + `xiaohongshu-research`）·HN·Bluesky·Mastodon·Lemmy·V2EX·Bilibili |
 | dev/package | 📦 Dev：npm·PyPI·HuggingFace·libraries.io·GitHub GraphQL |
 | 政府/經濟/法律 | 🏛️⚖️ Gov/Legal：FRED✅·Census✅·OpenStates✅·CourtListener·Congress |
-| 公司/金融/制裁 | 🏢 Company：SEC·FMP✅·OpenSanctions✅·Finnhub；中國投資者討論可試雪球（只限已有登入嘅 Agent Chrome route） |
+| 公司/金融/制裁 | 🏢 Company：SEC·FMP✅·OpenSanctions✅（本機 bulk）·Finnhub❌（帳戶被封）；中國投資者討論可試雪球（只限已有登入嘅 Agent Chrome route） |
 | 影片／podcast | 🎧 Media：YouTube `yt-dlp`·Bilibili public search API·小宇宙頁面直取 audio URL，再按需要做轉錄 |
 | AI security/safety | 🛡️ AI-Sec：Simon Willison·Embrace The Red·tldr;sec·LessWrong GraphQL·arXiv cs.CR |
 | crypto/區塊鏈 | ⛓️ Chain：DeFiLlama·DexScreener·Dune·Polymarket·CoinGecko |
@@ -613,14 +613,20 @@ openFDA — drug/device/food safety data (free, zero key, 240 req/min)
 ```
 YC OSS API — 5,690 YC companies (free, zero key, daily updated)
 AI Funding API — aifunding.me AI startup rounds (free, zero key)
-Finnhub — stock/news/fundamentals/IPO (free key, 60 req/min)
+Finnhub — ❌ 2026-10-30 新 key 喺已登入 browser 打都 401，帳戶被封；股價／財報改用 FMP
 FMP — IPO calendar + M&A + financials (free key, 250 req/day)
 OpenCorporates — 200M+ global companies (free for open-data)
+OpenSanctions — 制裁 + PEP，125 萬個對象。API 要錢，改用免費 bulk（CC BY-NC，非商業）：
+  python3 ~/MyGithub/ai-research-engine/tools/opensanctions.py search "NAME" [--schema Person|Company|Vessel] [--country cn]
+  python3 ~/MyGithub/ai-research-engine/tools/opensanctions.py update   # 有新版先下載（約 473 MB），每條結果都帶 data_version
+  搜到 = 個名對到，唔等於係同一個人；要用出生日期、國家、證件號碼核對
 ```
 
 ### SEO & Web Infrastructure (Round 9)
 ```
-Open PageRank — domain authority via Common Crawl (free key, 4.3M/day)
+Open PageRank — domain authority（2026-10 搬咗去 Keywords Everywhere；free 30,000 domains/月，key 綁本機 IPv4）
+  curl -s -X POST https://openpagerank.keywordseverywhere.com/v1/domains/bulk -H "Authorization: Bearer $OPENPAGERANK_API_KEY" \
+    -H 'Content-Type: application/json' -d '{"domains":["example.com"],"include_history":true}'
 OpenRank.io — bulk DA on 40M domains (free, 10K req/24h)
 crt.sh — SSL cert + subdomain discovery (free, zero key, zero limit)
 Google PageSpeed Insights — Lighthouse + CWV (free, 25K req/day)

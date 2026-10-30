@@ -865,6 +865,20 @@ def agent_chrome_origin_eval(origin: str, expression: str) -> object:
     tab = ac.open_tab(origin + "/", wait=True) if opened else ac.Tab(info)
     target_id = tab.info["id"]
     try:
+        if opened:
+            # Some sites navigate again right after load (Grapevine, 2026-10-30); a fetch started
+            # in that window fails with "TypeError: Failed to fetch". Wait until the page settles.
+            settled, last, stable_since, deadline = False, None, time.time(), time.time() + 10
+            while time.time() < deadline:
+                state = tab.evaluate("location.href + ' ' + document.readyState")
+                if state != last:
+                    last, stable_since = state, time.time()
+                elif state.endswith(" complete") and time.time() - stable_since >= 1:
+                    settled = True
+                    break
+                time.sleep(0.25)
+            log_event("decision", route="agent_chrome_origin_eval", origin=origin, settled=settled,
+                      waited_s=round(10 - max(0, deadline - time.time()), 1))
         return tab.evaluate(expression)
     finally:
         tab.close()

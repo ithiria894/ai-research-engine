@@ -422,7 +422,7 @@ Program 太窄、直接 posts 太少時，唔可以停喺「冇資料」。要�
 
 | API | 做咩用 | 點用 | 限制 |
 |-----|--------|------|------|
-| **Open PageRank** | Domain authority（Common Crawl-based） | `curl "https://openpagerank.com/api/v1.0/getPageRank?domains[]=example.com" -H "API-OPR: {key}"` | 免費 key，4.3M lookups/day |
+| **Open PageRank** | Domain authority（Common Crawl-based） | `curl -X POST https://openpagerank.keywordseverywhere.com/v1/domains/bulk -H "Authorization: Bearer {key}" -d '{"domains":["example.com"]}'`（2026-10 搬咗，舊 DomCop key 作廢；free key 綁一個 IPv4） | 免費 key，4.3M lookups/day |
 | ~~**OpenRank.io**~~ | ❌ **DEAD（verified 2026-05-31）** — `openrank.io` 而家 serve React SPA，`/api/v1/domain` 返 404 HTML，搵唔到公開 JSON API（似已停運）。改用 Open PageRank（上面，免費 key，仲 work） | ~~`https://openrank.io/api/v1/domain?d=...`~~ |
 | **crt.sh** | SSL cert lookup + subdomain discovery | `curl "https://crt.sh/?q=example.com&output=json"` | 免費，零 key，零 limit |
 | **Google PageSpeed Insights** | Lighthouse scores + Core Web Vitals | `curl "...runPagespeed?url=...&key={PAGESPEED_API_KEY}"` | ⚠️ keyless quota 而家 = 0（429）。要免費 API key（console.cloud.google.com），25K req/day |
@@ -2052,3 +2052,26 @@ participant-count、volunteer-hour 同 gaming-record 條文。新增 official dy
   10-30 實測 200）、xiaohongshu（→ social-research.py）。留：deja、clarity-bewater（冇驗證過嘅 REST，亦唔係 research）。
 - 重啟後 gateway 只出 7 個 tool（deja + clarity-bewater），研究 MCP process 0 個（包括連住 9222 嘅兩個 playwright）。
   Backup：`~/.config/1mcp/mcp.json.bak-before-mcp-removal-2026-10-30`。
+
+### Round 54（2026-10-30）— 修五個死咗嘅 API
+
+| API | 死因（實測） | 修法 | 狀態 |
+|---|---|---|---|
+| Open PageRank | 搬去 Keywords Everywhere，舊 DomCop key 作廢（301 → 401 帶搬遷說明） | KE 帳戶（email code 登入）開 free OPR key，綁本機 IPv4；health check 改打 `POST /v1/domains/bulk` | ✅ 新舊 endpoint 都 200 |
+| OpenSanctions | trial key `disabled`，0 credit，API 要錢 | 改用 data.opensanctions.org 免費 bulk（CC BY-NC）：`tools/opensanctions.py`，SHA-1 核對 + SQLite FTS5 trigram | ✅ 1,246,227 targets，41 秒建好 |
+| OpenReview | API 對 plain HTTP 返 403 ChallengeRequiredError | `social-research.py openreview`：agent Chrome tab 開 API URL 讀 JSON；遇到 challenge 就跟 `challengeUrl` 一次。clearance cookie 得幾分鐘，存冇用 | ✅ |
+| Finnhub | 存咗嘅「key」原來係 webhook secret；真 key 喺已登入 browser 打都 401，Regenerate 都一樣 | 正確 key 已存 gopass／keys.env，等佢解封 | ❌ 帳戶被封，股價改用 FMP |
+| CourtListener | v4 全部 endpoint 要 token；網頁搜尋 curl 403 | 註冊表格填好（ithiria894），卡喺 hCaptcha 拖形狀題，要人手做 | ⏳ 等 Nicole |
+
+順手修咗：`agent-chrome.py open_tab` 經 `/json/new?<url>` 開 tab 時，URL 入面嘅 `&` 之後全部被截（`&limit=2`、小紅書 `&xsec_source=` 都會靜靜雞唔見）。
+改成成條 URL percent-encode，`qa/agent-chrome-qa.sh` T11 守住。`agent-chrome.py` 本身仲喺 `~/.local/bin`，唔喺任何 repo。
+
+Full health check 之後再捉到兩個：
+- **Grapevine**：首頁載入完會自己再轉一次頁，太快打 fetch 就 `TypeError: Failed to fetch`（新舊 agent-chrome 都一樣，唔係上面嗰個改動整壞）。
+  `agent_chrome_origin_eval` 開新 tab 之後等頁面穩定（URL 同 `readyState=complete` 連續 1 秒冇變，最多 10 秒），4/4 通過。
+- **OpenAlex**：冇 key 每日只有約 US$0.10（`x-ratelimit-remaining-usd`），scholar QA 跑兩輪就 429，`is_retracted` 變 null。
+  `POST https://api.openalex.org/api-keys` 用 ithiria137 申請免費 key（每日 US$1），Gmail API 攞啟動 link、agent Chrome 撳掣，約 40 秒生效。
+  `scholar.py` 有 `OPENALEX_API_KEY` 就帶 Bearer；gopass `dev/research-engine/openalex`。scholar QA 返 11/11。
+
+`--full`：zero-key 78/84（之前 76/83）。仲紅：Finnhub（帳戶被封）、CourtListener（等人手 hCaptcha）、小紅書（冇帳戶）、Blind（session 過期）、
+GDELT（shared-IP 慣性 flaky）、WHO GHO 500、Marginalia 000。

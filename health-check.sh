@@ -469,10 +469,20 @@ if [[ "$MODE" == "full" ]]; then
   else keyed+=("🔑 | X search (bird) | — | bird CLI or AUTH_TOKEN/CT0 missing"); fi
   # Naver: OFFICIAL Search API only. Never drive naver.com with a browser (permanent account ban).
   kcheck "Naver Search"  NAVER_CLIENT_ID       "\"items\""    "https://openapi.naver.com/v1/search/blog.json?query=test&display=1" -H "X-Naver-Client-Id: ${NAVER_CLIENT_ID:-}" -H "X-Naver-Client-Secret: ${NAVER_CLIENT_SECRET:-}"
-  kcheck "Open PageRank" OPENPAGERANK_API_KEY  "page_rank"    "https://openpagerank.com/api/v1.0/getPageRank?domains%5B%5D=google.com" -H "API-OPR: ${OPENPAGERANK_API_KEY:-}"
+  # Moved to Keywords Everywhere 2026-10; old DomCop keys are dead. Free keys are bound to one IPv4.
+  kcheck "Open PageRank" OPENPAGERANK_API_KEY  "open_page_rank" -X POST "https://openpagerank.keywordseverywhere.com/v1/domains/bulk" -H "Authorization: Bearer ${OPENPAGERANK_API_KEY:-}" -H "Content-Type: application/json" -d '{"domains":["google.com"]}'
   kcheck "FMP"           FMP_API_KEY           "symbol"       "https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=${FMP_API_KEY:-}"
   kcheck "OpenStates"    OPENSTATES_API_KEY    "results"      "https://v3.openstates.org/jurisdictions?per_page=1" -H "X-API-Key: ${OPENSTATES_API_KEY:-}"
-  kcheck "OpenSanctions" OPENSANCTIONS_API_KEY "results"      "https://api.opensanctions.org/search/default?q=test&limit=1" -H "Authorization: ApiKey ${OPENSANCTIONS_API_KEY:-}"
+  # OpenSanctions: hosted API needs paid credits (trial key disabled 2026-10-30); we use the free
+  # CC BY-NC bulk CSV indexed locally by tools/opensanctions.py. Report presence and data age.
+  if os_status=$(python3 "$SCRIPT_DIR/tools/opensanctions.py" status 2>/dev/null); then
+    os_ver=$(jq -r '.version' <<<"$os_status"); os_rows=$(jq -r '.rows_in_db' <<<"$os_status")
+    os_age=$(( ( $(date +%s) - $(date -d "$(jq -r '.updated_at' <<<"$os_status")" +%s) ) / 86400 ))
+    keyed+=("✅ | OpenSanctions (local bulk) | — | $os_rows targets, data $os_age days old ($os_ver)")
+  else
+    keyed+=("❌ | OpenSanctions (local bulk) | — | no local data")
+    act "❌|OpenSanctions 本機冇數據|跑 \`python3 tools/opensanctions.py update\`（下載官方 CSV 約 473 MB）"
+  fi
   kcheck "Congress.gov"  CONGRESS_API_KEY      "bills"        "https://api.congress.gov/v3/bill?api_key=${CONGRESS_API_KEY:-}&format=json&limit=1"
   kcheck "govinfo"       GOVINFO_API_KEY       "collection"   "https://api.govinfo.gov/collections?api_key=${GOVINFO_API_KEY:-}"
   kcheck "OpenFEC"       OPENFEC_API_KEY       "results"      "https://api.open.fec.gov/v1/candidates/?api_key=${OPENFEC_API_KEY:-}&per_page=1"
