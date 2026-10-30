@@ -288,25 +288,40 @@ def studentroom_thread(value: str, max_posts: int) -> None:
         die("THREAD_ID_OR_URL must contain a numeric The Student Room thread id")
     url = f"https://www.thestudentroom.co.uk/showthread.php?t={thread_id}"
     log_event("entry", command="studentroom-thread", thread_id=thread_id, max_posts=max_posts)
-    if not AGENT_CHROME.exists():
-        die(f"agent Chrome helper is missing: {AGENT_CHROME}")
-    log_event("external_call", route="agent_chrome_fetch", url=url)
-    process = subprocess.run(
-        [str(AGENT_CHROME), "fetch", url],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=90,
-    )
-    if process.returncode != 0:
-        error = process.stderr.strip() or process.stdout.strip() or "unknown browser error"
-        log_event("external_error", route="agent_chrome_fetch", url=url, exit_code=process.returncode)
-        die(f"The Student Room browser fetch failed: {error[:2000]}")
     try:
         from bs4 import BeautifulSoup
     except ImportError:
         die("BeautifulSoup is required: install beautifulsoup4")
-    soup = BeautifulSoup(process.stdout, "lxml")
+    # Cloudflare fails page-context fetch() ("Failed to fetch") even from a same-origin
+    # tab (2026-10-30), but a real navigation clears the challenge, so load the page
+    # in a tab and read the rendered DOM instead.
+    ac = load_agent_chrome()
+    if not ac.try_http_json("/json/version", timeout=2):
+        die("Agent Chrome is not running; start it with: agent-chrome.py start", 2)
+    log_event("external_call", route="agent_chrome_tab", url=url)
+    tab = ac.open_tab(url, wait=True)
+    target_id = tab.info["id"]
+    try:
+        deadline = time.time() + 45
+        state: object = None
+        while time.time() < deadline:
+            state = tab.evaluate(
+                "({href: location.href, title: document.title, ready: document.readyState,"
+                " posts: document.querySelectorAll('.thread-post').length})"
+            )
+            if (isinstance(state, dict) and f"t={thread_id}" in str(state.get("href"))
+                    and state.get("ready") == "complete" and "Just a moment" not in str(state.get("title"))):
+                break
+            time.sleep(0.5)
+        else:
+            log_event("external_error", route="agent_chrome_tab", url=url, state=state)
+            die(f"The Student Room page did not load (state={state!r})")
+        page = tab.evaluate("document.documentElement.outerHTML")
+    finally:
+        tab.close()
+        ac.http_text(f"/json/close/{target_id}")
+    log_event("decision", route="agent_chrome_tab", reason="page loaded", state=state)
+    soup = BeautifulSoup(page, "lxml")
     nodes = soup.select(".thread-post")
     posts = []
     for index, node in enumerate(nodes[:max_posts], start=1):
