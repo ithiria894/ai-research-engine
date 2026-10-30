@@ -94,5 +94,9 @@ agent 可以直接抄入 ledger。
 
 ## 唔做（刻意）
 
+- **唔驗「引文支唔支持結論」。** Nicole，2026-10-30：「我哋唔係搵 support 自己嘅 statement，我哋係要搵廣泛地搜集資料、
+  搜集啫，我哋唔需要去判斷，唔需要 judgment。」呢個 engine 負責搜集同如實記錄；引文完整性（第 2 項）只驗
+  「原文存在、冇改字」，唔驗佢支持乜。判斷留返畀用嘅人。
+
 - 唔加 model 分工、唔加 subagent roster：Nicole 規定預設由 main agent 做。
 - 唔加 budget 上限：冇真金白銀成本，source 全部免費。
