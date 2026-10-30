@@ -17,6 +17,16 @@ OUTPUT_DIR      = ~/MyGithub/agentic-journal/projects/1-think/research/
 
 **ALWAYS read `RESEARCH_ENGINE` FIRST** for the full tool inventory, cost rules, and Quota Classification.
 
+## 🎯 呢個 engine 嘅目的：搵 hidden rule，唔係抄官方說法
+
+Nicole 2026-10-30：「我唔需要知道佢哋官方說法，我要知道真真實實嘅嗰樣嘢，所以我哋呢個 engine 就係搵呢樣嘢咋嘛 —— hidden rule」；
+「佢哋寫住唔睇校名，但係實際入嗰啲都唔係囉。你唔好睇佢哋明文寫啲乜嘢啦，我哋要睇真正錄取嘅人係來自邊度。」
+
+- **官方講法（policy、JD、FAQ、「we don't care where you studied」）係 claim，唔係答案。** 答案係實際結果：真正被請／被錄取嘅人係乜背景、真正批咗嘅個案、真正嘅數字分佈。
+- 問「X 鍾唔鍾意 Y」時，**主證據一定係 revealed behaviour**：實際員工／錄取者嘅背景分佈（aggregate、作者 affiliation 歷史、team page bio、cohort 名單、論文作者、真實個案）。官方說法只放喺「佢哋自己點講」一欄，同實際數據並排，**兩者有落差嗰度就係 finding**。
+- 唔准用官方說法做結論句；冇實際數據就寫「實際分佈未搵到」，唔好用官方句頂替。
+- 例外：硬性 eligibility（例如「must be a Canadian citizen」）係真規則，照引——但仍要搵有冇實際例外個案。
+
 ## Step -1: Official Docs Pre-check (MANDATORY, before Mode Detection)
 
 If the user's question is about **an existing tool, product, or platform they already use** (e.g., "how to get better UI for Claude Code", "does X support Y", "alternatives to X for doing Y"):
