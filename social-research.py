@@ -55,8 +55,40 @@ def log_event(event: str, **details: object) -> None:
     print("social-research-log " + json.dumps(record, ensure_ascii=False), file=sys.stderr)
 
 
-def die(message: str, code: int = 1) -> "NoReturn":
-    print(f"social-research: {message}", file=sys.stderr)
+# Failure reasons match the ledger vocabulary in docs/research-workflow-spec.md section 1,
+# so an agent can copy "[reason]" straight into the coverage ledger.
+FAILURE_REASONS = {"rate-limited", "auth-failed", "need-login", "blocked", "unreachable", "timeout",
+                   "schema-drift", "parse-error", "quota-exhausted", "error", "unconfigured"}
+
+
+def http_reason(status: int) -> str:
+    """Map an HTTP status to a ledger failure reason."""
+    if status == 429:
+        return "rate-limited"
+    if status == 401:
+        return "auth-failed"
+    if status == 402:
+        return "quota-exhausted"
+    if status == 403:
+        return "blocked"
+    if status in (408, 504):
+        return "timeout"
+    if status >= 500:
+        return "unreachable"
+    return "error"
+
+
+def os_reason(exc: BaseException) -> str:
+    """Map a network-level exception to a ledger failure reason."""
+    text = str(exc).lower()
+    return "timeout" if isinstance(exc, TimeoutError) or "timed out" in text else "unreachable"
+
+
+def die(message: str, code: int = 1, reason: str = "error") -> "NoReturn":
+    if reason not in FAILURE_REASONS:
+        reason = "error"
+    log_event("failure", reason=reason, message=message[:300])
+    print(f"social-research: [{reason}] {message}", file=sys.stderr)
     raise SystemExit(code)
 
 
@@ -106,15 +138,15 @@ def public_json_get(url: str) -> object:
         log_event("external_error", route="public_json", url=url, http_status=exc.code)
         if body:
             print(body[:2000], file=sys.stderr)
-        die(f"HTTP {exc.code} from {urllib.parse.urlsplit(url).netloc}")
+        die(f"HTTP {exc.code} from {urllib.parse.urlsplit(url).netloc}", reason=http_reason(exc.code))
     except OSError as exc:
         log_event("external_error", route="public_json", url=url, error=str(exc))
-        die(f"request failed: {exc}")
+        die(f"request failed: {exc}", reason=os_reason(exc))
     try:
         data = json.loads(body)
     except json.JSONDecodeError as exc:
         log_event("schema_error", route="public_json", url=url, http_status=status)
-        die(f"expected JSON from {url}: {exc}")
+        die(f"expected JSON from {url}: {exc}", reason="schema-drift")
     log_event("external_result", route="public_json", url=url, http_status=status)
     return data
 
@@ -126,7 +158,7 @@ def html_text(value: str | None) -> str:
     try:
         from bs4 import BeautifulSoup
     except ImportError:
-        die("BeautifulSoup is required: install beautifulsoup4")
+        die("BeautifulSoup is required: install beautifulsoup4", reason="unconfigured")
     return BeautifulSoup(value, "lxml").get_text("\n", strip=True)
 
 
@@ -163,7 +195,7 @@ def collegeconf_search(query: str, limit: int) -> None:
     url = COLLEGE_CONFIDENTIAL_BASE + "/search.json?" + urllib.parse.urlencode({"q": query})
     payload = public_json_get(url)
     if not isinstance(payload, dict):
-        die("unexpected College Confidential search schema")
+        die("unexpected College Confidential search schema", reason="schema-drift")
     topics = {item.get("id"): item for item in payload.get("topics", [])}
     results = []
     for post in payload.get("posts", []):
@@ -219,7 +251,7 @@ def collegeconf_thread(value: str, max_posts: int) -> None:
     url = f"{COLLEGE_CONFIDENTIAL_BASE}/t/{topic_id}.json"
     payload = public_json_get(url)
     if not isinstance(payload, dict) or not isinstance(payload.get("post_stream"), dict):
-        die("unexpected College Confidential topic schema")
+        die("unexpected College Confidential topic schema", reason="schema-drift")
     stream = payload["post_stream"].get("stream", [])[:max_posts]
     initial = payload["post_stream"].get("posts", [])
     posts_by_id = {post.get("id"): post for post in initial}
@@ -230,7 +262,7 @@ def collegeconf_thread(value: str, max_posts: int) -> None:
         page_url = f"{COLLEGE_CONFIDENTIAL_BASE}/t/{topic_id}/posts.json?{query}"
         page = public_json_get(page_url)
         if not isinstance(page, dict):
-            die("unexpected College Confidential posts schema")
+            die("unexpected College Confidential posts schema", reason="schema-drift")
         for post in page.get("post_stream", {}).get("posts", []):
             posts_by_id[post.get("id")] = post
         if offset + 20 < len(missing):
@@ -291,13 +323,13 @@ def studentroom_thread(value: str, max_posts: int) -> None:
     try:
         from bs4 import BeautifulSoup
     except ImportError:
-        die("BeautifulSoup is required: install beautifulsoup4")
+        die("BeautifulSoup is required: install beautifulsoup4", reason="unconfigured")
     # Cloudflare fails page-context fetch() ("Failed to fetch") even from a same-origin
     # tab (2026-10-30), but a real navigation clears the challenge, so load the page
     # in a tab and read the rendered DOM instead.
     ac = load_agent_chrome()
     if not ac.try_http_json("/json/version", timeout=2):
-        die("Agent Chrome is not running; start it with: agent-chrome.py start", 2)
+        die("Agent Chrome is not running; start it with: agent-chrome.py start", 2, reason="unconfigured")
     log_event("external_call", route="agent_chrome_tab", url=url)
     tab = ac.open_tab(url, wait=True)
     target_id = tab.info["id"]
@@ -315,7 +347,7 @@ def studentroom_thread(value: str, max_posts: int) -> None:
             time.sleep(0.5)
         else:
             log_event("external_error", route="agent_chrome_tab", url=url, state=state)
-            die(f"The Student Room page did not load (state={state!r})")
+            die(f"The Student Room page did not load (state={state!r})", reason="timeout")
         page = tab.evaluate("document.documentElement.outerHTML")
     finally:
         tab.close()
@@ -369,7 +401,7 @@ REDDIT_BASE = "https://www.reddit.com"
 def reddit_page(url: str) -> str:
     """Fetch one Reddit page through the logged-in Agent Chrome session."""
     if not AGENT_CHROME.exists():
-        die(f"agent Chrome helper is missing: {AGENT_CHROME}")
+        die(f"agent Chrome helper is missing: {AGENT_CHROME}", reason="unconfigured")
     log_event("external_call", route="agent_chrome_fetch", url=url)
     process = subprocess.run(
         [str(AGENT_CHROME), "fetch", url],
@@ -383,8 +415,10 @@ def reddit_page(url: str) -> str:
         log_event("external_error", route="agent_chrome_fetch", url=url, exit_code=process.returncode)
         if "blocked by network security" in process.stdout:
             die("Reddit returned its 'blocked by network security' page; check login with: "
-                "agent-chrome.py login-check https://www.reddit.com/")
-        die(f"Reddit browser fetch failed: {error[-2000:]}")
+                "agent-chrome.py login-check https://www.reddit.com/", reason="blocked")
+        http_match = re.search(r"HTTP (\d{3})", error)
+        die(f"Reddit browser fetch failed: {error[-2000:]}",
+            reason=http_reason(int(http_match.group(1))) if http_match else "error")
     return process.stdout
 
 
@@ -400,7 +434,7 @@ def reddit_search(query: str, subreddit: str | None, kind: str, sort: str, perio
     try:
         from bs4 import BeautifulSoup
     except ImportError:
-        die("BeautifulSoup is required: install beautifulsoup4")
+        die("BeautifulSoup is required: install beautifulsoup4", reason="unconfigured")
     scope = f"/r/{subreddit}" if subreddit else ""
     params = {"q": query, "type": kind, "sort": sort}
     if period != "all":
@@ -533,7 +567,7 @@ def bctransfer_institutions(query: str | None, country_id: int, internal_only: b
     url = f"{BC_TRANSFER_API}/GetFromInstitutions?{params}"
     payload = public_json_get(url)
     if not isinstance(payload, list):
-        die("unexpected BC Transfer Guide institution schema")
+        die("unexpected BC Transfer Guide institution schema", reason="schema-drift")
     if query:
         needle = query.casefold()
         payload = [
@@ -573,7 +607,7 @@ def bctransfer_subjects(institution_id: int, sending: bool) -> None:
     url = f"{BC_TRANSFER_API}/GetSubjects?{params}"
     payload = public_json_get(url)
     if not isinstance(payload, list):
-        die("unexpected BC Transfer Guide subject schema")
+        die("unexpected BC Transfer Guide subject schema", reason="schema-drift")
     print(
         json.dumps(
             {
@@ -600,7 +634,7 @@ def api_get(base: str, path: str, key_name: str, header: str, params: dict[str, 
         die("TikHub PATH must start with /api/v1/")
     key = load_key(key_name)
     if not key:
-        die(f"{key_name} is not configured in the environment or {KEYS_FILE}")
+        die(f"{key_name} is not configured in the environment or {KEYS_FILE}", reason="unconfigured")
     query = urllib.parse.urlencode(params)
     url = base + path + ("?" + query if query else "")
     credential = f"Bearer {key}" if base == TIKHUB_BASE else key
@@ -614,9 +648,9 @@ def api_get(base: str, path: str, key_name: str, header: str, params: dict[str, 
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", "replace")
         print(body, file=sys.stderr)
-        die(f"HTTP {exc.code} from {base}")
+        die(f"HTTP {exc.code} from {base}", reason=http_reason(exc.code))
     except OSError as exc:
-        die(f"request failed: {exc}")
+        die(f"request failed: {exc}", reason=os_reason(exc))
     try:
         data = json.loads(body)
     except json.JSONDecodeError:
@@ -627,10 +661,10 @@ def api_get(base: str, path: str, key_name: str, header: str, params: dict[str, 
 
 def load_agent_chrome():
     if not AGENT_CHROME.exists():
-        die(f"agent Chrome helper is missing: {AGENT_CHROME}")
+        die(f"agent Chrome helper is missing: {AGENT_CHROME}", reason="unconfigured")
     spec = importlib.util.spec_from_file_location("agent_chrome_local", AGENT_CHROME)
     if spec is None or spec.loader is None:
-        die("could not load agent-chrome.py")
+        die("could not load agent-chrome.py", reason="unconfigured")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -646,7 +680,7 @@ def xhs_browser_search(query: str) -> None:
     """
     ac = load_agent_chrome()
     if not ac.try_http_json("/json/version", timeout=2):
-        die("Agent Chrome is not running; start it with: agent-chrome.py start", 2)
+        die("Agent Chrome is not running; start it with: agent-chrome.py start", 2, reason="unconfigured")
     url = "https://www.xiaohongshu.com/search_result?" + urllib.parse.urlencode(
         {"keyword": query, "source": "web_explore_feed"}
     )
@@ -692,7 +726,7 @@ def xhs_browser_search(query: str) -> None:
         while time.time() < deadline:
             state = tab.evaluate(expression)
             if isinstance(state, dict) and state.get("status") == "login_required":
-                die("XHS requires login in Agent Chrome; log in manually and rerun")
+                die("XHS requires login in Agent Chrome; log in manually and rerun", reason="need-login")
             if isinstance(state, dict) and state.get("status") in ("ok", "empty"):
                 result = state.get("feeds")
                 break
@@ -700,7 +734,7 @@ def xhs_browser_search(query: str) -> None:
         if not isinstance(result, list):
             title = tab.evaluate("document.title")
             body = tab.evaluate("document.body ? document.body.innerText.slice(0, 300) : ''")
-            die(f"XHS search state did not load (title={title!r}, body={body!r})")
+            die(f"XHS search state did not load (title={title!r}, body={body!r})", reason="timeout")
         print(json.dumps({"route": "agent-chrome", "query": query, "count": len(result), "data": result}, ensure_ascii=False, indent=2))
     finally:
         tab.close()
@@ -778,7 +812,7 @@ def xhs_browser_note(note_id: str, xsec_token: str, comment_limit: int) -> None:
     log_event("entry", command="xhs-note", route="browser", note_id=note_id, comment_limit=comment_limit)
     ac = load_agent_chrome()
     if not ac.try_http_json("/json/version", timeout=2):
-        die("Agent Chrome is not running; start it with: agent-chrome.py start", 2)
+        die("Agent Chrome is not running; start it with: agent-chrome.py start", 2, reason="unconfigured")
     url = (
         f"https://www.xiaohongshu.com/explore/{urllib.parse.quote(note_id, safe='')}?"
         + urllib.parse.urlencode({"xsec_token": xsec_token, "xsec_source": "pc_feed"})
@@ -797,11 +831,11 @@ def xhs_browser_note(note_id: str, xsec_token: str, comment_limit: int) -> None:
             last = tab.evaluate(expression)
             if isinstance(last, dict) and last.get("status") == "login_required":
                 log_event("external_error", route="agent_chrome_tab", reason="login_required")
-                die("XHS requires login in Agent Chrome; log in manually and rerun")
+                die("XHS requires login in Agent Chrome; log in manually and rerun", reason="need-login")
             if isinstance(last, dict) and last.get("status") == "redirected":
                 log_event("external_error", route="agent_chrome_tab", reason="redirected", url=last.get("url"))
                 die(f"XHS redirected away from the note (to {last.get('url')}): note deleted/private, "
-                    "xsec_token expired, or login required. Re-run xhs-search for a fresh token.")
+                    "xsec_token expired, or login required. Re-run xhs-search for a fresh token.", reason="blocked")
             if isinstance(last, dict) and last.get("status") == "ok":
                 log_event("external_result", route="agent_chrome_tab", comments=last.get("comments_returned"))
                 print(json.dumps({"route": "agent-chrome", **last}, ensure_ascii=False, indent=2))
@@ -809,7 +843,7 @@ def xhs_browser_note(note_id: str, xsec_token: str, comment_limit: int) -> None:
             time.sleep(0.5)
         title = tab.evaluate("document.title")
         log_event("external_error", route="agent_chrome_tab", reason="state_not_loaded", title=title)
-        die(f"XHS note state did not load (title={title!r}, state={last!r})")
+        die(f"XHS note state did not load (title={title!r}, state={last!r})", reason="timeout")
     finally:
         tab.close()
         ac.http_text(f"/json/close/{target_id}")
@@ -825,7 +859,7 @@ def agent_chrome_origin_eval(origin: str, expression: str) -> object:
     """
     ac = load_agent_chrome()
     if not ac.try_http_json("/json/version", timeout=2):
-        die("Agent Chrome is not running; start it with: agent-chrome.py start", 2)
+        die("Agent Chrome is not running; start it with: agent-chrome.py start", 2, reason="unconfigured")
     info = ac.find_tab_for_origin(origin)
     opened = info is None
     tab = ac.open_tab(origin + "/", wait=True) if opened else ac.Tab(info)
@@ -849,7 +883,7 @@ def onepoint_auto_login(timeout: int = 45) -> bool:
         from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
         from playwright.sync_api import sync_playwright
     except ImportError:
-        die("Playwright is required for automatic 1Point3Acres Google sign-in")
+        die("Playwright is required for automatic 1Point3Acres Google sign-in", reason="unconfigured")
 
     with sync_playwright() as playwright:
         cdp_port = os.environ.get("AGENT_CHROME_PORT", "9223")
@@ -926,7 +960,8 @@ def onepoint_eval(expression: str) -> object:
         if not onepoint_auto_login():
             die(
                 "1Point3Acres Google sign-in needs user interaction "
-                "(multiple accounts, CAPTCHA, MFA, or approval)"
+                "(multiple accounts, CAPTCHA, MFA, or approval)",
+                reason="need-login",
             )
         result = agent_chrome_origin_eval("https://www.1point3acres.com", expression)
     return result
@@ -987,7 +1022,7 @@ def onepoint_search(query: str, limit: int) -> None:
     """
     result = onepoint_eval(expression)
     if isinstance(result, dict) and result.get("status") == "login_required":
-        die("1Point3Acres remained logged out after the automatic Google sign-in retry")
+        die("1Point3Acres remained logged out after the automatic Google sign-in retry", reason="need-login")
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
@@ -1085,7 +1120,7 @@ def onepoint_thread(value: str, max_replies: int) -> None:
     """
     result = onepoint_eval(expression)
     if isinstance(result, dict) and result.get("status") == "login_required":
-        die("1Point3Acres remained logged out after the automatic Google sign-in retry")
+        die("1Point3Acres remained logged out after the automatic Google sign-in retry", reason="need-login")
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
@@ -1275,7 +1310,7 @@ def main() -> None:
             # remain easy to audit; authentication matches the generic TikHub client.
             key = load_key("TIKHUB_API_KEY")
             if not key:
-                die(f"TIKHUB_API_KEY is not configured in the environment or {KEYS_FILE}")
+                die(f"TIKHUB_API_KEY is not configured in the environment or {KEYS_FILE}", reason="unconfigured")
             query = urllib.parse.urlencode({
                 "keyword": args.query,
                 "page": args.page,
@@ -1292,9 +1327,9 @@ def main() -> None:
                     data = json.load(response)
             except urllib.error.HTTPError as exc:
                 print(exc.read().decode("utf-8", "replace"), file=sys.stderr)
-                die(f"HTTP {exc.code} from {TIKHUB_BASE}")
+                die(f"HTTP {exc.code} from {TIKHUB_BASE}", reason=http_reason(exc.code))
             except OSError as exc:
-                die(f"request failed: {exc}")
+                die(f"request failed: {exc}", reason=os_reason(exc))
             print(json.dumps(data, ensure_ascii=False, indent=2))
         else:
             xhs_browser_search(args.query)
