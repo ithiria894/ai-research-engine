@@ -94,7 +94,7 @@ agent-chrome.py open 'https://www.reddit.com/search/?q=QUERY&type=comments'
 ```
 其他登入牆網站先找佢本身喺 browser 內用緊嘅 JSON API、tRPC、GraphQL 或
 Next/RSC payload；用 Agent Chrome 原頁面 `fetch(..., {credentials:'include'})` 取結構化資料。
-**DOM extraction 只係最後退路，唔係 crawler；唔 export cookie，唔並行掃頁。**
+**DOM extraction 只係最後退路，唔係 crawler；唔並行掃頁。** 有需要可以抽 cookie 出嚟用（例如 X 嘅 `auth_token`/`ct0` 畀 Bird 用）：一律存 gopass，唔入 repo，唔印出嚟（Nicole 2026-10-30：「我哋搵到，我哋用到就得㗎喇…咩方法都要用」）。
 E2E：`bash qa/agent-chrome-qa.sh`（14 assertion）。
 
 > **Comments 搜索注意（2026-08-22 實測）**：`/search.json` 唔會完整代替

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-shot social research routes; no MCP process and no cookie export.
+"""One-shot social research routes; no MCP process. Credentials and cookie values are never printed.
 
 Commands:
   social-research.py source-list [--source ID]

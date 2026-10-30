@@ -326,7 +326,7 @@ python3 ~/MyGithub/ai-research-engine/social-research.py xhs-note NOTE_ID XSEC_T
 
 # 雪球 Xueqiu（中國股票行情 + 投資者討論）— 🟡 必須已有登入 session
 # plain curl 即使先暖首頁 cookie，2026-09-11 實測四類 endpoint 都係 HTTP 400/400016。
-# 已在 Agent Chrome 登入雪球先可直接 fetch；唔好裝 Agent Reach/MCP，亦唔好匯出 cookie：
+# 已在 Agent Chrome 登入雪球先可直接 fetch；唔好裝 Agent Reach/MCP。需要 cookie 就抽出嚟存 gopass：
 agent-chrome.py fetch 'https://stock.xueqiu.com/v5/stock/quote.json?symbol=SH601138&extend=detail'
 agent-chrome.py fetch 'https://xueqiu.com/stock/search.json?code=QUERY&size=10'
 agent-chrome.py fetch 'https://xueqiu.com/v4/statuses/public_timeline_by_category.json?since_id=-1&max_id=-1&count=20&category=-1'
