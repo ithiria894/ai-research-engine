@@ -5,7 +5,7 @@ Spec: docs/research-workflow-spec.md (sections 0-4, 6, 7).
 
 Commands:
   research_run.py init SLUG --query TEXT|--query-file PATH   create a run folder, print its path
-  research_run.py add RUN --source NAME [--url URL] [--ext EXT] [FILE|-]
+  research_run.py add RUN --source NAME [--url URL] [--ext EXT] [--file PATH]  (stdin if no --file)
                                                             store raw evidence, print its id
   research_run.py ledger RUN --source NAME --status S [--reason R] [--items N]
                     [--evidence ID ...] [--role ROLE] [--command CMD] [--note TEXT]
@@ -166,7 +166,9 @@ FENCE = re.compile(r"</?\s*untrusted-source", re.I)
 
 def evidence_text(path: Path) -> str:
     raw = path.read_bytes().decode("utf-8", "replace")
-    if path.suffix.lower() in {".html", ".htm", ".xml"}:
+    # Readers such as r.jina.ai sometimes hand back HTML even when stored as .md; judge by content too.
+    looks_html = re.search(r"<(html|body|div|p|span|a|h[1-6]|pre|li)\b", raw[:20000], re.I) is not None
+    if path.suffix.lower() in {".html", ".htm", ".xml"} or looks_html:
         raw = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", " ", raw, flags=re.S | re.I)
         raw = re.sub(r"<[^>]+>", " ", raw)
     return raw
@@ -343,7 +345,10 @@ def main() -> None:
     p = sub.add_parser("init"); p.add_argument("slug")
     g = p.add_mutually_exclusive_group(required=True); g.add_argument("--query"); g.add_argument("--query-file")
     p = sub.add_parser("add"); p.add_argument("run"); p.add_argument("--source", required=True)
-    p.add_argument("--url"); p.add_argument("--ext", default="txt"); p.add_argument("file", nargs="?", default="-")
+    p.add_argument("--url"); p.add_argument("--ext", default="txt")
+    # An option, not an optional positional: argparse binds a trailing optional positional to the
+    # default before later args are seen, so `add RUN --source X page.md` failed (2026-10-30).
+    p.add_argument("--file", default="-", help="path to evidence; '-' (default) reads stdin")
     p = sub.add_parser("ledger"); p.add_argument("run"); p.add_argument("--source", required=True)
     p.add_argument("--status", required=True); p.add_argument("--reason"); p.add_argument("--items", type=int, default=0)
     p.add_argument("--evidence", nargs="*"); p.add_argument("--role", default="primary")

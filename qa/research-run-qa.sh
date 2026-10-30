@@ -26,6 +26,10 @@ echo "T2 add evidence"
 E1=$(printf '<html><title>Clinic A press release</title><p>Dr Kim said &ldquo;scar revision needs six months of healing&rdquo; before any touch-up.</p></html>' | $RR add "$RUN" --source naver-blog --url https://blog.naver.com/x/1 --ext html 2>/dev/null)
 [[ "$E1" == "0001" && -f "$RUN/evidence/0001.html" ]] && ok "first id is 0001" || bad "add id" "$E1"
 jq -e '.sha256 | length == 64' "$RUN/evidence/0001.meta.json" >/dev/null && ok "meta has sha256" || bad "meta" "$(cat "$RUN/evidence/0001.meta.json")"
+printf 'evidence from a file path' > "$RESEARCH_RUNS_DIR/page.md"
+EF=$($RR add "$RUN" --source file-path --ext md --file "$RESEARCH_RUNS_DIR/page.md" 2>/dev/null)
+[[ "$EF" =~ ^[0-9]{4}$ && -f "$RUN/evidence/$EF.md" ]] && ok "add --file PATH works (not just stdin)" || bad "add --file" "got '$EF'"
+rm -f "$RUN/evidence/$EF".*
 expect_fail "empty evidence refused" bash -c "printf '' | $RR add '$RUN' --source x"
 E2=$(printf '<html><title>Clinic A press release</title><p>Dr Kim said scar revision needs six months of healing before any touch-up. Reposted.</p></html>' | $RR add "$RUN" --source news-site-b --url https://b.example/2 --ext html 2>/dev/null)
 E3=$(printf 'A patient on DCInside: the outer incision left a visible line for a year, and I regret it.' | $RR add "$RUN" --source dcinside --url https://gall.dcinside.com/3 2>/dev/null)
@@ -72,6 +76,12 @@ out=$($RR quotes "$RUN" 2>/dev/null); rc=$?
 [[ $rc == 1 ]] && grep -q 'MISSING.*guarantees zero scars' <<<"$out" && ok "fabricated quote caught (exit 1)" || bad "fabricated quote" "rc=$rc $out"
 grep -q 'not a quote at all' <<<"$out" && bad "inline code treated as quote" "$out" || ok "inline code ignored"
 sed -i '$d' "$RUN/report.md"
+
+printf '<div><p>The trigram tokenizer extends <b>FTS5</b> to support substring matching.</p></div>' > "$RESEARCH_RUNS_DIR/x.md"
+EH=$($RR add "$RUN" --source md-with-html --ext md --file "$RESEARCH_RUNS_DIR/x.md" 2>/dev/null)
+printf '\nDocs: “The trigram tokenizer extends FTS5 to support substring matching”.\n' >> "$RUN/report.md"
+expect_ok "quote across HTML tags found even when evidence is stored as .md" $RR quotes "$RUN"
+sed -i '$d' "$RUN/report.md"; sed -i '$d' "$RUN/report.md"; rm -f "$RUN/evidence/$EH".*
 
 echo "T6 independence"
 ind=$($RR independence "$RUN" 2>/dev/null)

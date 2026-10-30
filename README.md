@@ -69,6 +69,21 @@ Keys live in gopass. `~/.config/research-engine/keys.env` is the copy that scrip
 - Reddit's search is semantic and cross-language. A query with no literal match still returns "related" posts, and a Chinese query returns English posts. Each result carries `query_terms_in_text`, and a run with zero literal matches reports `status: no_lexical_match` instead of `ok`.
 - New Reddit Data API apps are only approved for moderation use cases (see reddit.com/wiki/api), so research stays on the browser session.
 
+## Research run
+
+Every research job gets a run folder (default `~/MyGithub/research-runs/`, outside this repo):
+
+```bash
+RUN=$(python3 research_run.py init my-topic --query "the exact question")
+curl -s "https://hn.algolia.com/api/v1/search?query=x" | python3 research_run.py add "$RUN" --source hn --ext json
+python3 research_run.py ledger "$RUN" --source hn --status MATERIAL --items 3 --evidence 0001
+python3 research_run.py check "$RUN"   # fails on missing perspectives, adversarial search, or any quote not found verbatim
+python3 library.py index               # make the run searchable next time
+```
+
+Ideas taken from last30days (failure reasons), hyperresearch (quote integrity, untrusted fencing, overturn sources,
+scholarly-first, syndication dedupe) and STORM (perspectives). Details: `docs/research-workflow-spec.md`.
+
 ## Health check
 
 Research runs don't wait for a health check. The retrieval itself is the signal: data back means `MATERIAL`, a clean empty response means `EMPTY`, an error means `FAILED`. Failures go into the ledger and get fixed in a later maintenance pass.
@@ -86,6 +101,10 @@ QA suites:
 bash qa/agent-chrome-qa.sh       # browser transport, Reddit search, XHS failure paths (19 checks)
 bash qa/community-sources-qa.sh  # phonebook and community adapters (13 checks)
 bash qa/health-check-qa.sh       # health-check behaviour (14 checks)
+bash qa/research-run-qa.sh       # run folder, ledger, quote integrity, gates (39 checks)
+bash qa/scholar-qa.sh            # merged scholarly search, retractions, full text (11 checks)
+bash qa/library-qa.sh            # past-run search in English, Chinese, Korean (13 checks)
+bash qa/failure-reasons-qa.sh    # every adapter failure names a ledger reason (5 checks)
 ```
 
 ## Files
@@ -94,6 +113,10 @@ bash qa/health-check-qa.sh       # health-check behaviour (14 checks)
 research-engine.md          Master inventory, routing notes, sharpening log
 community-sources.json      Community phonebook
 social-research.py          One-shot adapters (no MCP, no cookie export)
+research_run.py             Run folder: verbatim query, raw evidence, ledger, quote/adversarial gates
+scholar.py                  Scholarly search across 5 sources, merged by DOI, with retraction flags
+library.py                  Full-text search over past runs (SQLite FTS5, rebuildable)
+docs/                       research-workflow-spec.md: the rules the tools and skill enforce
 health-check.sh             Maintenance probes; writes health-check-report.md
 qa/                         End-to-end QA scripts
 source-scans/               Reproducible prior-art and source sweeps
