@@ -2010,3 +2010,15 @@ participant-count、volunteer-hour 同 gaming-record 條文。新增 official dy
 - 仲未解決：Serper 冇 credit、SerpAPI／Apify／CORE／PodcastIndex 冇 key、Open PageRank 301、OpenSanctions 401、
   Finnhub 401、OpenReview 403、CourtListener 401、WHO GHO 500、Marginalia 000、X 冇 route、知乎／小紅書要登入。
 
+### Round 50（2026-10-30）— GitHub prior-art 收割：免費 web search + 7 個 zero-key source
+
+- Clone 咗 14 個類似 repo 去 `~/MyGithub/research-engine-prior-art/`（last30days-skill、hyperresearch、gpt-researcher、
+  open_deep_research、STORM、node-DeepResearch、dzhng/deep-research、MediaCrawler、RSSHub、SearXNG、x-tweet-fetcher、twikit、
+  ScrapeCreators skills、academic-research-skills），Agent-Reach pull 到 `14c2134`。比較同建議：
+  `source-scans/2026-10-30-github/README.md`。
+- **Parallel keyless web search**（由 hyperresearch 發現）：`search.parallel.ai/mcp` 純 HTTP JSON-RPC，唔使 key／帳戶，
+  10-30 實測 10 條結果、韓文 query 都準。即係 Serper 死咗之後嘅免費 web search。health-check 有專用 probe。
+- 新 zero-key source（全部 10-30 health-check ✅）：Greenhouse／Lever／Ashby 招聘 API、FxTwitter 單條 tweet／profile、
+  Telegram `t.me/s/` 公開頻道、掘金 search API、DCInside search。
+- ❌ 試過唔得：DDG html、Startpage（bot challenge）、nitter.net（空殼）、StockTwits／Trustpilot／Dcard（Cloudflare，連 Agent
+  Chrome fetch 都 403）。X search 要帳戶（Bird GraphQL + `auth_token`/`ct0`）。

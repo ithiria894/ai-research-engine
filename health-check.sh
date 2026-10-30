@@ -309,8 +309,39 @@ check "GBIF occurrence"         "https://api.gbif.org/v1/occurrence/search?q=Pum
 check "USGS Earthquake"         "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&limit=2&starttime=2026-05-01"
 check "WHO GHO OData"           "https://ghoapi.azureedge.net/api/Indicator"
 check "Marginalia Search"       "https://api.marginalia.nu/public/search/llm?count=2"
+# 2026-10-30 prior-art harvest (last30days, x-tweet-fetcher, RSSHub): zero-key routes verified live
+check "Greenhouse jobs API"     "https://boards-api.greenhouse.io/v1/boards/anthropic/jobs" --jq '(.jobs | length) > 0'
+check "Lever jobs API"          "https://api.lever.co/v0/postings/palantir?mode=json&limit=2" --jq 'type == "array" and length > 0'
+check "Ashby jobs API"          "https://api.ashbyhq.com/posting-api/job-board/linear" --jq '(.jobs | length) > 0'
+check "FxTwitter single tweet"  "https://api.fxtwitter.com/AnthropicAI/status/1925591505332576377" --jq '.code == 200 and .tweet.text != null'
+check "Telegram t.me/s preview" "https://t.me/s/durov"
+check "Juejin search API"       "https://api.juejin.cn/search_api/v1/search?aid=2608&uuid=1&spider=0" --jq '.err_no == 0 and (.data | length) > 0' -X POST -H "Content-Type: application/json" -d '{"key_word":"claude","id_type":0,"cursor":"0","limit":3,"search_type":0,"sort_type":0,"version":1}'
+check "DCInside search"         "https://search.dcinside.com/combine/q/%EC%84%B1%ED%98%95" -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36"
 check "Wikimedia Pageviews"     "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/2026/05/01"
 drain_checks
+
+# Parallel keyless web search (search.parallel.ai/mcp). Plain HTTP JSON-RPC, no key, no
+# resident MCP: initialize -> session id -> tools/call web_search. Added 2026-10-30.
+if [[ "$MODE" == "full" ]]; then
+  ptmp=$(mktemp -d)
+  pe="https://search.parallel.ai/mcp"
+  curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" -D "$ptmp/h" -o /dev/null \
+    -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -X POST "$pe" \
+    -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"research-engine-healthcheck","version":"1"}}}'
+  psid=$(grep -i '^mcp-session-id:' "$ptmp/h" | awk '{print $2}' | tr -d '\r')
+  pcode=$(curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$((TIMEOUT * 3))" -o "$ptmp/b" -w '%{http_code}' \
+    -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' ${psid:+-H "Mcp-Session-Id: $psid"} \
+    -X POST "$pe" -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"web_search","arguments":{"objective":"health check","search_queries":["anthropic claude"],"session_id":"re-healthcheck"}}}')
+  # The endpoint answers plain JSON (2026-10-30); still accept an SSE "data:" frame if it switches.
+  pbody=$(grep '^data:' "$ptmp/b" | tail -1 | sed 's/^data: *//'); [[ -n "$pbody" ]] || pbody=$(cat "$ptmp/b")
+  pn=$(jq -r '.result.content[0].text' <<<"$pbody" 2>/dev/null | jq '.results | length' 2>/dev/null)
+  if [[ "$pcode" =~ ^2 && "${pn:-0}" -ge 1 ]]; then
+    results+=("✅ | Parallel keyless web search | $pcode | $pn results"); ((PASS++))
+  else
+    results+=("❌ | Parallel keyless web search | ${pcode:-000} | results=${pn:-none} session=${psid:+yes}"); ((FAIL++))
+  fi
+  rm -rf "$ptmp"
+fi
 
 # ── MCP liveness probe (Round 12) ─────────────────────────────────────
 # CONNECTED ≠ WORKING. A configured MCP can be quota-dead. We hit each keyed
