@@ -1,230 +1,127 @@
 # AI Research Engine
 
-The most comprehensive data source inventory and methodology for AI-powered research. 100+ free APIs, 40+ MCP servers, and a multi-agent workflow that makes "just Google it" look like using a flashlight to search the ocean floor.
+A source inventory and workflow for AI agents doing research. Every source is reached through its official REST API, a one-shot CLI, or a logged-in browser session. No MCP servers.
 
-## The Problem
+On 2026-10-30 the full health check probed 75 zero-key APIs (68 working, 1 suspect, 6 dead), 12 keyed APIs, Tavily, Exa, Firecrawl and 12 community routes. The numbers in this README come from that run, not from vendor pages.
 
-When you ask AI to research something, here's what actually happens:
+## The problem
 
-1. **"Just ask AI"** — It answers from training data. Outdated, often wrong, and it won't tell you what it doesn't know.
-2. **"AI helps you Google"** — Google only indexes a fraction of the world's data. No academic papers, no patent filings, no package download stats, no prediction market odds, no SEC company filings, no app store data.
-3. **"Google it yourself"** — You get the first page of results. Maybe the second. You miss everything that isn't SEO-optimized.
+When you ask an AI to research something, it usually does one of three things:
 
-The real data lives in 100+ specialized databases, registries, and APIs. Most of them are free. Almost nobody uses more than 2 or 3 at once.
+1. Answers from training data. Outdated, and it won't tell you what it doesn't know.
+2. Runs a handful of web searches. Web search barely touches academic citations, patent filings, package download stats, prediction markets, SEC filings or most forum threads.
+3. Reports "nothing found" when the tool it called was broken. That one is the worst, because it looks like an answer.
 
-## What This Is
+Most of the useful data sits in specialized databases and community sites. Many are free. Agents rarely use more than two or three of them, and when one fails they rarely say so.
 
-A research infrastructure for AI agents. Not another chatbot wrapper. Not another "deep research" tool that just does 5 Google searches in a row.
+## What this is
 
-This is:
-- **A complete inventory** of 100+ free data sources with curl examples, rate limits, and auth requirements for every single one
-- **An LLM-led source-hypothesis step** that reads the whole question and selects every plausible direct, adjacent, and exploratory source across overlapping clusters
-- **A community capability registry** that records what niche communities contain, how to search them, whether a session is needed, and which access routes have actually been verified
-- **An optional multi-agent methodology** for parallel collection when the user requests delegation; the same workflow also runs in one main agent
-- **A manual maintenance and diagnostic health check** with quick, targeted-source, community and full-inventory modes
-- **A verification step** that checks coverage, flags contradictions, and identifies gaps before producing the final report
-- **A quality framework** (DRACO dimensions) that scores output on factual accuracy, analytical depth, presentation, and source attribution
+- **An inventory** (`research-engine.md`) of free and free-tier sources with a curl or CLI recipe, auth requirement and last verified date for each.
+- **A community phonebook** (`community-sources.json`) recording what each forum contains, how to search it, and whether it needs a login.
+- **Adapters** (`social-research.py`) for sources that need more than one curl: Reddit search, Xiaohongshu, 1Point3Acres, Grapevine, College Confidential, The Student Room, BC Transfer Guide, ScrapeCreators and TikHub.
+- **A health check** (`health-check.sh`) for batched maintenance, plus end-to-end QA scripts in `qa/`.
+- **A coverage ledger** that every research run must output: which sources returned data, which were empty, which failed, which were skipped. A failed tool is never reported as "no results".
 
 ## Coverage
 
-| Category | Sources | Examples |
-|----------|---------|----------|
-| **Web Search** | 10+ engines | Tavily, Exa, Firecrawl, SearXNG, DuckDuckGo, Bing, Brave, Google |
-| **Academic Papers** | 250M+ papers | Semantic Scholar, OpenAlex, arXiv, PubMed, Crossref, CORE, DBLP, DOAJ, Zenodo |
-| **Citations & Impact** | 6 APIs | OpenCitations, NIH iCite (RCR metric), ORCID, ROR, Altmetric, OpenAIRE |
-| **Patents** | 140M+ patents | USPTO PatentsView, EPO OPS, Lens.org, Google Patents BigQuery |
-| **Admissions & Education** | Official + community evidence | Program/admissions/faculty/registrar/financial-aid pages, Common Data Set, institutional research, FOI/ATI, Wayback, 1Point3Acres, Reddit, College Confidential, The Student Room, school communities |
-| **Social & Community** | 25+ platforms | Reddit, 1Point3Acres, Grapevine, Blind India, TakeUForward, RedBus2US, Yocket, Indian Reddit communities, X/Twitter, Bluesky, Mastodon, HN, Lobste.rs, Discourse, Discord, Telegram, Slack, StackExchange (170+ sites), Hashnode, DEV.to, Lemmy |
-| **Trends & Predictions** | 8+ sources | Google Trends, TrendsMCP, Polymarket, TikTok, Instagram, YouTube, Truth Social |
-| **News & Media** | 6+ sources | GDELT, newsmcp, NewsAPI, NYTimes, RSS feeds, Google News |
-| **Podcasts** | 190M+ episodes | PodcastIndex, Apple Podcasts/iTunes, Listen Notes |
-| **Package Registries** | 10 registries | npm, PyPI, crates.io, Packagist, RubyGems, NuGet, Homebrew, Docker Hub, HuggingFace, libraries.io (40+ registries) |
-| **Company & Startup** | 7+ sources | SEC EDGAR, UK Companies House, YC OSS API, Finnhub, FMP, OpenCorporates, AI Funding API |
-| **Government & Economic** | 10+ sources | FRED (840K time series), BLS, Census, Congress.gov, Federal Register, World Bank, IMF, OECD, openFDA, USASpending |
-| **SEO & Web Infrastructure** | 8+ sources | Open PageRank, crt.sh, Google PageSpeed, Tranco, Wayback CDX, Common Crawl, Serper.dev, Cloudflare Radar |
-| **AI Brand Visibility** | 3 tools | Aperture, AICW, Citatra (track how ChatGPT/Perplexity/Claude mention your brand) |
-| **Knowledge Graph** | 2 sources | Wikidata SPARQL, Wikipedia API |
-| **Books & Media** | 3 sources | Open Library, Internet Archive, Rumble |
+| Category | Sources (verified routes) |
+|----------|---------------------------|
+| Web search | Tavily, Exa, Firecrawl (all free tiers, keyed), Bing RSS (zero key, weak for CJK), host-native search in Claude/Codex |
+| Page extraction | r.jina.ai (zero key), Tavily extract, Exa contents, Firecrawl scrape |
+| Academic | OpenAlex, Semantic Scholar (429 rate limits without a key), arXiv, Crossref, DBLP, DOAJ, Zenodo, PubMed, Europe PMC, bioRxiv, OpenCitations, NIH iCite, ORCID, ROR |
+| Reddit | Logged-in browser session (`reddit-search`) for live search and full comment trees, Arctic Shift for archive search |
+| Other forums | Hacker News (Algolia), Lobste.rs, StackExchange, any Discourse forum, Lemmy, Bluesky, Mastodon tag timelines, DEV.to, V2EX, PTT, Weibo (browser), 1Point3Acres, Grapevine, College Confidential, The Student Room |
+| Korean | Naver official Search API (blog, cafe, kin, local, datalab) |
+| Chinese | Bilibili, V2EX, Weibo, Xiaohongshu (browser session or TikHub), 1Point3Acres |
+| X / Twitter | FxTwitter for single tweets and profiles (zero key). Search needs a logged-in account |
+| Video | yt-dlp subtitles; Groq transcription when there are none |
+| Legal | CanLII (keyed), Federal Register |
+| Government & economic | FRED, Census, Congress.gov, govinfo, OpenFEC, OpenStates, World Bank, openFDA, USASpending, SEC EDGAR |
+| Packages & code | npm, PyPI, crates.io, Packagist, RubyGems, Homebrew, Docker Hub, Hugging Face, libraries.io, OSV, GitHub API, context7 docs |
+| Markets | Polymarket, CoinGecko, DeFiLlama, DexScreener, FMP, Twelve Data, Alpha Vantage |
+| Reference | Wikipedia, Wikidata SPARQL, Open Library, Internet Archive, Wayback |
 
-## How It Works
+Known gaps as of 2026-10-30: Serper's one-time trial is used up, SerpAPI has no key, DuckDuckGo and Startpage HTML return bot challenges from this machine, Zhihu and X search need accounts, and Open PageRank, OpenSanctions, Finnhub, OpenReview, CourtListener and WHO GHO failed their probes.
+
+## How it works
 
 ```text
 Question
-  → LLM proposes every website/source that may contain useful or unexpected information
+  → LLM proposes every source that may hold useful or surprising information
   → Nicole adds or removes sources
-  → Engine loads each source's access recipe and credential reference
-  → Log in when needed and search through the source's first-party API
-  → Return the evidence plus a ledger of sources used, unused, empty, or failed
+  → Load each source's access recipe and credential reference
+  → Search through the source's own API (browser session only when it has none)
+  → Return the evidence plus a ledger: used, empty, failed, skipped
 ```
 
-That is the complete core loop. `community-sources.json` is a phonebook, not a
-classifier. It remembers what each source contains and how to access it. The LLM may
-select sources across any number of topics and may add a source that is not yet in the
-phonebook. A bounded browser-page route is a fallback only when no usable API exists.
+`community-sources.json` is a phonebook, not a classifier. It remembers what a source holds and how to reach it. The LLM can pick sources across any number of topics and add sources that aren't in the phonebook yet.
 
-## Source Selection — LLM reads the phonebook
+## Why no MCP
 
-The skill does not assign a query to one rigid category. The LLM reads the question,
-checks the phonebook, and proposes every source that may have relevant or surprising
-information. Nicole can add or remove sources before the API searches begin.
+Every research MCP we had was a thin wrapper around a public API. Wrappers broke in ways that were hard to see: an MCP configured for one project directory was missing in another, a removed server left the skill calling tools that no longer existed, and agents treated the silence as "no data". A direct curl or CLI call works from any directory, in any agent, with nothing running in the background.
 
-The question "Has anyone built an MCP server for browser recording?" has very different source needs than "What's the economic impact of AI regulation?" The skill thinks through this before touching any API.
+Keys live in gopass. `~/.config/research-engine/keys.env` is the copy that scripts read.
 
-**20+ source clusters, each labeled by access type:**
+## Reddit notes
 
-- 🟢 **FREE** — curl directly, zero key, zero setup
-- 🔑 **KEY** — free API key required
-- 📦 **MCP** — MCP server must be installed
-- 💰 **PAID** — has quota or credits that may cost money
-- 🔧 **CLI** — needs a CLI tool installed
+- `/search.json` returns 403 ("blocked by network security") even inside a logged-in browser session since 2026-10-30. Comment-tree `.json` still works.
+- `social-research.py reddit-search` uses the search page that Reddit's own web UI loads, with cursor paging for posts and comments.
+- Reddit's search is semantic and cross-language. A query with no literal match still returns "related" posts, and a Chinese query returns English posts. Each result carries `query_terms_in_text`, and a run with zero literal matches reports `status: no_lexical_match` instead of `ok`.
+- New Reddit Data API apps are only approved for moderation use cases (see reddit.com/wiki/api), so research stays on the browser session.
 
-Sources are grouped and presented by the *reason* they were selected. So instead of a flat list of 40 tools, you see something like:
+## Health check
 
-```
-Does this already exist?
-  ✅ Code & Libraries — GitHub repos, npm/PyPI packages
-  ✅ Package Registries — all free, no setup needed
-  ⚠️ Competitive Intelligence — idea-reality-mcp not installed
-     → Install: uvx idea-reality-mcp (30 seconds)
-     → Or skip — I'll use Web Search + GitHub instead
+Research runs don't wait for a health check. The retrieval itself is the signal: data back means `MATERIAL`, a clean empty response means `EMPTY`, an error means `FAILED`. Failures go into the ledger and get fixed in a later maintenance pass.
 
-What are people saying?
-  ✅ Social Platforms — Reddit, Bluesky, StackExchange (all free)
-  ⚠️ Twitter — MCP installed but reads cost $0.01 each
-
-Is this space growing?
-  ✅ News & Events — GDELT + newsmcp
-  ⚠️ Trends — trendsmcp not installed
-
-Maybe related (want me to include these?):
-  ❓ Academic Papers — might be research on browser automation
-  ❓ Patent & IP — someone might have patented this
-
-Skipping (clearly not relevant):
-  ⬚ Biomedical
-  ⬚ Government & Economic
-
-Options:
-  (a) Go with everything (install missing tools first)
-  (b) Just use what's ready now — zero setup friction
-  (c) Let me adjust
+```bash
+bash health-check.sh                 # local regression: registry, CLIs, browser transport
+bash health-check.sh --source reddit # reproduce one failed source
+bash health-check.sh --community     # every community route, no keyed APIs
+bash health-check.sh --full          # everything, including keyed APIs (uses free-tier quota)
 ```
 
-Option (b) is designed for users who want results immediately. The engine degrades gracefully: uses every 🟢 FREE curl API plus already-installed MCPs, skips anything that needs setup, and notes in the final report what coverage was skipped.
+QA suites:
 
-## Health Check
-
-Health checking is never a gate before an ordinary research question. Do not run it or
-consult an old report before deciding whether to search a selected source. The actual
-retrieval is the current operational signal:
-
-- Relevant data returned → `MATERIAL`
-- Successful response with no relevant result → `EMPTY`
-- Endpoint, authentication or parser failure → `FAILED`; report it, set the source
-  aside for this question, and continue
-
-Use external-source health probes only in a later batched maintenance pass:
-- Whether the local registry, CLI and Agent Chrome transport work
-- Whether each selected community adapter returns real data
-- Whether credentials or a logged-in session are required
-- Whether a selected endpoint is healthy, empty, skipped or failed
-
-Quick mode is a local regression check after engine changes; it does not probe the
-broad/keyed source inventory. During periodic maintenance, use `--source` to
-reproduce failures collected in the ledger, `--community` for a community audit, and
-`--full` for an explicit broad audit. Do not interrupt the live research run to diagnose
-or repair a failed source. This keeps ordinary research fast and prevents routine work
-from spending limited credits. If a selected route is unavailable, the coverage ledger
-says so instead of treating its silence as evidence.
-
-## Execution Model
-
-Source quality and retrieval coverage do not depend on a fixed model name. The main
-agent can execute the complete workflow itself. When the user explicitly asks for
-delegation, independent source lanes can run in parallel and the main thread retains
-integration, contradiction checking, and final synthesis.
-
-## What Makes This Different
-
-**vs Google Search**: Google indexes web pages. We query 100+ specialized databases directly. Patent filings, academic citations, package download trends, prediction market odds, SEC company filings, government economic data — none of this shows up on page 1 of Google.
-
-**vs ChatGPT / Claude / Gemini "deep research"**: They often stop after a small set of web searches. We select every plausibly relevant specialized source, verify actual retrieval coverage, flag contradictions before synthesizing, and score output quality explicitly. The engine does not query all 100+ sources blindly; the inventory is a phonebook and the question determines which routes are used.
-
-**vs last30days**: Great tool for social recency (Reddit/X/TikTok/Instagram in the last 30 days). We cover that plus academic papers, patents, government data, package registries, company filings, podcasts, prediction markets, and 80+ more sources with no time restriction.
-
-**vs awesome-mcp-servers**: Lists MCP servers by name. We list every data source with curl examples, exact rate limits, auth requirements, and a methodology for using them together.
-
-**vs public-apis**: Lists 1400+ APIs. We curate the ones that matter for research, show how to use them with AI agents, and provide a workflow that ties them together.
+```bash
+bash qa/agent-chrome-qa.sh       # browser transport, Reddit search, XHS failure paths (19 checks)
+bash qa/community-sources-qa.sh  # phonebook and community adapters (13 checks)
+bash qa/health-check-qa.sh       # health-check behaviour (14 checks)
+```
 
 ## Files
 
 ```
-research-engine.md                          # Master inventory and research methodology
-community-sources.json                      # Machine-readable community capability registry
-social-research.py                          # Verified one-shot community/API adapters
-health-check.sh                             # Manual maintenance and route diagnostics
-qa/                                         # End-to-end QA scripts
-skills/deep-research/
-  SKILL.md                                  # LLM-led workflow and report contract
-  references/community-source-discovery.md  # Discovery, access, onboarding, and registry rules
+research-engine.md          Master inventory, routing notes, sharpening log
+community-sources.json      Community phonebook
+social-research.py          One-shot adapters (no MCP, no cookie export)
+health-check.sh             Maintenance probes; writes health-check-report.md
+qa/                         End-to-end QA scripts
+source-scans/               Reproducible prior-art and source sweeps
+skills/deep-research/       Skill copy (see note below)
 ```
 
-## Quick Start
+The live skill is installed at `~/.claude/skills/deep-research/`. The copy in this repo is older and is being reconciled.
 
-### Check the engine and selected source routes
-
-```bash
-# Fast local check: registry, CLIs and Agent Chrome transport. No broad API sweep.
-bash health-check.sh
-
-# During a later maintenance pass, reproduce failures collected in the ledger.
-bash health-check.sh --source reddit --source onepoint3acres
-
-# Periodic community-route audit (no keyed or broad API inventory).
-bash health-check.sh --community
-
-# Explicit comprehensive maintenance audit. This can consume limited API/MCP quota.
-bash health-check.sh --full
-```
-
-The report is written atomically to `health-check-report.md`. If a run is interrupted,
-the report is replaced with an explicit `INTERRUPTED / FAILED` marker instead of
-leaving an older success result in place. `--full` runs independent zero-key probes in
-a bounded parallel pool. Ordinary research does not run a health check automatically.
-
-### Use the data source inventory directly
-
-`research-engine.md` is a standalone reference. Every API has a curl example you can run right now:
+## Quick start
 
 ```bash
-# Search 250M+ academic papers
+# Academic papers
 curl "https://api.openalex.org/works?search=large+language+models&sort=publication_date:desc"
 
-# Check prediction market odds
+# Prediction markets
 curl "https://gamma-api.polymarket.com/markets?tag=ai&closed=false"
 
-# Search US patents
-curl "https://search.patentsview.org/api/v1/patent/?q=machine+learning"
+# A single tweet, no key
+curl "https://api.fxtwitter.com/AnthropicAI/status/1925591505332576377"
 
-# Get Python package download trends
-curl "https://pypistats.org/api/packages/langchain/recent"
-
-# Search 840K+ economic time series
-curl "https://api.stlouisfed.org/fred/series/search?search_text=unemployment&api_key=YOUR_FREE_KEY&file_type=json"
+# Reddit posts or comments (needs the logged-in agent Chrome)
+python3 social-research.py reddit-search "quantization" --subreddit LocalLLaMA --limit 25
+python3 social-research.py reddit-search "quantization" --subreddit LocalLLaMA --type comments
 ```
-
-### Use as a Claude Code skill
-
-Copy `skills/deep-research/` to `~/.claude/skills/deep-research/` and invoke with `/deep-research "your question"`.
-
-The skill reads `research-engine.md` on every run to get the latest tool inventory.
 
 ## Contributing
 
-Found a free API or MCP server we're missing? Open an issue or PR. The bar is:
-- Must be free or have a meaningful free tier
-- Must have a working API (not just a website)
-- Must include: name, URL, what data it provides, rate limits, auth requirements
+Found a free source we're missing? Open an issue or PR with the name, URL, what data it returns, rate limits, auth requirements and a curl you ran yourself.
 
 ## License
 
