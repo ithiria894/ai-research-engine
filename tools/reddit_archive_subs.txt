@@ -1,0 +1,37 @@
+# Download order for reddit_archive.py (posts + comments). Priority first. 2026-11-03.
+# Tier 1 — medical-path research + UBC/SFU course/prof info (Nicole)
+premedcanada
+simonfraser
+UBC
+ubco
+uvic
+cscareerquestionsCAD
+# Tier 2 — other Canadian universities (CS programs + med schools)
+mcgill
+UofT
+UTSC
+UTM
+uwaterloo
+uAlberta
+UCalgary
+McMaster
+queensuniversity
+uwo
+uottawa
+yorku
+TorontoMetU
+CarletonU
+dalhousie
+usask
+umanitoba
+MUN
+ImmigrationCanada
+# Tier 3 — large general subs
+premed
+medicalschool
+Mcat
+csMajors
+cscareerquestions
+britishcolumbia
+legaladvicecanada
+vancouver
