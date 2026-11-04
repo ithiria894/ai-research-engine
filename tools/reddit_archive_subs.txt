@@ -2,13 +2,16 @@
 # Tier 1 — medical-path research + UBC/SFU course/prof info (Nicole)
 premedcanada
 simonfraser
+# Yale EWSP／MIT 提前（Nicole 2026-11-04：「仲要download埋yale mit，特別係我哋嗰個耶魯嘅嗰個特殊嘅入學途徑嘅嘢」）
+yale
+mit
+TransferToTop25
+NonTraditionalStudent
 UBC
 ubco
 uvic
 cscareerquestionsCAD
 # Tier 1b — US schools in Nicole's pipeline + transfer (Nicole 2026-11-03: 耶魯、MIT…都要用)
-yale
-mit
 columbia
 nyu
 princeton
