@@ -13,12 +13,7 @@ columbia
 nyu
 princeton
 TransferStudents
-# Tier 1c — CPSBC／投訴醫生（Nicole 2026-11-03：「download埋嗰個關於CPSBC點樣投訴醫生嗰啲reddit」），落完喺本地篩
-britishcolumbia
-legaladvicecanada
-BCHealthAuthorities
-VictoriaBC
-vancouver
+# (Tier 1c CPSBC／BC subs moved to reddit_archive_subs_cpsbc.txt — own parallel unit reddit-archive-cpsbc)
 # Tier 2 — other Canadian universities (CS programs + med schools)
 mcgill
 UofT

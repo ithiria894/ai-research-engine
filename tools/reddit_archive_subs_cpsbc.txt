@@ -1,0 +1,7 @@
+# CPSBC／投訴醫生（Nicole 2026-11-03：「download埋嗰個關於CPSBC點樣投訴醫生嗰啲reddit」；「Ok faster this is more urgent」）
+# 獨立 unit reddit-archive-cpsbc 同主線並排跑；落完喺本地篩 CPSBC／College of Physicians／投訴醫生
+BCHealthAuthorities
+legaladvicecanada
+britishcolumbia
+VictoriaBC
+vancouver
