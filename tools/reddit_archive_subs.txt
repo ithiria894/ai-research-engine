@@ -6,6 +6,13 @@ UBC
 ubco
 uvic
 cscareerquestionsCAD
+# Tier 1b — US schools in Nicole's pipeline + transfer (Nicole 2026-11-03: 耶魯、MIT…都要用)
+yale
+mit
+columbia
+nyu
+princeton
+TransferStudents
 # Tier 2 — other Canadian universities (CS programs + med schools)
 mcgill
 UofT
@@ -35,3 +42,4 @@ cscareerquestions
 britishcolumbia
 legaladvicecanada
 vancouver
+ApplyingToCollege

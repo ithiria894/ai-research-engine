@@ -22,6 +22,7 @@ ROOT = Path.home() / "data" / "reddit-archive"
 API = "https://arctic-shift.photon-reddit.com/api/{kind}/search"
 UA = {"User-Agent": "personal-research-archiver/1.0 (single sequential client)"}
 CHUNK = 200_000
+CHUNK_BYTES = 250_000_000  # also cut a part at 250 MB plain, so a compressed part stays far below GitHub's 100 MB file limit
 MIN_FREE_GB = 10  # stop before filling the disk (2026-11-03: 33 GB free of 465 GB)
 PAUSE = 0.8  # seconds between requests, on top of response time (~1-1.7 s)
 # Allowed field names from Arctic Shift api/README.md (no `permalink`: it returns HTTP 400)
@@ -77,8 +78,11 @@ def last_rows(p):
     return rows
 
 def compress(p):
-    subprocess.run(["zstd", "-q", "-19", "--rm", "-f", str(p)], check=True)
-    log("  compressed", p.name, "->", p.name + ".zst")
+    # write to .zst.tmp then rename: the GitHub sync (reddit_archive_sync.sh) only ever sees complete .zst files
+    tmp, final = p.with_name(p.name + ".zst.tmp"), p.with_name(p.name + ".zst")
+    subprocess.run(["zstd", "-q", "-19", "-f", "-o", str(tmp), str(p)], check=True)
+    tmp.rename(final); p.unlink()
+    log("  compressed", p.name, "->", final.name, f"{final.stat().st_size/1e6:.1f} MB")
 
 def dump(sub, kind):
     d = ROOT / sub / kind; d.mkdir(parents=True, exist_ok=True)
@@ -119,7 +123,7 @@ def dump(sub, kind):
             n_in_part += len(new); total += len(new)
             last_ts = max(r["created_utc"] for r in new)
             seen = {r["id"] for r in rows if r["created_utc"] >= last_ts - 1} | {r["id"] for r in new if r["created_utc"] >= last_ts - 1}
-            if n_in_part >= CHUNK:
+            if n_in_part >= CHUNK or f.tell() >= CHUNK_BYTES:
                 f.close(); compress(cur); idx += 1
                 cur = d / f"part-{idx:05d}.jsonl"; f = cur.open("a"); n_in_part = 0
             if total % 10_000 < len(new):
@@ -127,6 +131,12 @@ def dump(sub, kind):
             time.sleep(PAUSE)
     finally:
         f.close()
+    # compress the last part too, so every stored row lives in a .zst (only .zst files go to GitHub);
+    # the next incremental run then starts a fresh part
+    if cur.exists() and cur.stat().st_size > 0:
+        compress(cur)
+    elif cur.exists():
+        cur.unlink()  # empty part we created ourselves
     (d / "DONE").write_text(f"last_created_utc={last_ts} updated={time.strftime('%Y-%m-%d %H:%M:%S')} added={total}\n")
     log(f"DONE r/{sub} {kind} added {total:,} newest={time.strftime('%Y-%m-%d %H:%M', time.gmtime(last_ts)) if last_ts else '-'}")
 

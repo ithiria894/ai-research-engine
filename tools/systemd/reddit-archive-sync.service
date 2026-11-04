@@ -1,0 +1,6 @@
+[Unit]
+Description=Push finished Reddit archive parts to private GitHub repo
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /home/nicole/MyGithub/ai-research-engine/tools/reddit_archive_sync.sh

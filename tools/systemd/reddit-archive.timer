@@ -1,0 +1,9 @@
+[Unit]
+Description=Weekly incremental Reddit archive update (no-op if a run is already going)
+
+[Timer]
+OnCalendar=Sun 03:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

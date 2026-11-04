@@ -1,0 +1,13 @@
+[Unit]
+Description=Arctic Shift subreddit archiver (posts+comments) -> ~/data/reddit-archive
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/nicole/MyGithub/ai-research-engine/tools/reddit_archive.py dump --subs-file /home/nicole/MyGithub/ai-research-engine/tools/reddit_archive_subs.txt
+Restart=on-failure
+RestartSec=120
+Nice=10
+
+[Install]
+WantedBy=default.target
