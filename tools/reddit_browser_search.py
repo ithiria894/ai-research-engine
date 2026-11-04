@@ -5,7 +5,7 @@ Nicole: 「總之小心啲做，唔好畀人 ban account 啦……我哋可以�
 
 - Uses the endpoint the Reddit web UI itself loads: /svc/shreddit/search/?q=...  (sitewide) or
   /svc/shreddit/r/<sub>/search/?q=...  (one sub). /search.json is 403-blocked even in the browser.
-- One request at a time, random 15-25 s gap (like a person reading a page), follows `cursor=` pages.
+- One request at a time, random 30-45 s gap (like a person reading a page), follows `cursor=` pages.
 - Any non-200 (incl. 429): pause 15 min and retry once; a second failure STOPS the whole run.
 - Only finds post IDs + titles. Fetch full comment trees with reddit_trees.py (Arctic Shift, no reddit.com).
 
@@ -16,7 +16,7 @@ Output: DIR/pages/*.html (raw), DIR/ledger.csv, DIR/posts.json {id: {title, subr
 import argparse, csv, html, json, random, re, subprocess, sys, time, urllib.parse
 from pathlib import Path
 
-MIN_GAP, MAX_GAP, COOLDOWN = 15, 25, 15 * 60
+MIN_GAP, MAX_GAP, COOLDOWN = 30, 45, 15 * 60  # 2026-11-04: 15-25 s hit "Failed to fetch" twice in an hour -> slower
 
 def log(*a):
     print(time.strftime("%H:%M:%S"), "[reddit-browser]", *a, file=sys.stderr, flush=True)
