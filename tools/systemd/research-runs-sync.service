@@ -1,0 +1,6 @@
+[Unit]
+Description=Back up ~/MyGithub/research-runs to private GitHub repo
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /home/nicole/MyGithub/ai-research-engine/tools/research_runs_sync.sh

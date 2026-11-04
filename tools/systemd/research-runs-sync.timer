@@ -1,0 +1,9 @@
+[Unit]
+Description=Hourly backup of research-runs
+
+[Timer]
+OnCalendar=*:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target
