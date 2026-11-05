@@ -3,11 +3,10 @@
 # ⚠️ reddit_archive.py 冇 lock：同一個 sub 唔可以兩條線同時落。
 #   - vancouver 唔放呢度：已經喺 reddit_archive_subs_cpsbc.txt（cpsbc 線，britishcolumbia、VictoriaBC 之後）
 #   - Mcat 亦喺主線 reddit_archive_subs.txt 第 43 行；主線 2026-11-05 先去到第 15 行（columbia），預計呢條線會先落完 Mcat
-ADHD_BritishColumbia
+# 2026-11-05 02:xx Nicole（經 SAT session）：「咁你要佢哋落返啦」→ adhdwomen 排頭；ADHD 搬去獨立 unit reddit-archive-adhd（reddit_archive_subs_adhd.txt）並排跑；askvan 暫停，之後由原位續
+adhdwomen
 askvan
 LawSchoolCanada
 LSAT
 Sat
 Mcat
-adhdwomen
-ADHD
