@@ -15,7 +15,7 @@ Usage  : reddit_archive.py dump --subs-file tools/reddit_archive_subs.txt   # al
          reddit_archive.py dump premedcanada UBC --kinds posts comments
          reddit_archive.py status
 """
-import argparse, json, shutil, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
+import argparse, fcntl, json, shutil, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
 from pathlib import Path
 
 ROOT = Path.home() / "data" / "reddit-archive"
@@ -165,15 +165,26 @@ def main():
         subs += [l.split("#")[0].strip() for l in Path(a.subs_file).read_text().splitlines() if l.split("#")[0].strip()]
     log("RUN subs:", " ".join(subs), "kinds:", a.kinds)
     for s in subs:
-        for k in a.kinds:
-            free_gb = shutil.disk_usage(ROOT).free / 1e9
-            if free_gb < MIN_FREE_GB:
-                log(f"STOP: only {free_gb:.1f} GB free (< {MIN_FREE_GB} GB guard) before r/{s} {k}")
-                return
-            try:
-                dump(s, k)
-            except Exception as e:
-                log(f"FAILED r/{s} {k}: {e!r} — continuing with next")
+        # one writer per subreddit: several lines (main / cpsbc / sat) + the weekly timer may list the same sub
+        (ROOT / s).mkdir(parents=True, exist_ok=True)
+        lockf = (ROOT / s / ".lock").open("w")
+        try:
+            fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            log(f"SKIP r/{s}: another archiver process holds its lock (it will be picked up on a later run)")
+            lockf.close(); continue
+        try:
+            for k in a.kinds:
+                free_gb = shutil.disk_usage(ROOT).free / 1e9
+                if free_gb < MIN_FREE_GB:
+                    log(f"STOP: only {free_gb:.1f} GB free (< {MIN_FREE_GB} GB guard) before r/{s} {k}")
+                    return
+                try:
+                    dump(s, k)
+                except Exception as e:
+                    log(f"FAILED r/{s} {k}: {e!r} — continuing with next")
+        finally:
+            fcntl.flock(lockf, fcntl.LOCK_UN); lockf.close()
 
 if __name__ == "__main__":
     main()

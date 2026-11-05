@@ -44,3 +44,16 @@ Mcat
 csMajors
 cscareerquestions
 ApplyingToCollege
+# Tier 4 — 並排線（cpsbc／sat）嘅 sub 亦列喺度，等每週 timer 都會補新帖。每個 sub 有 .lock，唔會兩條線同時寫（2026-11-05）
+BCHealthAuthorities
+legaladvicecanada
+britishcolumbia
+VictoriaBC
+vancouver
+ADHD_BritishColumbia
+askvan
+LawSchoolCanada
+LSAT
+Sat
+adhdwomen
+ADHD

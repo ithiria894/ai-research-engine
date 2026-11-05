@@ -1,0 +1,13 @@
+# SAT／ADHD 評估搵心理學家（Nicole 2026-11-05 經 sat-math-corpus-analysis-b4 轉達：「你叫返我哋download reddit嗰個session 將呢啲sub全部 download晒先啦」）
+# 獨立 unit reddit-archive-sat，同主線、cpsbc 線並排跑。細／最相關嘅排先。
+# ⚠️ reddit_archive.py 冇 lock：同一個 sub 唔可以兩條線同時落。
+#   - vancouver 唔放呢度：已經喺 reddit_archive_subs_cpsbc.txt（cpsbc 線，britishcolumbia、VictoriaBC 之後）
+#   - Mcat 亦喺主線 reddit_archive_subs.txt 第 43 行；主線 2026-11-05 先去到第 15 行（columbia），預計呢條線會先落完 Mcat
+ADHD_BritishColumbia
+askvan
+LawSchoolCanada
+LSAT
+Sat
+Mcat
+adhdwomen
+ADHD
