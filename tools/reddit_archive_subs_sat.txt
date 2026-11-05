@@ -4,6 +4,10 @@
 #   - vancouver 唔放呢度：已經喺 reddit_archive_subs_cpsbc.txt（cpsbc 線，britishcolumbia、VictoriaBC 之後）
 #   - Mcat 亦喺主線 reddit_archive_subs.txt 第 43 行；主線 2026-11-05 先去到第 15 行（columbia），預計呢條線會先落完 Mcat
 # 2026-11-05 02:xx Nicole（經 SAT session）：「咁你要佢哋落返啦」→ adhdwomen 排頭；ADHD 搬去獨立 unit reddit-archive-adhd（reddit_archive_subs_adhd.txt）並排跑；askvan 暫停，之後由原位續
+# 2026-11-05 Nicole（經 SAT session）要 BC／加拿大 ADHD sub 排先：ADHDCanada、adhd_college、ADHD_Academics（02:10 已一次落完）
+ADHDCanada
+adhd_college
+ADHD_Academics
 adhdwomen
 askvan
 LawSchoolCanada
