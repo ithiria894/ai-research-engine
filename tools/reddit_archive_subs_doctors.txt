@@ -1,0 +1,37 @@
+# Doctor forums — parallel line reddit-archive-doctors (2026-11-06, Nicole：「你叫Reddit嗰個session download多啲醫生自己嘅討論區」「你拎多啲啦上網搵多啲啦全部download啦」)
+# 用途：Versa 診所爭議 —— 睇醫生自己點講病人要求改病歷、病人交嘅背景資料、CMPA 建議、病人寄好多 email。
+# 每個 sub 2026-11-06 用 Arctic Shift posts/search?subreddit=X&limit=1 核過存在。
+# 細嘅、最相關嘅排先；r/medicine、r/AskDocs 最大，排最尾。同主線重複嘅 sub 有 .lock，唔會兩條線同時寫。
+# Canada
+canadiandoctors
+CanadaHealthCare
+disabilitytaxcredit
+MedicalSchoolCanada
+FamilyMedicine
+# General doctors
+physicians
+physician
+doctors
+Doctor
+Medicalpractice
+medicalethics
+MedicalLaw
+MedicalMalpractice
+healthIT
+InternalMedicine
+HospitalMedicine
+Psychiatry
+AskPsychiatry
+emergencymedicine
+Noctor
+# UK / Ireland (Dr. Shabir: UEA; Manreet: RCSI)
+GPUK
+generalpractice
+IrishDoctors
+doctorsUK
+JuniorDoctorsUK
+medicalschooluk
+# Large, last
+Residency
+medicine
+AskDocs
