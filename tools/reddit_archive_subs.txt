@@ -20,6 +20,29 @@ TransferStudents
 # Tier 2 — other Canadian universities (CS programs + med schools)
 mcgill
 UofT
+# Tier 1d — 按 Nicole 而家做緊嘅嘢揀（2026-11-05「你睇吓我需要啲乜嘢啦」）：主力學校（Yale/MIT 以外嘅全額資助難民 transfer 學校、Oxbridge/Imperial＋TMUA）、獎學金／資助、ICBC 考車牌、脊柱側彎／ADHD／殘障、難民、AI safety、Marketplace 轉賣
+Harvard
+BrownU
+dartmouth
+stanford
+Caltech
+Cornell
+columbiags
+cambridge_uni
+oxforduni
+Imperial
+TMUA
+scholarships
+financialaid
+icbc
+scoliosis
+ADHDers
+adhd_anxiety
+disability
+Refugees
+ControlProblem
+AIsafety
+FacebookMarketplace
 UTSC
 UTM
 uwaterloo
@@ -60,3 +83,16 @@ ADHD
 ADHDCanada
 adhd_college
 ADHD_Academics
+# Tier 5 — 有用但大，排最尾（2026-11-05）
+cmu
+udub
+UIUC
+ChronicPain
+FamilyMedicine
+Residency
+medicine
+MachineLearning
+6thForm
+Flipping
+PersonalFinanceCanada
+AskDocs
