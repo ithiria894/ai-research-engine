@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly forward-test snapshot of volatile public data (eToro, Polymarket, CryptoKrios, YouTube list A) -> ~/data/forward-snapshots
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PATH=/home/nicole/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 /home/nicole/MyGithub/ai-research-engine/tools/forward_snapshot.py run
+TimeoutStartSec=4h
+Nice=10
