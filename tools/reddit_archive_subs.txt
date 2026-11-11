@@ -96,3 +96,26 @@ MachineLearning
 Flipping
 PersonalFinanceCanada
 AskDocs
+# Tier 6 — 投資線（reddit_archive_subs_finance.txt，2026-11-11）亦列喺度，等每週 timer 補新帖
+SecurityAnalysis
+ValueInvesting
+CanadianInvestor
+algotrading
+quant
+Bogleheads
+financialindependence
+ETFs
+NVDA_Stock
+cardano
+Gold
+Silverbugs
+options
+Daytrading
+StockMarket
+dividends
+Economics
+investing
+stocks
+Bitcoin
+CryptoCurrency
+wallstreetbets

@@ -1,0 +1,28 @@
+# Finance / investing subs — parallel line reddit-archive-finance (2026-11-11).
+# Smaller / most relevant first; very large subs last. reddit_archive.py stops itself at MIN_FREE_GB.
+# Tier 1 — 細、高價值：價值投資／量化／加拿大
+SecurityAnalysis
+ValueInvesting
+CanadianInvestor
+PersonalFinanceCanada
+algotrading
+quant
+Bogleheads
+financialindependence
+ETFs
+NVDA_Stock
+cardano
+Gold
+Silverbugs
+# Tier 2 — 中型
+options
+Daytrading
+StockMarket
+dividends
+Economics
+# Tier 3 — 巨型（可能每個幾 GB 至十幾 GB），磁碟夠先會落
+investing
+stocks
+Bitcoin
+CryptoCurrency
+wallstreetbets
