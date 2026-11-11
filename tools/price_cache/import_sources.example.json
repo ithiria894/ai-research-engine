@@ -1,0 +1,38 @@
+{
+ "_doc": "Copy to <cache root>/import_sources.json (or point $PRICE_CACHE_SOURCES at it). Lists the folders import-existing reads. Paths may use ~ and $VARS.",
+ "sources": [
+  {
+   "name": "study-a",
+   "globs": ["~/research/study-a/data/prices/*.json"],
+   "names": "plain",
+   "names_are_tickers": true,
+   "req_start": "listing",
+   "ledger": {"type": "table", "paths": ["~/research/study-a/data/fetch_status.csv"], "symbol_col": "symbol", "time_col": "fetched_at_utc"},
+   "_fields": "names: plain | unquote | strip_prefix:<p> | omitted (mangled). req_start: listing (period1=0 / range=max) | YYYY-MM-DD the study used | omitted (first bar). events_requested: false if the study did not ask for div/splits. kind: yahoo_json (default) | binance_klines. ledger: the study's own fetch log for fetched_at (else file mtime); key=quote when file names are URL-quoted."
+  },
+  {
+   "name": "study-b",
+   "globs": ["~/data/study-b/yahoo/*.json.gz", "~/data/study-b/yahoo/*.404"],
+   "names": "unquote",
+   "names_are_tickers": true,
+   "req_start": "2005-01-01",
+   "ledger": {"type": "table", "paths": ["~/data/study-b/yahoo/index.tsv"], "sep": "\t", "symbol_col": "symbol", "time_col": "fetched_at_utc", "key": "quote"}
+  },
+  {
+   "name": "study-c:binance",
+   "kind": "binance_klines",
+   "globs": ["~/research/study-c/raw/binance_*.json"],
+   "ledger": {"type": "json_global", "path": "~/research/study-c/FETCH_META.json", "field": "fetched_at_utc"}
+  }
+ ],
+ "discover": {
+  "roots": ["~/research"],
+  "dir_globs": ["~/data/*/yahoo*", "~/data/*/prices*"],
+  "skip_dirs": ["huge-archive"],
+  "label_base": "~/research"
+ },
+ "referenced": [
+  {"study": "study-a", "path": "~/research/study-a/data/symbols_to_fetch.csv", "column": "symbol"},
+  {"study": "study-b", "path": "~/research/study-b/data/events.parquet", "column": "candidates", "explode": true, "group_col": "event_id", "date_col": "FILING_DATE", "extra": ["SPY", "IWM"], "_group_col": "optional: one event has several candidate tickers; missing-report then also counts events with >=1 covered candidate; date_col: also count events whose date lies inside a candidate's data span"}
+ ]
+}
