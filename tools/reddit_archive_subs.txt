@@ -119,3 +119,8 @@ stocks
 Bitcoin
 CryptoCurrency
 wallstreetbets
+
+# DTC／殘疾福利線（2026-11-13，亦有獨立 reddit_archive_subs_dtc.txt）
+cantax
+CanadianDisability
+spinalfusion
