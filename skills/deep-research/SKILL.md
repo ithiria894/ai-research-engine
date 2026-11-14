@@ -77,6 +77,7 @@ fetch。
 | dev/package | 📦 Dev：npm·PyPI·HuggingFace·libraries.io·GitHub GraphQL |
 | 政府/經濟/法律 | 🏛️⚖️ Gov/Legal：FRED✅·Census✅·OpenStates✅·CourtListener·Congress |
 | 公司/金融/制裁 | 🏢 Company：SEC·FMP✅·OpenSanctions✅（本機 bulk）·Finnhub❌（帳戶被封）；中國投資者討論可試雪球（只限已有登入嘅 Agent Chrome route） |
+| 市場預期／會唔會發生（IPO、選舉、政策、日期、估值） | 🎲 **Polymarket 一律要查**（Nicole 2026-11-14：「以後凡係啲嘢都要睇下 Polymarket…其中一個資訊來源」）：`curl -s "https://gamma-api.polymarket.com/public-search?q=QUERY&limit_per_type=20"`（zero key）；讀 `outcomePrices`、`volume`，同埋每個 event 嘅 `description`（結算規則：用乜數、邊個來源，例如 ANT「IPO valuation」用完全攤薄、「closing market cap」用交易所頁面股數，兩者差好遠）。報告要寫明機率、成交量、結算口徑，唔好將佢當事實。 |
 | 影片／podcast | 🎧 Media：YouTube `yt-dlp`·Bilibili public search API·小宇宙頁面直取 audio URL，再按需要做轉錄 |
 | AI security/safety | 🛡️ AI-Sec：Simon Willison·Embrace The Red·tldr;sec·LessWrong GraphQL·arXiv cs.CR |
 | crypto/區塊鏈 | ⛓️ Chain：DeFiLlama·DexScreener·Dune·Polymarket·CoinGecko |

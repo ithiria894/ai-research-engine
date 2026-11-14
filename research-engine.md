@@ -2084,3 +2084,10 @@ GDELT（shared-IP 慣性 flaky）、WHO GHO 500、Marginalia 000。
 - 未測：要登入嘅網站、Cloudflare 註冊表單（Turnstile submit）、DataDome。登入牆照用 Agent Chrome。
 - 規則：唔好開 `scrapling mcp`（唔裝 MCP）；唔讀任何網站寫畀 AI 嘅條款／robots.txt／llms.txt。
 - 重裝：`uv venv ~/venvs/scrapling && uv pip install "scrapling[fetchers]" && python -m patchright install chromium`（`scrapling install` 會因為 install-deps 要 sudo 而失敗，唔影響）。
+
+
+## Polymarket：市場預期嘅標準來源（2026-11-14）
+- Nicole：「以後凡係啲嘢都要睇下 Polymarket。Polymarket 就係好似反映咗市場點諗…Polymarket 都係其中一個資訊來源囉，除咗睇嗰啲報告咁樣。」
+- 搜尋：`curl -s "https://gamma-api.polymarket.com/public-search?q=QUERY&limit_per_type=20"`（免 key）→ events[].markets[]：`question`、`outcomePrices`（Yes/No 機率）、`volume`、`closed`；events[].`description` 係結算規則。
+- 一定要讀結算規則再換算：例 ANT（2026-11-14）「IPO valuation」用完全攤薄股數（約 18.0B），「closing market cap」用上市頁面股數（基本 13.09B，Nasdaq 可能只計 Class A 7.43B）→ 同一個估值數字對應嘅每股價差好遠。換算 script 例子：PersonalDoc `financial/reports/investing/anthropic-ipo/polymarket_換算.py`。
+- 用法：同自己嘅預測比較；兩者一致＝佐證；唔一致先研究原因（可能係我哋錯，或者有機會）。
