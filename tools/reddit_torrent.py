@@ -19,7 +19,7 @@ import argparse, re, sys, time
 from pathlib import Path
 import libtorrent as lt
 
-ROOT = Path.home() / "data" / "reddit-torrents"
+ROOT = Path(__import__("os").environ.get("REDDIT_TORRENT_ROOT") or Path.home() / "data" / "reddit-torrents")
 TRACKERS = ["https://academictorrents.com/announce.php", "udp://tracker.opentrackr.org:1337/announce",
             "udp://tracker.openbittorrent.com:6969/announce", "udp://exodus.desync.com:6969/announce"]
 MIN_FREE_GB = 20
@@ -90,9 +90,22 @@ def get(ih, subs_files, everything):
         log(f"GET {ih}: STOP need {chosen/1e9:.1f} GB but only {free/1e9:.1f} GB free (guard {MIN_FREE_GB} GB)"); sys.exit(3)
     p = lt.add_torrent_params(); p.ti = ti; p.save_path = str(ROOT); p.file_priorities = prio
     h = s.add_torrent(p)
-    last = 0
+    last, last_fp = 0, 0
+    sel = [i for i, pr in enumerate(prio) if pr]
+    cfile = ROOT / f"{ih}.completed.tsv"   # index<TAB>path of every selected file fully downloaded (read by reddit_torrent_import.py)
+    done = {int(l.split("\t")[0]) for l in cfile.read_text().splitlines() if "\t" in l} if cfile.exists() else set()
     while True:
         st = h.status()
+        if time.time() - last_fp > 60 and st.state in (st.downloading, st.finished, st.seeding):
+            fp = h.file_progress(flags=lt.torrent_handle.piece_granularity)
+            new = [i for i in sel if i not in done and fp[i] == fs.file_size(i)]
+            if new:
+                with cfile.open("a") as f:
+                    for i in new:
+                        f.write(f"{i}\t{fs.file_path(i)}\n")
+                done |= set(new)
+                log(f"  completed {len(new)} files (total {len(done)}/{len(sel)}): " + " ".join(fs.file_path(i).rsplit('/', 1)[-1] for i in new)[:1500])
+            last_fp = time.time()
         for a in s.pop_alerts():
             if a.category() & lt.alert.category_t.error_notification:
                 log(f"  ALERT {a.what()}: {a.message()}")
