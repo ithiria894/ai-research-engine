@@ -13,7 +13,7 @@ Rules
 - Holds the same per-sub .lock as reddit_archive.py, so the pipeline SKIPs a sub while it is being imported.
 - Waits until the torrent file is fully downloaded (<infohash>.completed.tsv written by reddit_torrent.py).
 
-Usage  : reddit_torrent_import.py --subs-file F [--subs-file G ...] [SUB ...] [--catch-up] [--wait]
+Usage  : reddit_torrent_import.py --subs-file F [--subs-file G ...] [SUB ...] [--catch-up] [--wait] [--first SUB ...]
            --catch-up : after importing, run the API pipeline for that sub (fetches 2024-01 → now)
            --wait     : keep waiting for torrent files that are still downloading (else skip them for now)
          --root DIR / --torrent-root DIR : override locations (used by the QA test)
@@ -98,6 +98,7 @@ def main():
     ap.add_argument("subs", nargs="*"); ap.add_argument("--subs-file", action="append", default=[])
     ap.add_argument("--catch-up", action="store_true"); ap.add_argument("--wait", action="store_true")
     ap.add_argument("--root"); ap.add_argument("--torrent-root")
+    ap.add_argument("--first", action="append", default=[], help="catch these subs up via API before the others")
     a = ap.parse_args()
     if a.root:
         ra.ROOT = Path(a.root)
@@ -134,8 +135,13 @@ def main():
     ra.log(f"IMPORT holding locks for {len(queue)} subs")
     def release(s):
         lf = locks.pop(s); fcntl.flock(lf, fcntl.LOCK_UN); lf.close()
+    # imports first (fast, local), API catch-ups after (slow): one catch-up per pass, so files that finish
+    # downloading meanwhile still get imported before the next catch-up; --first subs are caught up first
+    first = [x.lower() for x in a.first]
+    rank = lambda s: first.index(s.lower()) if s.lower() in first else len(first)
+    catchup = []
     try:
-        while queue:
+        while queue or catchup:
             done_paths, pending = completed(troot), []
             for s, need in queue:
                 left = []
@@ -147,16 +153,23 @@ def main():
                         left.append(k); continue
                     import_one(s, k, troot / rel, b)
                 if left:
-                    pending.append((s, left)); continue
-                if a.catch_up:
-                    for k in ("posts", "comments"):
-                        ra.log(f"  r/{s} {k}: catch-up via API after torrent import")
-                        try:
-                            ra.dump(s, k)
-                        except Exception as e:
-                            ra.log(f"FAILED catch-up r/{s} {k}: {e!r}")
-                release(s)
+                    pending.append((s, left))
+                elif a.catch_up:
+                    catchup.append(s)
+                else:
+                    release(s)
             queue = pending
+            if catchup:
+                catchup.sort(key=rank)
+                s = catchup.pop(0)
+                for k in ("posts", "comments"):
+                    ra.log(f"  r/{s} {k}: catch-up via API after torrent import ({len(catchup)} more queued)")
+                    try:
+                        ra.dump(s, k)
+                    except Exception as e:
+                        ra.log(f"FAILED catch-up r/{s} {k}: {e!r}")
+                release(s)
+                continue
             if queue:
                 ra.log(f"IMPORT waiting for torrent files of {len(queue)} subs: " + " ".join(s for s, _ in queue))
                 if not a.wait:
