@@ -1,3 +1,10 @@
 # 護士線（API）：唔喺 top-40k torrent 嘅護士版，要用 Arctic Shift API 由頭落（2026-11-14，Nicole：「Canadian nurse 點會唔加啫，LPN 都加落去啦」）
 LPN
 CanadianNurses
+# CanadianNurses／LPN 第一次落得好少（LPN 196 comments、CanadianNurses 11 posts），試埋其他加拿大護士版名
+NursingCanada
+CanadianNursing
+BCNurses
+OntarioNurses
+AlbertaNurses
+RPN
