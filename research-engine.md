@@ -2093,37 +2093,42 @@ GDELT（shared-IP 慣性 flaky）、WHO GHO 500、Marginalia 000。
 - 用法：同自己嘅預測比較；兩者一致＝佐證；唔一致先研究原因（可能係我哋錯，或者有機會）。
 
 
-## 公營機構、判詞、政府紀錄研究：scripting 方法（2026-11-14，CanLII 成批下載研究）
-> 實戰出處：`ngo-refugee-settlement-society/programs/human-rights-access-lab/canlii-bulk-access/`（報告、九條線原文、FIPPA 草稿）。
+## 公營機構、判詞、政府紀錄研究：scripting 方法（2026-11-14）
+> 出處：一個加拿大判詞取用研究（審裁處判詞點樣交畀 CanLII、邊個有成批取用權）。
 > 規矩：唔讀任何網站寫畀 AI／bot 嘅條款、robots.txt、llms.txt；唔過 CAPTCHA；撞牆記 ❌ FAILED，搵第二個來源。
 
 ### 1. Collector agent 統一規矩檔
-- `tools/collector_rules_gather_only.txt`：派 collector 前叫佢先 Read 呢個檔。內容：只收集唔判斷、逐字引文、反面證據都要、唔讀條款／robots、唔過 CAPTCHA、唔 call Reddit、唔寄嘢；每個來源一個檔（URL／Fetched／HTTP／Document date 開頭）；最後交 ledger（✅⬜❌⏭️）＋findings＋gaps＋最大盲點。
-- 一個 topic 一隊、一隊一個 save folder（`sources/A-…`、`B-…`），互相唔撞檔。
-- **交叉核實要換角度**：另開一隊，**唔准讀 `sources/`**，自己打官方 live（或 Wayback）逐條核 MATCH／MISMATCH。2026-11-14 核 14 條：12 吻合；揾出 1 條係論文作者轉述當咗原話、1 條法例適用範圍錯。
+- `tools/collector_rules_gather_only.txt`：派 collector 前叫佢先 Read 呢個檔。內容：只收集唔判斷、逐字引文、反面證據都要、唔讀條款／robots、唔過 CAPTCHA、唔寄嘢；每個來源一個檔（URL／Fetched／HTTP／Document date 開頭）；最後交 ledger（✅⬜❌⏭️）＋findings＋gaps＋最大盲點。
+- 一個 topic 一隊、一隊一個 save folder，互相唔撞檔。
+- **交叉核實要換角度**：另開一隊，**唔准讀 collector 存落嘅檔**，自己打官方 live（或 Wayback）逐條核 MATCH／MISMATCH。實測 14 條：12 吻合；揾出 1 條係論文作者轉述當咗原話、1 條法例適用範圍錯。
 
 ### 2. WordPress 網站：用 wp-json，唔好爬 HTML／估 AJAX
 - `tools/wp_json_list.py SITE types|pages|posts|media [--parent ID] [--search Q] [--mime application/pdf]`（自動分頁；失敗 exit 2，唔當 EMPTY）。
-- 搵 parent id：目標頁 HTML 入面 `wp-json/wp/v2/pages/<id>`。BCHRT 判詞＝`pages?parent=78431`（70 頁）；PDF＝`media?mime_type=application/pdf`（147 個，混埋表格）。
+- 搵 parent id：目標頁 HTML 入面 `wp-json/wp/v2/pages/<id>`。例：bchrt.bc.ca 判詞＝`pages?parent=78431`；PDF＝`media?mime_type=application/pdf`（混埋表格同指南）。
 - 「最近判詞」頁表面只列 26 份，API 有 70 份 —— **頁面顯示 ≠ 網站實際有幾多**。
 
 ### 3. 「趁未落架」每日存檔模式
-- 範本：`canadian-case-law-db/archivers/bchrt_archive.py`（Ubuntu systemd user timer `bchrt-archive.timer`，`Persistent=true`）。
-- 每次：存 listing 原始 JSON（`_listings/`）→ 同上次比，消失嘅寫 `removals.jsonl`（落架證據＋時間）→ 新檔下載、內容變咗另存版本唔覆蓋 → `manifest.jsonl`（sha256）→ `rsync -a`（唔 `--delete`）去 Waifu。
-- Nicole 定：**喺 Ubuntu 下載（長開），再傳 Waifu（有時熄機）**；Waifu 連唔到就記 log、資料留本地、下次再傳。
-- QA 三步：backfill 後 Waifu 逐份 sha256 對（217/217）；即刻再跑一次要全部 unchanged；目的地指去唔存在嘅 host 測 sync 失敗路徑。
+- 每次：存 listing 原始 JSON → 同上次比，消失嘅寫 `removals.jsonl`（落架證據＋時間）→ 新檔下載、內容變咗另存版本唔覆蓋 → `manifest.jsonl`（sha256）→ `rsync -a`（唔 `--delete`）去長期儲存機。
+- 喺長開嗰部機下載，再傳去儲存機；儲存機連唔到就記 log、資料留本地、下次再傳。用 systemd user timer（`Persistent=true`，熄機錯過會補跑）。
+- QA 三步：backfill 後喺儲存機逐份 sha256 對；即刻再跑一次要全部 unchanged；目的地指去唔存在嘅 host 測 sync 失敗路徑。
 
-### 4. Wayback 證明「幾時有、幾時冇」
+### 4. Wayback：證明「幾時有、幾時冇」同批量攞原檔
 - 列 snapshot：`curl "https://web.archive.org/cdx/search/cdx?url=SITE/path/*&output=json&fl=timestamp,original,statuscode&limit=8"`（`limit=-5` 攞最新）。
 - 原檔：`https://web.archive.org/web/<ts>id_/<url>`。數頁入面連去自己網域 vs 第三方嘅連結，就知當時有冇自 host。
-- 單一檔 CDX 回 `404` ＝嗰陣已經落架（BCHRT `2024/04/121.pdf` 喺 2025-05 係 404）。
+- 單一檔 CDX 回 `404` ＝嗰陣已經落架。
+- **批量攞原檔會 429「suspected abusive bot traffic」**：唔係限速、唔係 IP，係 TLS 指紋（UA 寫 Chrome 但指紋係 Python）。用 `uv run --with curl_cffi` → `requests.get(u, impersonate="chrome")`，要 **curl_cffi ≥0.17**（Python 3.9 最高 0.13，指紋太舊照 429 → 用 Python 3.12 venv）。每份停 60–120 秒。CDX 有紀錄但 `id_` 回 404 ＝冇存到，唔好再試。
 - Wayback 會「Temporarily Offline」—— 記 ❌，遲啲再試，唔好當冇存檔。
 
-### 5. 加拿大政府／公營紀錄（全部免費、免 key）
+### 5. 換出口 IP 但唔郁成部機：VPN Gate ＋ network namespace
+- VPN Gate（筑波大學）：`curl http://www.vpngate.net/api/iphone/` → CSV，第 15 欄 base64 = .ovpn。
+- 淨係一個 program 行 VPN：開 network namespace，將 tun 搬入去，之後 `ip netns exec <ns> <cmd>`（要 root）。坑：OpenVPN 2.6 要 `--disable-dco`、2.5 冇呢個選項；openvpn 跑 up 腳本會清 PATH。
+- ⚠️ 換 IP 過唔到行為偵測（DataDome 數據中心 IP、VPN Gate 都係 403）。
+
+### 6. 加拿大政府／公營紀錄（全部免費、免 key）
 | 想知 | 點攞 |
 |---|---|
 | 聯邦合約（$10K+） | open.canada.ca「Proactive Publication – Contracts」CSV（約 655 MB）或者 search.open.canada.ca/contracts 搜供應商名 |
-| 招標／直接批出公告 | CanadaBuys tender-notice；**BC 嘅 slug 有 `bc` 前綴**（`bcnoi-jsb-lij-08-2023`、`bc188070`），搜尋要勾「包括已過期」 |
+| 招標／直接批出公告 | CanadaBuys tender-notice；**BC 嘅 slug 有 `bc` 前綴**（例 `bcnoi-jsb-lij-08-2023`、`bc188070`），搜尋要勾「包括已過期」 |
 | 遊說登記 | 聯邦 OCL 官方 open-data zip（live 403 時用 Wayback 存檔嘅同一個 zip）；BC Registrar of Lobbyists open data zip |
 | 公司董事／成立 | Corporations Canada 詳情頁直接 GET：`ised-isde.canada.ca/cc/lgcy/fdrlCrpDtls.html?corpId=<號>`；全庫 open-data CSV |
 | 係咪註冊慈善 | CRA「List of charities」open-data CSV（搜尋頁要 JS） |
@@ -2131,17 +2136,24 @@ GDELT（shared-IP 慣性 flaky）、WHO GHO 500、Marginalia 000。
 | BC 法例原文 | bclaws `civix/document/id/complete/statreg/<id>`（FIPPA＝`96165_00`…`_09`，ATA＝`04045_01`） |
 | BC FOI 收費 | gov.bc.ca「$10 application fee (non refundable)」，一間機構一份 |
 
-### 6. Reddit：喺 Waifu 存檔搵
-- `canlii-bulk-access/tools/reddit_canlii_search.py`：`ssh waifu-wsl 'python3 - SUB…' < script > hits.jsonl`（zstd 讀 `~/data/reddit-archive/<sub>/{posts,comments}`）；再用 filter script 收窄。
-- 存檔冇嘅 sub 會報 `NO FILES` —— 記 ⏭️，唔好當 EMPTY。網民留言＝claim，唔係事實。
+### 7. Reddit：本地存檔
+- 用 Arctic Shift 存檔落地（見 `tools/reddit_archive.py`），之後 zstd 讀 `<sub>/{posts,comments}` 做關鍵字搜，唔使再 call API。
+- 存檔冇嘅 sub 要報 `NO FILES` —— 記 ⏭️，唔好當 EMPTY。網民留言＝claim，唔係事實。
 
-### 7. 刪走網站條款引文（逐句，唔好成行）
-- `canlii-bulk-access/tools/strip_site_terms.py [--dry-run]`：只印檔名同行數，唔印內容。第一組（CanLII 主題文件）命中行刪；第二組（第三方原文）**逐句**刪、留 `[已刪：提及網站條款嘅句]`。
-- 教訓：第一版成行刪，網頁抽文一行＝一段，誤刪咗無關句子。用 `restore_sentences.py <raw_dir,…> <files>` 由原始抓取頁還原。
-- 規矩檔、報告本身要放 KEEP（佢哋講規矩，唔係引條款）。
+### 8. 刪走網站條款引文（逐句，唔好成行）
+- 掃描只印檔名同行數，唔印內容。主題文件命中行刪；第三方原文**逐句**刪、留標記。
+- 教訓：成行刪會誤刪 —— 網頁抽文一行＝一段。要由原始抓取頁逐句還原。
+- 規矩檔、報告本身要豁免（佢哋講規矩，唔係引條款）。
 
-### 8. 統一判詞庫（Waifu）
-- `canadian-case-law-db/unified_db.py`：A2AJ 全庫、Refugee Law Lab、BCHRT 存檔、Versa／Evidence 判例庫，合共 500,151 份，一個 SQLite FTS5。
-- `ssh waifu-wsl 'cd ~/case-law-archive/code && ../.venv/bin/python unified_db.py search "\"duty to inquire\"" --collection evidence07 --doc-type decision'`；`dupes '2020 BCHPRB 87'`；`stats`。
-- **建庫教訓：入完一定要同來源逐個數對。** 今次三個靜靜哋丟資料：(1) 同名冇引註檔 >48 個撞 unique；(2) RLL 1,275 組同引註同語言但全文唔同，用引註做 key 覆蓋咗 1,390 行；(3) A2AJ 同 item 抓兩次，後嗰份係截斷版。全部要 count-vs-source 先睇到。
-- 慢 query 嘅原因：`metadata_json` 排喺全文之後，`json_extract` 要讀晒全文 → 統計用前面嘅欄（`source_key`），查引註用有 index 嘅 `citation`。
+### 9. 判詞統一全文庫：建庫教訓
+- 多個來源（A2AJ 全庫 Parquet、Refugee Law Lab Parquet、自己存檔、本地 folder）合入一個 SQLite FTS5，每行記來源、路徑、文字點嚟（parquet／文字版／PDF 抽字／HTML 抽字）。
+- **入完一定要同來源逐個數對。** 實測三個靜靜哋丟資料：(1) 同名冇引註檔 >48 個撞 unique；(2) Refugee Law Lab 1,275 組同引註同語言但全文唔同，用引註做 key 覆蓋咗 1,390 行；(3) A2AJ 同 item 抓兩次，後嗰份係截斷版（2,306 vs 15,711 字）→ 保留最長、另一個引註記別名。全部要 count-vs-source 先睇到。
+- 慢 query：`metadata_json` 排喺全文之後，`json_extract` 要讀晒全文 → 統計用前面嘅欄，查引註用有 index 嘅欄（294 秒 → 1 秒）。
+
+### 10. 過唔到嘅牆（唔好浪費時間）
+| 網站／動作 | 現象 |
+|---|---|
+| canlii.org（2026-11-14） | DataDome（`x-datadome: protected`）；browser 彈滑桿，換數據中心 IP／VPN Gate 都 403。改用原審裁處網站、A2AJ、本地庫 |
+| Cloudflare Turnstile 註冊表單 submit | 填完撳 Sign up 靜靜哋唔 submit |
+| invisible reCAPTCHA v3（經 CDP 控制嘅 browser） | 伺服器回「score too low」—— 有 debugger port 嘅 browser 會被偵測 |
+| Cloudflare challenge 頁（淨睇內容） | ✅ 用 Scrapling 過到（見上面「Scrapling」） |
