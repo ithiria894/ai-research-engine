@@ -1,0 +1,32 @@
+# 護士／病人投訴線（2026-11-14，Nicole 投訴診所護士威脅報警；搵護士投訴、學院處理、病人經驗）
+# 全部喺 top-40k torrent（2005-06 至 2023-12）入面，2024 之後由 importer --catch-up 用 API 補
+# 細嘅先落
+Midwives
+NursingStudent
+NursingUK
+adultnursing
+burnaby
+richmondbc
+surrey
+Nurse
+Nurses
+nursepractitioner
+CaregiverSupport
+TravelNursing
+healthcare
+ChronicIllness
+StudentNurse
+ptsd
+AskACanadian
+alberta
+LegalAdviceUK
+Edmonton
+mentalhealth
+CPTSD
+Anxiety
+nursing
+ontario
+toronto
+depression
+legaladvice
+canada
