@@ -238,6 +238,7 @@ curl -s "${H[@]}" -H "Mcp-Session-Id: $SID" -X POST $E -d '{"jsonrpc":"2.0","id"
 ### Content Extraction (when you find a good URL)
 ```
 curl -s "https://r.jina.ai/ARTICLE_URL" — zero key，10-30 ✅，首選
+scrapling_fetch.py URL — zero key，本機；jina／curl 被 403、Cloudflare challenge、JS 頁擋住先用（2026-11-13 ✅ 過到 Cloudflare 測試頁，普通 403→隱身 200，15–112 秒）；`--stealth` 直接隱身，`--html` 出 HTML。腳本：ai-research-engine/tools/scrapling_fetch.py（venv ~/venvs/scrapling）。唔好用 `scrapling mcp`
 Tavily extract — POST https://api.tavily.com/extract  {"urls":["URL"]}
 Exa contents   — POST https://api.exa.ai/contents     {"urls":["URL"],"text":true}
 Firecrawl      — POST https://api.firecrawl.dev/v2/scrape {"url":"URL","formats":["markdown"]}（食 credit）

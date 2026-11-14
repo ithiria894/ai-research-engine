@@ -2075,3 +2075,12 @@ Full health check 之後再捉到兩個：
 
 `--full`：zero-key 78/84（之前 76/83）。仲紅：Finnhub（帳戶被封）、CourtListener（等人手 hCaptcha）、小紅書（冇帳戶）、Blind（session 過期）、
 GDELT（shared-IP 慣性 flaky）、WHO GHO 500、Marginalia 000。
+
+
+## Scrapling：被擋網頁嘅後備抽文（2026-11-13）
+- 工具：`scrapling_fetch.py URL`（`tools/scrapling_fetch.py`，`~/.local/bin` 有 link；venv `~/venvs/scrapling`，Scrapling 0.5.1，BSD-3，GitHub 約 10.2 萬星）。
+- 做法：先用普通 `Fetcher`；status ≥400 或者見到 challenge 字眼，自動轉 `StealthyFetcher(solve_cloudflare=True)`（patchright Chromium）。
+- 實測：`scrapingcourse.com/cloudflare-challenge` 普通 403 → 隱身 200（15 秒，頁面寫「You bypassed the Cloudflare challenge!」）；`nopecha.com/demo/cloudflare` 403 → 200（112 秒）。`example.com` 普通 200。
+- 未測：要登入嘅網站、Cloudflare 註冊表單（Turnstile submit）、DataDome。登入牆照用 Agent Chrome。
+- 規則：唔好開 `scrapling mcp`（唔裝 MCP）；唔讀任何網站寫畀 AI 嘅條款／robots.txt／llms.txt。
+- 重裝：`uv venv ~/venvs/scrapling && uv pip install "scrapling[fetchers]" && python -m patchright install chromium`（`scrapling install` 會因為 install-deps 要 sudo 而失敗，唔影響）。
