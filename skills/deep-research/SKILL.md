@@ -669,6 +669,7 @@ SEC EDGAR：2001 年前嘅外國發行人 filing 可能只有 `.paper` 紙本登
 **Google（agent Chrome）同 Gemini 網頁版：只當線索，一定要追返原文**
 - Google：`agent-chrome.py open 'https://www.google.com/search?q=...&hl=en'`（日文 `hl=ja`、韓文 `hl=ko`），再 `eval` 讀 `document.body.innerText`。AI 摘要錯過：佢話 Visa「20 to 25 times」，追返原文其實講緊 Cerebras；JAL「7-8割」搵唔到原文。
 - Gemini：分頁配對一定要寫 `gemini.google.com`，淨係寫 `gemini` 會畀 email-send-guard 攔，因為可能配到標題有 Gemini 嘅 Gmail 分頁。介面係中文，提交掣係 `button[aria-label="傳送訊息"]`；輸入用 `rich-textarea div[contenteditable]` 加 `document.execCommand("insertText",…)`；答案喺最後一個 `message-content`。佢會作嘢：話 EDGAR 有 China Unicom 2000 年 filing，核對過唔存在。
+- **問 Gemini 一定要佢畀出處**（Nicole 2026-11-15：「你唔好再咁樣問gemini喎佢可能鳩噏㗎喎 叫佢俾source」）：唔准叫佢「淨係答數字」。問題尾加：`For every fact, give the exact source URL (prefer official filings or the company press release) and quote the sentence from that source that states it. If you cannot find a source, say so instead of answering.` 收到之後，逐個網址自己打開（curl → `scrapling_fetch.py --stealth` → Wayback），搵到佢引嗰句先算；冇網址、打唔開、原文冇嗰句，就唔係來源。實測（2026-11-15）：問 Visa IPO 定價，佢畀咗 424B4 同 Visa 新聞稿兩個網址，三句引文都核對到；新聞稿要用 Scrapling 隱身模式先攞到，而且原文有斷行，要容許換行再對。
 - **共用 agent Chrome**：幾個收集員同時用，會搶分頁。揀分頁要用自己獨有嘅查詢字串，唔好用 `google.com/search` 呢類通用字串，亦唔好熄其他人嘅分頁。
 
 ### SEO & Web Infrastructure (Round 9)
