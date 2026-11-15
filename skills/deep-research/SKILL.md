@@ -76,7 +76,7 @@ fetch。
 | 社群嘅自己友資源／最近傾乜 | 💬 Social：Reddit (`agent-chrome.py` + Arctic Shift)·**1Point3Acres browser-session API（北美華人跨領域 knowledge commons：學校、transfer、課程、教授、past papers、考經、簽證、生活、求職；同 Reddit 等優先）**·Grapevine·Blind India·TakeUForward·RedBus2US·Yocket·Indian Reddit communities·Facebook·Instagram·小紅書（已裝 read-only MCP + `xiaohongshu-research`）·HN·Bluesky·Mastodon·Lemmy·V2EX·Bilibili |
 | dev/package | 📦 Dev：npm·PyPI·HuggingFace·libraries.io·GitHub GraphQL |
 | 政府/經濟/法律 | 🏛️⚖️ Gov/Legal：FRED✅·Census✅·OpenStates✅·CourtListener·Congress |
-| 公司/金融/制裁 | 🏢 Company：SEC·FMP✅·OpenSanctions✅（本機 bulk）·Finnhub❌（帳戶被封）；中國投資者討論可試雪球（只限已有登入嘅 Agent Chrome route） |
+| 公司/金融/制裁 | 🏢 Company：SEC·FMP✅·OpenSanctions✅（本機 bulk）·Finnhub❌（帳戶被封）；中國投資者討論可試雪球（只限已有登入嘅 Agent Chrome route）。**舊 IPO／股價／指數／招股書**（Yahoo 冇、舊港股成交、中東指數、2001 前 EDGAR）見下面「金融市場歷史數據」節 |
 | 市場預期／會唔會發生（IPO、選舉、政策、日期、估值） | 🎲 **Polymarket 一律要查**（Nicole 2026-11-14：「以後凡係啲嘢都要睇下 Polymarket…其中一個資訊來源」）：`curl -s "https://gamma-api.polymarket.com/public-search?q=QUERY&limit_per_type=20"`（zero key）；讀 `outcomePrices`、`volume`，同埋每個 event 嘅 `description`（結算規則：用乜數、邊個來源，例如 ANT「IPO valuation」用完全攤薄、「closing market cap」用交易所頁面股數，兩者差好遠）。報告要寫明機率、成交量、結算口徑，唔好將佢當事實。 |
 | 影片／podcast | 🎧 Media：YouTube `yt-dlp`·Bilibili public search API·小宇宙頁面直取 audio URL，再按需要做轉錄 |
 | AI security/safety | 🛡️ AI-Sec：Simon Willison·Embrace The Red·tldr;sec·LessWrong GraphQL·arXiv cs.CR |
@@ -633,6 +633,43 @@ OpenSanctions — 制裁 + PEP，125 萬個對象。API 要錢，改用免費 bu
   python3 ~/MyGithub/ai-research-engine/tools/opensanctions.py update   # 有新版先下載（約 473 MB），每條結果都帶 data_version
   搜到 = 個名對到，唔等於係同一個人；要用出生日期、國家、證件號碼核對
 ```
+
+### 金融市場歷史數據：舊 IPO、股價、指數、招股書（2026-11-15 IPO 首日見頂研究實測）
+```
+股價／指數／匯率首選：~/MyGithub/ai-research-engine/tools/price_cache（Yahoo，有 cache + 限速）
+  Yahoo 冇嘅：沙特 TASI 得 1 日、杜拜 DFMGI 得 1 日、^DFMGI 404；2005–2006 年港股首日成交量係 0（缺數，唔係真冇成交）
+
+investing.com 歷史 API（✅ DFMGI 2021–22 日線，年尾收市同 DFM 官方逐位一致）
+  1. agent-chrome.py open 'https://ca.investing.com/indices/<slug>-historical-data'
+  2. 喺頁面 HTML 搵 "instrument_id":"<id>"（DFMGI = 12522）
+  3. 喺同一個分頁 eval：fetch("https://api.investing.com/api/financialdata/historical/<id>?start-date=YYYY-MM-DD&end-date=YYYY-MM-DD&time-frame=Daily&add-missing-rows=false",{headers:{"domain-id":"ca"}})
+  舊網址（/indices/dfm-general-historical-data）會 404，先用 Google 搵啱嘅 slug
+
+stooq：CSV 下載（/q/d/l/）而家回 "Access denied"（要 apikey），curl 會撞 JS 驗證頁。
+  改用 agent Chrome 開 https://stooq.com/q/d/?s=^tasi&i=d&d1=YYYYMMDD&d2=YYYYMMDD&l=<頁>，讀 table#fth1（每頁 40 行）
+
+杜拜 DFM 官方：POST https://api2.dfm.ae/web/widgets/v1/data  Command=SearchDFMIndex&Period=custom&FromDate=&ToDate=&type=json
+  只畀近 2 年；更早要登入 eServices 人手申請（2022 年回空 points）
+
+新浪港股歷史頁（✅ 2005 年起港股日線連成交股數，同 Yahoo 有數嗰幾宗相差 <3%）
+  http://stock.finance.sina.com.cn/hkstock/history/<5位代號>.html?year=YYYY&season=1-4
+東方財富 K 線 API（A 股 secid=1.<代號>、H 股 secid=116.<代號>；成交量單位係「手」= 100 股）
+  https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=1.601318&klt=101&fqt=0&beg=YYYYMMDD&end=YYYYMMDD&fields1=f1&fields2=f51,f52,f53,f54,f55,f56,f57
+  ⚠️ ICBC H 首日回傳收市 3.50、成交 0，同新浪（3.52）唔同，要交叉核對
+新浪股票首頁存檔（2005 年起，搵當日券商評級、新聞）：https://finance.sina.com.cn/head/stockYYYYMMDD{am,pm}.shtml
+HKEX 舊 Daily Quotations（/eng/stat/smstat/dayquot/dYYMMDDe.htm）：直接、Scrapling、Wayback 全部 404，唔好再試
+
+SEC EDGAR：2001 年前嘅外國發行人 filing 可能只有 `.paper` 紙本登記紀錄（例如 China Unicom 2000 F-1），冇電子正文 → 改搵公司第一份年報
+州證監處分（例如 Massachusetts Securities Division）：PDF 撞 Incapsula 403，同一份嘅 HTML 版用 scrapling_fetch.py --stealth 攞得到
+舊招股書 PDF（Aramco 658 頁、Porsche 820 頁、DEWA 329 頁）：公司網站死咗就搵承銷商／券商轉載（flatex.at、Emirates NBD），
+  或者 Wayback + curl_cffi（uv run --with 'curl_cffi>=0.17'，impersonate="chrome"）。Common Crawl 版本會喺 1MB 截斷，唔好當全文
+美國 IPO 超額認購倍數：招股書、8-K、10-Q 都冇，美國承銷商唔公佈 → ledger 記 ⬜「冇官方披露」，唔係 ❌；改收傳媒講法，每宗 2 個來源
+```
+
+**Google（agent Chrome）同 Gemini 網頁版：只當線索，一定要追返原文**
+- Google：`agent-chrome.py open 'https://www.google.com/search?q=...&hl=en'`（日文 `hl=ja`、韓文 `hl=ko`），再 `eval` 讀 `document.body.innerText`。AI 摘要錯過：佢話 Visa「20 to 25 times」，追返原文其實講緊 Cerebras；JAL「7-8割」搵唔到原文。
+- Gemini：分頁配對一定要寫 `gemini.google.com`，淨係寫 `gemini` 會畀 email-send-guard 攔，因為可能配到標題有 Gemini 嘅 Gmail 分頁。介面係中文，提交掣係 `button[aria-label="傳送訊息"]`；輸入用 `rich-textarea div[contenteditable]` 加 `document.execCommand("insertText",…)`；答案喺最後一個 `message-content`。佢會作嘢：話 EDGAR 有 China Unicom 2000 年 filing，核對過唔存在。
+- **共用 agent Chrome**：幾個收集員同時用，會搶分頁。揀分頁要用自己獨有嘅查詢字串，唔好用 `google.com/search` 呢類通用字串，亦唔好熄其他人嘅分頁。
 
 ### SEO & Web Infrastructure (Round 9)
 ```
