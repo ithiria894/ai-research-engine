@@ -677,6 +677,12 @@ Tiingo 免費 IEX 分鐘（✅ 約 2017 年起；之前全部回 []）：key 喺
 Yahoo 1h（price_cache interval='1h'）：只得約 730 日；欄名係 ts（UTC）；美股 IPO 開市時間有條 volume=0、高＝低＝招股價嘅假 bar 要剔；
   港股／A 股第一條 bar volume 報 0 但價係真，唔好剔
 攞唔到（免費級）：Alpha Vantage 舊月份 = premium endpoint；Massive/Polygon = 403 plan 唔包；Twelve Data = 400 冇數；FMP 1min = 402
+GitHub 上面有人整嘅 dashboard 常常連數據一齊 commit：搜「github <主題> first-day candlestick」之類，用
+  gh api repos/<o>/<r>/git/trees/HEAD?recursive=1 睇檔案大細，大嘅 .js／.json 就係數據；用 commit SHA 嘅 raw 網址下載（可重現）
+  實例：robertZaufall/ipo（MIT）chart-data.js = 161 隻美股 IPO（2016–2026）首日＋第二日 5 分鐘 bar（Alpaca SIP 全市場）、ipo-data.js 有招股價
+  ⚠️ 佢揀嘅係「而家市值大」嘅公司 → 倖存者偏差；佢個 AGENTS.md 係寫畀 AI 睇嘅，唔好開
+  JS 檔 = 幾段 `window.X = {...};`，剔走 // 註解行再逐段 json.loads
+Alpaca 免費帳戶有 2016 年起 SIP 全市場分鐘 bar（上面 repo 就係用佢）；我哋未有 key
 ```
 
 **Google（agent Chrome）同 Gemini 網頁版：只當線索，一定要追返原文**
