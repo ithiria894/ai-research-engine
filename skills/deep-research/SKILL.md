@@ -664,6 +664,19 @@ SEC EDGAR：2001 年前嘅外國發行人 filing 可能只有 `.paper` 紙本登
 舊招股書 PDF（Aramco 658 頁、Porsche 820 頁、DEWA 329 頁）：公司網站死咗就搵承銷商／券商轉載（flatex.at、Emirates NBD），
   或者 Wayback + curl_cffi（uv run --with 'curl_cffi>=0.17'，impersonate="chrome"）。Common Crawl 版本會喺 1MB 截斷，唔好當全文
 美國 IPO 超額認購倍數：招股書、8-K、10-Q 都冇，美國承銷商唔公佈 → ledger 記 ⬜「冇官方披露」，唔係 ❌；改收傳媒講法，每宗 2 個來源
+
+── 分鐘／每小時（intraday）歷史數據（2026-11-16 IPO 首日幾時見頂實測）──
+新聞圖嘅原始數據（✅ 最好用）：Datawrapper 圖網址後面加 dataset.csv 就攞到原始數字（TSV）
+  curl -sL -A "Mozilla/5.0" "https://datawrapper.dwcdn.net/<id>/<版本>/dataset.csv"
+  同一個 /<id>/<版本>/ HTML 入面嘅 metadata 有 data_source、作者 workspace（axios 等）、createdAt、背後 Google Sheet 網址（通常私人 401）
+  搵法：Google／WebSearch 搜「datawrapper.dwcdn.net <主題>」或者「By minute」「first trade」之類圖註字眼
+  實例：Axios kcVZy、enBw4 = 12 隻美國大型 IPO 首日逐分鐘（FMP 數據）。Flourish 圖（public.flourish.studio/visualisation/<id>/）同樣可以搵 data
+Tiingo 免費 IEX 分鐘（✅ 約 2017 年起；之前全部回 []）：key 喺 gopass dev/env/price-apis/TIINGO_API_KEY（用 secret <path> pipe 入程式，唔好印）
+  https://api.tiingo.com/iex/<T>/prices?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&resampleFreq=1min&columns=open,high,low,close,volume&token=<key>
+  只係 IEX 一個場所嘅成交；同 FMP 全市場對過，見頂分鐘同第一口價差 ≤1 個百分點
+Yahoo 1h（price_cache interval='1h'）：只得約 730 日；欄名係 ts（UTC）；美股 IPO 開市時間有條 volume=0、高＝低＝招股價嘅假 bar 要剔；
+  港股／A 股第一條 bar volume 報 0 但價係真，唔好剔
+攞唔到（免費級）：Alpha Vantage 舊月份 = premium endpoint；Massive/Polygon = 403 plan 唔包；Twelve Data = 400 冇數；FMP 1min = 402
 ```
 
 **Google（agent Chrome）同 Gemini 網頁版：只當線索，一定要追返原文**
