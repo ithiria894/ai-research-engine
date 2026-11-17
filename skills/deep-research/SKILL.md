@@ -682,6 +682,11 @@ GitHub 上面有人整嘅 dashboard 常常連數據一齊 commit：搜「github 
   實例：robertZaufall/ipo（MIT）chart-data.js = 161 隻美股 IPO（2016–2026）首日＋第二日 5 分鐘 bar（Alpaca SIP 全市場）、ipo-data.js 有招股價
   ⚠️ 佢揀嘅係「而家市值大」嘅公司 → 倖存者偏差；佢個 AGENTS.md 係寫畀 AI 睇嘅，唔好開
   JS 檔 = 幾段 `window.X = {...};`，剔走 // 註解行再逐段 json.loads
+自己發佈嘅嘢有冇人睇（2026-11-16 實測）：
+  GitHub：gh api repos/<o>/<r>/traffic/views、/traffic/popular/referrers、/traffic/clones（新 repo 首日成日 0，可能有延遲）
+  Zenodo：GET https://zenodo.org/api/records/<id> → .stats（views、downloads）；冇瀏覽器 User-Agent 會 403
+  Kaggle：KaggleApi().dataset_list(user=…) → view_count、download_count、vote_count；notebook 瀏覽數 API 冇
+  Reddit：OP 開 /poststats/<post id>/（已登入 agent Chrome）有檢視次數、國家、推/噓比、分享數
 Alpaca 免費帳戶有 2016 年起 SIP 全市場分鐘 bar（上面 repo 就係用佢）；我哋未有 key
 ```
 
