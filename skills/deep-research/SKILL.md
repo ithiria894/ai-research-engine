@@ -312,6 +312,14 @@ curl -s -A "Mozilla/5.0" "https://healthunlocked.com/search/posts?query=TOPIC"  
 #    → 用 agent-chrome.py（已登入真瀏覽器）試，未試
 # ❌ Value Investors Club — curl 兩次 timeout（HTTP 000），未用瀏覽器試；新 idea 要會員，舊 idea 公開
 # 註：Quora 係一問多答（似 Yahoo Answers），唔係 Reddit 嗰種分類討論區（Nicole 2026-11-18）。
+# Facebook／Instagram 公開內容 — Meta Content Library＋API（CrowdTangle 2024 停咗之後嘅替代；2026-11-18 查文件，未申請）
+#   有：公開 group 入面任何人發嘅帖、公開專頁、活動、部分公開個人帳戶（follower 門檻因版本而異）。唔使入 group。
+#   冇：私人 group（文件只寫「公開」範圍）；刪咗／轉私人嘅帖會消失。
+#   ⚠️ 唔可以下載：API 數據只可以喺 Meta 安全環境（SRE）或 SOMAR VDE 分析，禁止落地 → 做唔到自己存檔。
+#   資格：大學，或者「以科學／公眾利益研究為主要宗旨」嘅非牟利機構；商業、顧問、冇機構嘅獨立研究者唔得。
+#   免費（UI＋API 運算）。申請：ICPSR／SOMAR（UI 同 API 步驟唔同），API 經 Meta Research Tools Manager。
+#   Nicole NGO（Be Water，安置服務）未必合資格，要申請先知。
+#   文件：https://transparency.meta.com/researchtools/meta-content-library/ ；https://developers.facebook.com/docs/content-library-and-api/content-library-api/overview
 
 # DEV.to — public articles (zero auth)
 curl "https://dev.to/api/articles?tag=TOPIC&per_page=30"
