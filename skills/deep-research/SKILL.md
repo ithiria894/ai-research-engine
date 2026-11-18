@@ -289,6 +289,29 @@ curl "https://lemmy.world/api/v3/search?q=TOPIC&type_=Posts&sort=TopMonth&limit=
 curl -s --compressed "https://api.stackexchange.com/2.3/search/excerpts?order=desc&sort=relevance&q=TOPIC&site=stackoverflow"
 # Change site= for different communities:
 #   health, beauty, cooking, fitness, skeptics, biology, parenting, diy, etc.
+# StackExchange 全庫下載（2026-11-18 實測）：官方 archive.org 版已停（描述原文 "This community release is an
+#   unofficial replacement for the now-killed official archive.org release."）；網民每季重上，最新 stackexchange_20260930
+#   ≈98.6 GB（creator: Stack Exchange, Inc.；uploader 私人電郵；CC BY-SA 內容）。隨時可能停 → 要長期用就自己落一份。
+curl -s "https://archive.org/advancedsearch.php?q=identifier%3Astackexchange*&fl%5B%5D=identifier&fl%5B%5D=publicdate&fl%5B%5D=item_size&sort%5B%5D=publicdate+desc&rows=5&output=json"
+
+# ── 經驗型論壇（2026-11-18 curl 實測；Nicole：揀醫生、揀科、投資經驗用）──────────────
+# ✅ College Confidential（美國升學，Discourse）— zero auth JSON：
+curl -s "https://talk.collegeconfidential.com/search.json?q=TOPIC"            # HTTP 200，有 "topics"
+# ✅ Student Doctor Network（醫科／預科，XenForo）— HTML 搜尋頁，結果喺 class="contentRow-title"：
+curl -s -A "Mozilla/5.0" "https://forums.studentdoctor.net/search/1/?q=TOPIC&o=relevance"   # HTTP 200
+# ✅ RateMyProfessors（教授／科目評分）— GraphQL，公開 Basic token（dGVzdDp0ZXN0）：
+curl -s -H "Authorization: Basic dGVzdDp0ZXN0" -H "Content-Type: application/json" \
+  -d '{"query":"query { newSearch { schools(query:{text:\"Simon Fraser\"}) { edges { node { id name city } } } } }"}' \
+  https://www.ratemyprofessors.com/graphql                                   # HTTP 200，有 schools
+# ✅ HealthUnlocked（病人經驗）— HTML 搜尋頁有帖：
+curl -s -A "Mozilla/5.0" "https://healthunlocked.com/search/posts?query=TOPIC"           # HTTP 200
+# ⚠️ Blind（職場／人工）— /search/TOPIC HTTP 200（600KB），未確認係咪全文定要登入先見全帖
+# ⚠️ Corner of Berkshire & Fairfax（價值投資）— /forum/search/?q= HTTP 200，結果結構未拆好
+# ⚠️ Inspire（病人論壇）— HTTP 200 但得 3KB JS 殼，要瀏覽器 render
+# ❌ curl 撞 Cloudflare「Just a moment」(403/202)：The Student Room、Bogleheads、Wall Street Oasis、RateMDs、Quora
+#    → 用 agent-chrome.py（已登入真瀏覽器）試，未試
+# ❌ Value Investors Club — curl 兩次 timeout（HTTP 000），未用瀏覽器試；新 idea 要會員，舊 idea 公開
+# 註：Quora 係一問多答（似 Yahoo Answers），唔係 Reddit 嗰種分類討論區（Nicole 2026-11-18）。
 
 # DEV.to — public articles (zero auth)
 curl "https://dev.to/api/articles?tag=TOPIC&per_page=30"
