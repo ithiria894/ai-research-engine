@@ -319,6 +319,11 @@ curl -s -A "Mozilla/5.0" "https://healthunlocked.com/search/posts?query=TOPIC"  
 #   資格：大學，或者「以科學／公眾利益研究為主要宗旨」嘅非牟利機構；商業、顧問、冇機構嘅獨立研究者唔得。
 #   免費（UI＋API 運算）。申請：ICPSR／SOMAR（UI 同 API 步驟唔同），API 經 Meta Research Tools Manager。
 #   Nicole NGO（Be Water，安置服務）未必合資格，要申請先知。
+#   官方 Get Access 頁（2026-11-18 讀）："if the research program does not contribute to the detection, identification, and
+#   understanding of systemic risks in the European Union under the Digital Services Act, then undergraduate students are not
+#   eligible to serve as the lead researcher" → 本科生唔可以做 lead；可以由教授／研究生做 lead 再邀請做 collaborator。
+#   審批：CASD 2–3 週＋Meta 2–3 週。UI 同 Meta SRE 上嘅 API 免費；SOMAR VDE 收費。入口：https://www.facebook.com/research-tools-manager
+# X／Twitter（2026-11-18 查）：冇免費、冇學術層；按用量收費（約 $5／1,000 帖起）；免費路只有歐盟 DSA 40(12)（研究歐盟系統性風險）。
 #   文件：https://transparency.meta.com/researchtools/meta-content-library/ ；https://developers.facebook.com/docs/content-library-and-api/content-library-api/overview
 
 # DEV.to — public articles (zero auth)
