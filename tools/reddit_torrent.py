@@ -31,7 +31,8 @@ def log(*a):
         f.write(msg + "\n")
 
 def session():
-    s = lt.session({"listen_interfaces": "0.0.0.0:6881,[::]:6881", "enable_dht": True,
+    port = __import__("os").environ.get("REDDIT_TORRENT_PORT", "6881")  # 第二個 session 同時跑要用另一個 port
+    s = lt.session({"listen_interfaces": f"0.0.0.0:{port},[::]:{port}", "enable_dht": True,
                     "alert_mask": lt.alert.category_t.error_notification | lt.alert.category_t.status_notification})
     return s
 
