@@ -9,7 +9,7 @@ Nicole: 「總之小心啲做，唔好畀人 ban account 啦……我哋可以�
 - Any non-200 (incl. 429): pause 15 min and retry once; a second failure STOPS the whole run.
 - Only finds post IDs + titles. Fetch full comment trees with reddit_trees.py (Arctic Shift, no reddit.com).
 
-Usage: reddit_browser_search.py --out DIR [--sub SUB] [--pages 10] "query one" "query two" ...
+Usage: reddit_browser_search.py --out DIR [--sub SUB] [--pages 10] [--params "sort=new&t=year"] "query one" "query two" ...
        reddit_browser_search.py --out DIR --queries-file q.txt
 Output: DIR/pages/*.html (raw), DIR/ledger.csv, DIR/posts.json {id: {title, subreddit, queries[]}}
 """
@@ -62,6 +62,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("queries", nargs="*"); ap.add_argument("--queries-file")
     ap.add_argument("--out", required=True); ap.add_argument("--sub"); ap.add_argument("--pages", type=int, default=10)
+    ap.add_argument("--params", default="", help="extra query string for the search URL, e.g. 'sort=new&t=year' (2026-11-23)")
     a = ap.parse_args()
     qs = list(a.queries)
     if a.queries_file:
@@ -73,10 +74,10 @@ def main():
     base = f"https://www.reddit.com/svc/shreddit/r/{a.sub}/search/" if a.sub else "https://www.reddit.com/svc/shreddit/search/"
     try:
         for q in qs:
-            url = base + "?q=" + urllib.parse.quote_plus(q)
+            url = base + "?q=" + urllib.parse.quote_plus(q) + ("&" + a.params if a.params else "")
             got, status = 0, "EMPTY"
             for pg in range(a.pages):
-                dest = out / "pages" / f"{a.sub or 'ALL'}__{re.sub(r'[^A-Za-z0-9]+', '_', q)[:60]}__p{pg}.html"
+                dest = out / "pages" / f"{a.sub or 'ALL'}__{re.sub(r'[^A-Za-z0-9]+', '_', q + a.params)[:70]}__p{pg}.html"
                 if not dest.exists():
                     fetch(url, dest, state)
                 posts, nxt = parse(dest.read_text(errors="ignore"))
