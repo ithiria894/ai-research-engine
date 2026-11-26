@@ -16,6 +16,7 @@ columbia
 nyu
 princeton
 TransferStudents
+wellesley
 # (Tier 1c CPSBC／BC subs moved to reddit_archive_subs_cpsbc.txt — own parallel unit reddit-archive-cpsbc)
 # Tier 2 — other Canadian universities (CS programs + med schools)
 mcgill
