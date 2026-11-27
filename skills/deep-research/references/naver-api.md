@@ -1,0 +1,13 @@
+# Naver Search API 規矩（Claude 同 Codex 共用）
+
+用 Naver Search API 之前讀。2026-11-27 由 `~/.codex/AGENTS.md` 原文搬過嚟（Nicole 批：「搬搬入去同埋都要搬入deep research」），內容一字不改；指住呢度嘅有 deep-research 同三個 korea-* skill。
+
+Naver 網站本身：絕不用瀏覽器或者任何自動化（Chrome、CDP、Playwright），會即時永久封號。准用：官方 Search API，同埋用 `curl` 直接攞公開網頁（例如公開 Blog／Cafe 全文）（Nicole 2026-11-27：「瀏覽器絕不，API 得」「curl 得，瀏覽器唔得」）。
+
+- Do not use a broad Naver wrapper for a narrow question. Select the necessary endpoint and canonical Korean query before making any request. Legal, police, government, platform-policy, and other institutional questions go directly to authoritative official sources; they do not use local-shopping or review query expansion.
+- Default Naver budget is one request for one query against one endpoint, with a hard maximum of three requests per user question. If more than three Naver requests are materially necessary, state the exact planned count and purpose before running them and obtain Nicole's explicit approval.
+- Never invoke `/home/nicole/.codex/skills/korea-trip-research/scripts/korea_search.py` for a narrow lookup in its current fan-out mode. One invocation expands to 30 API calls (six Local calls plus six queries across each of Blog, Cafe, Knowledge iN, and Web), and `--limit` reduces returned items rather than request count.
+- Deduplicate identical endpoint/query pairs across the task. Do not parallelize requests against the same Naver application. Space requests by at least 250 ms when more than one approved request is required.
+- Treat HTTP 429 by its actual error body. API HUB error `410` or `420` is a transient rate limit: respect `Retry-After` when present and otherwise use bounded exponential backoff with jitter, at most three attempts. Error `400`, a Search API daily-quota response, or an unselected service is not retryable; stop and report the exact condition. Never hammer a 429.
+- Record the actual Naver request count, endpoint, and canonical query in the task ledger. `EMPTY` requires a successful HTTP response; a rate limit or quota failure is `FAILED`.
+- Never silently omit Naver coverage. When the Search API cannot be used, immediately report `SKIPPED` or `FAILED`, the exact reason, the intended endpoint/query, and the actual request count. Unless Nicole asks to stop, continue the same research through public Naver search-result pages and public Naver Blog/Cafe full text fetched with plain `curl`, first-party pages, or another available route, and keep access failures visible in the source ledger. Never drive Naver pages with a browser or automation (Chrome, CDP, Playwright): Naver bans accounts permanently and instantly (Nicole 2026-11-27: 「curl 得，瀏覽器唔得」).

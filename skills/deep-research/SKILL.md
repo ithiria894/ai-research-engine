@@ -31,7 +31,7 @@ Nicole 2026-10-30：「我唔需要知道佢哋官方說法，我要知道真真
 
 If the user's question is about **an existing tool, product, or platform they already use** (e.g., "how to get better UI for Claude Code", "does X support Y", "alternatives to X for doing Y"):
 
-1. **Read the tool's official documentation FIRST** — use WebFetch on the official docs site, or `context7`, or the tool's own `--help` / built-in commands
+1. **Read the tool's official documentation FIRST** — save the docs page in full (`curl` the raw markdown, e.g. `https://code.claude.com/docs/en/<page>.md`, or `https://r.jina.ai/<url>`) and read the file, or use the tool's own `--help` / built-in commands. Do not use WebFetch for this: it answers through a small model and drops whatever you did not ask (Nicole 2026-11-27: 「唔好 miss 任何蛛絲馬跡」). `context7` is not configured on this machine.
 2. **Check session context** — system reminders, startup messages, and existing config may already contain the answer
 3. **If the docs answer the question** → reply directly. Do NOT launch research agents. Done.
 4. **If the docs confirm the feature doesn't exist** → proceed to Mode Detection below, but note what you already ruled out so agents don't waste time re-searching the same ground
@@ -106,6 +106,7 @@ lanes 分派出去；main thread 永遠保留 integration、contradiction checki
 ### Source 優先順序
 
 #### Tier 1: Naver API（已有，25K/日）
+> 用之前讀 `references/naver-api.md`（次數上限、撞到限制點等、點記帳）。Naver 網站絕不用瀏覽器或者自動化，會即時永久封號；用 API，或者用 `curl` 直接攞公開網頁就得。
 > `source ~/.config/research-engine/keys.env` 就有 `NAVER_CLIENT_ID`／`NAVER_CLIENT_SECRET`（2026-10-30 先由 gopass 搬入；之前個 env 冇呢兩個值，所以呢段 curl 一直靜靜雞失敗）。10-30 實測 blog search 200，「콧볼축소 후기」返 21,599 篇。
 最重要嘅 source。韓國人嘅真實後記 90% 喺 Naver 生態圈。
 ```bash
@@ -243,8 +244,19 @@ scrapling_fetch.py URL — zero key，本機；jina／curl 被 403、Cloudflare 
 Tavily extract — POST https://api.tavily.com/extract  {"urls":["URL"]}
 Exa contents   — POST https://api.exa.ai/contents     {"urls":["URL"],"text":true}
 Firecrawl      — POST https://api.firecrawl.dev/v2/scrape {"url":"URL","formats":["markdown"]}（食 credit）
-curl -s "https://r.jina.ai/https://www.linkedin.com/in/USERNAME/" — LinkedIn public profile/posts fallback only; use Agent Chrome for logged-in/full visibility
+curl -s "https://r.jina.ai/https://www.linkedin.com/in/USERNAME/" — LinkedIn public profile/posts fallback only; for logged-in/full visibility follow `~/MyGithub/playbooks/playbooks/linkedin/SKILL.md` (real Chrome + keyboard; Agent Chrome/CDP on LinkedIn gets the account banned and a hook blocks it)
+agent-chrome.py dump URL OUT_DIR — 登入牆／JS 頁／要全部留言嘅頁：DOM 全樹＋網站自己嘅 network JSON＋embedded data＋storage＋links＋site-tree，自動碌到底同撳展開，report.md 有核對（spec：~/.claude/tool-audit/page-dump/SPEC.md）
 ```
+
+**每一頁都要證明攞齊先算讀完**（Nicole 2026-11-27：「見到 continue this thread，咁你嗰個搜集資料嘅 AI 就要識得自己去 click 啦。咁唔同地方都有唔同嘅呢啲咁啊陷阱」「有啲甚至佢都冇顯示出嚟，可能佢收埋……從佢嘅 tree 啊、DOM 啊嗰度去成個網站嘅地圖去揾翻佢出隱藏咗嘅嘢出嚟」）。唔同網站陷阱唔同，唔可以靠清單，要逐頁自己搵：
+1. 對數：頁面自己講有幾多（「249 comments」「第 1／7 頁」「顯示 20／312」、data attribute 或者 JSON 入面嘅數），同攞到幾多比較。唔夾就係線索，要搵返剩低嗰啲喺邊。
+2. 見到「仲有」就跟落去：continue this thread、N more replies、load more、下一頁、page=2、cursor=、摺埋嘅段落、tabs。撳、開網址或者直接 call 佢背後嘅 API，攞完再對一次數。
+3. 收埋咗嘅：DOM 入面隱藏咗嘅元素、network 回應同 embedded JSON 有但畫面冇嘅、storage。dump 嘅 `network/`、`embedded.json` 同 report.md 嘅「hidden data」都要睇，唔好淨係睇 content.md。
+4. 網站地圖：sitemap、RSS、`links.tsv`、網址規律（ID、頁碼、日期），去搵頁面冇連過去嘅頁。
+5. 第二個來源：有獨立來源就對總數（官方 API、Reddit 用 Arctic Shift、HN Algolia、Wayback）。唔夾就係發現，查到有解釋為止。
+6. 工具只係記錄，判斷靠 AI（Nicole 2026-11-27：「呢啲位係需要 AI 去判斷嘅，就唔好全程寫晒做 script 啦。如果唔係，佢就淨係限個 script，咁咪 miss 好多嘢咯」「要隨機應變嘅話，就唔應該寫 script」）。dump／curl／jina 只係將攞到嘅存低；dump 自己碌同撳展開只跟固定規則，佢冇寫到嘅陷阱一定漏。唔准當工具報告係「攞齊」嘅證明。自己讀存低嘅檔，判斷呢個網站仲漏乜，再親手去攞：撳、碌、開下一個網址、call 搵到嘅 API。
+7. 每頁記低：頁面講嘅總數、攞到嘅總數、跟過乜去補、仲未解釋到嘅差距。差距未解釋到，就唔算讀完。
+派 agent 嘅 brief 照抄 `~/.config/research-engine/collector-brief.md` 第 12 條（英文版，同一內容）。
 
 ### Platform-Specific
 ```
