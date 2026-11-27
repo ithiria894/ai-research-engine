@@ -1379,7 +1379,7 @@ Output a structured JSON:
 follow-up agents only when Nicole requested delegation.
 **If contradictions found**: Flag them explicitly in the final report — never silently merge conflicting claims.
 Contradictions between your own sources are a finding to reconcile at the source of truth, not two rows to list
-(`~/.claude/rules/adversarial-verification-method.md`).
+(`~/.claude/rules/evidence-and-verification.md`).
 
 **Decision-time gate (Run protocol step 9) — NOT before the report.** Do not run `check` before delivering the
 report; run it only on the findings Nicole picks to act on, after she has read the report (see step 9). When run, it must print `PASS`. It fails when
@@ -1788,5 +1788,5 @@ broken (`Runtime.evaluate` without `awaitPromise` returned `{}` for every async 
 nothing and reported nothing — indistinguishable, in the final report, from "Reddit had no
 discussion of this topic".
 
-Related: `~/.claude/rules/no-claims-without-evidence.md` (a dead endpoint's silence is not evidence
-of absence), `~/.claude/rules/agents-gather-you-analyze.md`, `~/.claude/rules/self-audit-before-delivering.md`.
+Related: `~/.claude/rules/evidence-and-verification.md` (a dead endpoint's silence is not evidence
+of absence), `~/.claude/rules/agents-gather-you-analyze.md`.
